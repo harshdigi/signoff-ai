@@ -1,0 +1,3 @@
+#!/bin/sh
+# decide for the Decision IDE (Phase 1). Store: $DECISION_IDE_DB, else the app's data folder.
+exec node "$(dirname "$0")/../out/cli/decide.cjs" "$@"

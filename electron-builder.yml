@@ -1,0 +1,82 @@
+# Bundle id: reverse of a namespace Harsh owns (his GitHub user page), so an Apple Developer account can register it.
+# Changing it later makes macOS treat the app as a new one (privacy permissions reset), so keep it stable.
+appId: io.github.harshdigi.signoffai
+productName: Signoff AI
+copyright: Copyright © 2026 Harsh Ahuja (harshdigi). Licensed under FSL-1.1-ALv2.
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!*.tsbuildinfo'
+  - '!scripts/**'
+  # better-sqlite3: only the prebuilt binaries for this platform are needed at run time, not its C sources.
+  - '!node_modules/better-sqlite3/{deps,src}/**'
+  - '!node_modules/better-sqlite3/prebuilds/{linux*,linuxmusl*,win32*}.node'
+  # node-pty: use its prebuilt binary for each architecture, not the local arm64-only build.
+  - '!node_modules/node-pty/build/**'
+  - '!node_modules/node-pty/prebuilds/win32*/**'
+# Run as ordinary files by Claude Code (plugin, decide) or by decide itself (SQLite).
+asarUnpack:
+  - resources/**
+  - out/cli/**
+  - node_modules/better-sqlite3/**
+  - node_modules/node-pty/**
+win:
+  executableName: decision-ide
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+# Electron's built-in switches, set at package time (see SECURITY.md):
+# - runAsNode stays on: the decide CLI runs as plain Node through the app's own binary.
+# - no NODE_OPTIONS, no --inspect debugger, app code only from the signed archive, archive integrity checked.
+electronFuses:
+  runAsNode: true
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  loadBrowserProcessSpecificV8Snapshot: false
+  grantFileProtocolExtraPrivileges: true # the page and its editor workers load from file://
+mac:
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    - NSDocumentsFolderUsageDescription: Signoff AI opens the project folders you choose, which may be in Documents.
+    - NSDownloadsFolderUsageDescription: Signoff AI opens the project folders you choose, which may be in Downloads.
+  notarize: false
+  # Ad-hoc signature for the whole app (no Apple account needed): gives it a stable identity, so macOS remembers
+  # privacy answers such as Documents access. A Developer ID replaces this before a wider release.
+  identity: '-'
+  # Hardened runtime: no library injection (DYLD_*) and no debugger attach. Entitlements keep what Electron needs.
+  hardenedRuntime: true
+  # Universal build: these per-architecture binaries are the same in both halves; each Mac loads the one for its CPU.
+  x64ArchFiles: 'Contents/Resources/app.asar.unpacked/node_modules/{better-sqlite3,node-pty}/prebuilds/**'
+  target:
+    - dmg
+    - zip
+dmg:
+  artifactName: ${name}-${version}.${ext}
+linux:
+  target:
+    - AppImage
+    - snap
+    - deb
+  maintainer: electronjs.org
+  category: Utility
+appImage:
+  artifactName: ${name}-${version}.${ext}
+# Links for Shortcuts and Siri: decision-ide://run?skill=… and decision-ide://ask?text=…
+protocols:
+  - name: Signoff AI
+    schemes:
+      - decision-ide
+npmRebuild: false
+afterPack: scripts/after-pack.cjs

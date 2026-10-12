@@ -1,0 +1,4022 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:751385be-530b-41ae-ace8-30f1d66932ea",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-10-12T18:54:40Z",
+    "lifecycles": [
+      {
+        "phase": "post-build"
+      }
+    ],
+    "tools": [
+      {
+        "vendor": "npm",
+        "name": "cli",
+        "version": "11.17.0"
+      }
+    ],
+    "component": {
+      "bom-ref": "signoff-ai@1.0.0",
+      "type": "application",
+      "name": "signoff-ai",
+      "version": "1.0.0",
+      "description": "Signoff AI desktop app for macOS (universal), as shipped in signoff-ai-1.0.0.dmg",
+      "author": "Harsh Ahuja",
+      "licenses": [
+        {
+          "license": {
+            "name": "FSL-1.1-ALv2",
+            "url": "https://fsl.software/"
+          }
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "bom-ref": "electron@44.5.1",
+      "type": "framework",
+      "name": "electron",
+      "version": "44.5.1",
+      "scope": "required",
+      "author": "Electron Community",
+      "description": "Build cross platform desktop apps with JavaScript, HTML, and CSS",
+      "purl": "pkg:npm/electron@44.5.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "the app runtime (Electron Framework)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/electron/-/electron-44.5.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "971ec06281488b2bc4be0be9c963bd90e0bad31b4d3e988f640b61e859a0f4dbadce908030bc295256816361177d9c888147731262cc8fd2af2b456ba24975c9"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "components": [
+        {
+          "bom-ref": "chromium@152.0.7977.130",
+          "type": "framework",
+          "name": "chromium",
+          "version": "152.0.7977.130",
+          "purl": "pkg:generic/chromium@152.0.7977.130",
+          "licenses": [
+            {
+              "license": {
+                "id": "BSD-3-Clause"
+              }
+            }
+          ],
+          "description": "Embedded in Electron 44.5.1 (process.versions.chrome)"
+        },
+        {
+          "bom-ref": "nodejs@24.21.0",
+          "type": "framework",
+          "name": "node.js",
+          "version": "24.21.0",
+          "purl": "pkg:generic/nodejs@24.21.0",
+          "licenses": [
+            {
+              "license": {
+                "id": "MIT"
+              }
+            }
+          ],
+          "description": "Embedded in Electron 44.5.1 (process.versions.node)"
+        },
+        {
+          "bom-ref": "v8@15.2.124.28-electron.0",
+          "type": "library",
+          "name": "v8",
+          "version": "15.2.124.28-electron.0",
+          "purl": "pkg:generic/v8@15.2.124.28",
+          "licenses": [
+            {
+              "license": {
+                "id": "BSD-3-Clause"
+              }
+            }
+          ],
+          "description": "Embedded in Electron 44.5.1 (process.versions.v8)"
+        }
+      ]
+    },
+    {
+      "bom-ref": "@electron-toolkit/preload@3.0.2",
+      "type": "library",
+      "name": "@electron-toolkit/preload",
+      "version": "3.0.2",
+      "scope": "required",
+      "author": "Alex Wei<https://github.com/alex8088>",
+      "description": "Toolkit for electron preload scripts.",
+      "purl": "pkg:npm/%40electron-toolkit/preload@3.0.2",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "node_modules (loaded at run time)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@electron-toolkit/preload/-/preload-3.0.2.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/alex8088/electron-toolkit.git"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/alex8088/electron-toolkit/tree/master/packages/preload#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/alex8088/electron-toolkit/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4d658f4e85ddf2a3d17d25f0cdfe4a561a5731f38d694b91019247b0ab612a0651ffe2ea5f5759552482950f0e4c011dbaf2c675e7258c2b284f68d2b217e852"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@electron-toolkit/utils@4.0.0",
+      "type": "library",
+      "name": "@electron-toolkit/utils",
+      "version": "4.0.0",
+      "scope": "required",
+      "author": "Alex Wei<https://github.com/alex8088>",
+      "description": "Utils for Electron main process.",
+      "purl": "pkg:npm/%40electron-toolkit/utils@4.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "node_modules (loaded at run time)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@electron-toolkit/utils/-/utils-4.0.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/alex8088/electron-toolkit.git"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/alex8088/electron-toolkit/tree/master/packages/utils#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/alex8088/electron-toolkit/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a974a7b7013396e4b32a5e33e7214d0649e63c68cf6b7cc5844e26a7dfa1d1c828918e68ae701e3fe0894030612ac2f54b9f1a3907dcc240f73702d90a5fbae2"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@monaco-editor/loader@1.7.0",
+      "type": "library",
+      "name": "@monaco-editor/loader",
+      "version": "1.7.0",
+      "scope": "required",
+      "author": "Suren Atoyan <contact@surenatoyan.com>",
+      "description": "the library aims to setup monaco editor into your browser",
+      "purl": "pkg:npm/%40monaco-editor/loader@1.7.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@monaco-editor/loader/-/loader-1.7.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/suren-atoyan/monaco-loader.git"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/suren-atoyan/monaco-loader.git"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "808c11d47ac9aebc7ebdfc8e858982674fc9716a86e646df1bbf9dddffc2d4b5e4d84bf301b1d2837310e653b6b0c968f62ce8019d38b21a217ca2d54fa72b54"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@monaco-editor/react@4.7.0",
+      "type": "library",
+      "name": "@monaco-editor/react",
+      "version": "4.7.0",
+      "scope": "required",
+      "author": "Suren Atoyan <contact@surenatoyan.com>",
+      "description": "Monaco Editor for React - use the monaco-editor in any React application without needing to use webpack (or rollup/parcel/etc) configuration files / plugins",
+      "purl": "pkg:npm/%40monaco-editor/react@4.7.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@monaco-editor/react/-/react-4.7.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/suren-atoyan/monaco-react.git"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/suren-atoyan/monaco-react#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/suren-atoyan/monaco-react/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "732cd7402b4ee3bc9dcf1a50b42192406382f069376547815c50310fe0965d8168e4ea99c995289c59740f05254f201f4479ed05fc36a77c38b3d47aa1ed5e08"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@ungap/structured-clone@1.4.0",
+      "type": "library",
+      "name": "@ungap/structured-clone",
+      "version": "1.4.0",
+      "scope": "required",
+      "author": "Andrea Giammarchi",
+      "description": "A structuredClone polyfill",
+      "purl": "pkg:npm/%40ungap/structured-clone@1.4.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@ungap/structured-clone/-/structured-clone-1.4.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/ungap/structured-clone.git"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/ungap/structured-clone#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/ungap/structured-clone/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d66119b4c28f334f6f0e642de72ed8be6376f831533fb4e0d0459776273cfc2e95467a5bdf77b88218ac0881375998ec13637c99ff9057566a87b64560b5889d"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@xterm/addon-fit@0.11.0",
+      "type": "library",
+      "name": "@xterm/addon-fit",
+      "version": "0.11.0",
+      "scope": "required",
+      "author": "The xterm.js authors",
+      "purl": "pkg:npm/%40xterm/addon-fit@0.11.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@xterm/addon-fit/-/addon-fit-0.11.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "8d87204fac6d558867860c61dd08180e79cd3184dc7fc1256f1c45cd7d08668faf69b42a48f0230b7735c09aca079135f55c107a2f3d40289964ff3a0c23c5ee"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@xterm/xterm@6.0.0",
+      "type": "library",
+      "name": "@xterm/xterm",
+      "version": "6.0.0",
+      "scope": "required",
+      "description": "Full xterm terminal, in your browser",
+      "purl": "pkg:npm/%40xterm/xterm@6.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@xterm/xterm/-/xterm-6.0.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4d0c037501adc300edfb67202832e7d0845a4b162ed6d4948e029aad20e450cd193624915c5a63c44b2f73f66073992ae68989f95d1af3f908336583dec30e62"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "bail@2.0.2",
+      "type": "library",
+      "name": "bail",
+      "version": "2.0.2",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Throw a given error",
+      "purl": "pkg:npm/bail@2.0.2",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/bail/-/bail-2.0.2.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d313ba99877b241d987acc432a995a7d1a6c88eccfb7d574d9d74f08b6d8d716063ce5f6e0d4f2379d2a9d4c6008f712a183212a902e0538d0a1164202450347"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "better-sqlite3@13.0.3",
+      "type": "library",
+      "name": "better-sqlite3",
+      "version": "13.0.3",
+      "scope": "required",
+      "author": "Joshua Wise <joshuathomaswise@gmail.com>",
+      "description": "The fastest and simplest library for SQLite in Node.js.",
+      "purl": "pkg:npm/better-sqlite3@13.0.3",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "node_modules (loaded at run time)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/better-sqlite3/-/better-sqlite3-13.0.3.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git://github.com/WiseLibs/better-sqlite3.git"
+        },
+        {
+          "type": "website",
+          "url": "http://github.com/WiseLibs/better-sqlite3"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "45b381c662c11bcbaf154735e57f7ef5215e98a710d1606e212055929ba2694076a9b942f145a51c48dd595a19f007614b09a8120b225ca7e8a57d0243168009"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "ccount@2.0.1",
+      "type": "library",
+      "name": "ccount",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Count how often a character (or substring) is used in a string",
+      "purl": "pkg:npm/ccount@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/ccount/-/ccount-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7b2ac5d23885a58fb776b4fadfcddfd6a8646c6b0b4a27cd02303ad4852366398b0968c8b58e8b07d7edf588680e0c1f99c941db386ee752dcefef796fc35102"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "comma-separated-tokens@2.0.3",
+      "type": "library",
+      "name": "comma-separated-tokens",
+      "version": "2.0.3",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Parse and stringify comma-separated tokens",
+      "purl": "pkg:npm/comma-separated-tokens@2.0.3",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/comma-separated-tokens/-/comma-separated-tokens-2.0.3.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "16ee2125dbf37b29427d03e9f5219689da73accb3bb53ae5bba55bf1719a446724f1048d649269e77f16adbeb42dac787cfc11eb8562638ebc3885136d194666"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "decode-named-character-reference@1.3.0",
+      "type": "library",
+      "name": "decode-named-character-reference",
+      "version": "1.3.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Decode named character references",
+      "purl": "pkg:npm/decode-named-character-reference@1.3.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/decode-named-character-reference/-/decode-named-character-reference-1.3.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1ada50601dbcdcaacfa7a9d1c39d2add4f7f55f3aeb5939ed74dea94dec13cfe80776ef16273885afe253f3a3c1c200bfa6319a1f27d284cb7d1faba31f68ae9"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "devlop@1.1.0",
+      "type": "library",
+      "name": "devlop",
+      "version": "1.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Do things in development and nothing otherwise",
+      "purl": "pkg:npm/devlop@1.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/devlop/-/devlop-1.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "456988aa17057f5951601bcd9abeea4cdbb20adffbfe7b368dba69d7e3da96013fac341c053d1f8a848c52927dde2ae55210b986b838718a9ee94fb42265b4ac"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "dompurify@3.4.17",
+      "type": "library",
+      "name": "dompurify",
+      "version": "3.4.17",
+      "scope": "required",
+      "author": "Dr.-Ing. Mario Heiderich, Cure53 <mario@cure53.de> (https://cure53.de/)",
+      "description": "DOMPurify is a DOM-only, super-fast, uber-tolerant XSS sanitizer for HTML, MathML and SVG. It runs as JavaScript and works in all modern browsers, as well as in Node.js (via jsdom). DOMPurify is written by security people who have vast background in web attacks and XSS. Fear not.",
+      "purl": "pkg:npm/dompurify@3.4.17",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/dompurify/-/dompurify-3.4.17.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git://github.com/cure53/DOMPurify.git"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/cure53/DOMPurify"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/cure53/DOMPurify/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "07fa52958547439f24a88483ff20e3b89d727f3237e26d60178940a1dd9bc1246188de0ae429771fc01fee1a81d8f9932fdd75b5d12e7679d79f9167851a33d3"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "(MPL-2.0 OR Apache-2.0)"
+        }
+      ]
+    },
+    {
+      "bom-ref": "escape-string-regexp@5.0.0",
+      "type": "library",
+      "name": "escape-string-regexp",
+      "version": "5.0.0",
+      "scope": "required",
+      "author": "Sindre Sorhus",
+      "description": "Escape RegExp special characters",
+      "purl": "pkg:npm/escape-string-regexp@5.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/escape-string-regexp/-/escape-string-regexp-5.0.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "fef798ef925b30ae23d728efb94c6e56c892fe1affe221ecf454d3e9c8137b1c5d1342f2fe095c7010249681ff0e87e48d16d95376e7a23dfc98e9a1919d251f"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "estree-util-is-identifier-name@3.0.0",
+      "type": "library",
+      "name": "estree-util-is-identifier-name",
+      "version": "3.0.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Check if something can be an ecmascript (javascript) identifier name",
+      "purl": "pkg:npm/estree-util-is-identifier-name@3.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/estree-util-is-identifier-name/-/estree-util-is-identifier-name-3.0.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "845b6a20365321467d0572dbf32e29606ca4ebec1e9088af3554dc9af93c3683a1f957919f9cba7041f36d446b59b7e9d5f22a7558a98a5ce3fa57da69d3599a"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "extend@3.0.2",
+      "type": "library",
+      "name": "extend",
+      "version": "3.0.2",
+      "scope": "required",
+      "author": "Stefan Thomas <justmoon@members.fsf.org> (http://www.justmoon.net)",
+      "description": "Port of jQuery.extend for node.js and the browser",
+      "purl": "pkg:npm/extend@3.0.2",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/extend/-/extend-3.0.2.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/justmoon/node-extend.git"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7e3aae0b9f5c0fb0b25babab3572b4141b9f9197288861bcd304ee3ee8d7e7dd1c0794ed967db4136501e12fd601156a8577df665d8b3604be81074f2088a6fe"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "hast-util-to-jsx-runtime@2.3.6",
+      "type": "library",
+      "name": "hast-util-to-jsx-runtime",
+      "version": "2.3.6",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "hast utility to transform to preact, react, solid, svelte, vue, etc",
+      "purl": "pkg:npm/hast-util-to-jsx-runtime@2.3.6",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/hast-util-to-jsx-runtime/-/hast-util-to-jsx-runtime-2.3.6.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "ce5eacf0bc0dca8d4ff6ec3e5c91af66d74517519d0243a0f2e8cec3ee0fc9befaf3be1f2e9b38b9e1d70e15d6764e981d0e8e814b629e5886ed1b18bc26db06"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "hast-util-whitespace@3.0.0",
+      "type": "library",
+      "name": "hast-util-whitespace",
+      "version": "3.0.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "hast utility to check if a node is inter-element whitespace",
+      "purl": "pkg:npm/hast-util-whitespace@3.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/hast-util-whitespace/-/hast-util-whitespace-3.0.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f3c254374ea2a4bc2c9eff9d567f8e2183af02ebc1332fd0a22e8eee6407c5d3d7a63cbe09deb14645b0bb1ec328efb8b1820bb4b05120a82c7694b681073bab"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "html-url-attributes@3.0.1",
+      "type": "library",
+      "name": "html-url-attributes",
+      "version": "3.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Map of URL attributes in HTML",
+      "purl": "pkg:npm/html-url-attributes@3.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/html-url-attributes/-/html-url-attributes-3.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a25e943f2056aacacee8427248fcf63bb652afce7a583ac4ccce7332aa7e14924b18c5b7e5c2d89a6667974bf3b40671454a0d6491530a885f8ee209f08e1005"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "inline-style-parser@0.2.7",
+      "type": "library",
+      "name": "inline-style-parser",
+      "version": "0.2.7",
+      "scope": "required",
+      "description": "An inline style parser.",
+      "purl": "pkg:npm/inline-style-parser@0.2.7",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/inline-style-parser/-/inline-style-parser-0.2.7.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/remarkablemark/inline-style-parser.git"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/remarkablemark/inline-style-parser/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "35bd9cb4ec8d47c0ea4284743b0446f79b8d5880b40b594281fe4d6b3e47e898bbd8a67c39c1592f3d8fe6c360c25ca827c6227f5d6832e62ce690506bce9cb0"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "is-plain-obj@4.1.0",
+      "type": "library",
+      "name": "is-plain-obj",
+      "version": "4.1.0",
+      "scope": "required",
+      "author": "Sindre Sorhus",
+      "description": "Check if a value is a plain object",
+      "purl": "pkg:npm/is-plain-obj@4.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/is-plain-obj/-/is-plain-obj-4.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f8f822faf32e50d909c84c62301b792251683322a7af9ce127852ca73e7c58e841179428219905c8d1c86c102d1f0cd502093946d9dd54db0344deb5fe6983aa"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "longest-streak@3.1.0",
+      "type": "library",
+      "name": "longest-streak",
+      "version": "3.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Count the longest repeating streak of a substring",
+      "purl": "pkg:npm/longest-streak@3.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/longest-streak/-/longest-streak-3.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f518bea3425881e8536950410e832a225f065ed6d683bd753b7b2b7ed707859d1daa7113a8b6a820ad31d7b7d4c3dac54a52bfd0d96c29ed00861ca5e695c4da"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "markdown-table@3.0.4",
+      "type": "library",
+      "name": "markdown-table",
+      "version": "3.0.4",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Generate a markdown (GFM) table",
+      "purl": "pkg:npm/markdown-table@3.0.4",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/markdown-table/-/markdown-table-3.0.4.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c22633e3e26b2f26ff0ea5b6864149c4fed577b26e4c39bbedfbdb33c55f11076648ca9c22659e7916c7c198c18c81648bf55a30ad818458bba1451978ce5bab"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-find-and-replace@3.0.3",
+      "type": "library",
+      "name": "mdast-util-find-and-replace",
+      "version": "3.0.3",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "mdast utility to find and replace text in a tree",
+      "purl": "pkg:npm/mdast-util-find-and-replace@3.0.3",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-find-and-replace/-/mdast-util-find-and-replace-3.0.3.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c4f8290cd974fce5c7b08ed395a22cdb69569c7dca969bd97571b5113fe6fd84f61e1764c7c94957890ba6113a97db229b233828f0c50706acd3c0601286fa27"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-from-markdown@2.1.0",
+      "type": "library",
+      "name": "mdast-util-from-markdown",
+      "version": "2.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "mdast utility to parse markdown",
+      "purl": "pkg:npm/mdast-util-from-markdown@2.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-from-markdown/-/mdast-util-from-markdown-2.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2912e098f68fd87d6e9766e9a0990e4bef6901c0c0023f4dbb59aa2e787c34b7891b9b65be3e364c7f343c8181a513969515cb934943ad636e642172fedb01e0"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-gfm-autolink-literal@2.0.1",
+      "type": "library",
+      "name": "mdast-util-gfm-autolink-literal",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "mdast extension to parse and serialize GFM autolink literals",
+      "purl": "pkg:npm/mdast-util-gfm-autolink-literal@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-gfm-autolink-literal/-/mdast-util-gfm-autolink-literal-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e4754fd8c29a3fa2fe1ba61ac4f363b8bd013ebabda2b1b74ecad9f585db037bc3c3f002238304b27a03a67e99366ec69d982d01c38d2723e138ff2d34941abd"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-gfm-footnote@2.1.0",
+      "type": "library",
+      "name": "mdast-util-gfm-footnote",
+      "version": "2.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "mdast extension to parse and serialize GFM footnotes",
+      "purl": "pkg:npm/mdast-util-gfm-footnote@2.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-gfm-footnote/-/mdast-util-gfm-footnote-2.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b2aa435a5b079fb01cf4635940c794ccf41233347a5afd1629136f4118342aa1e1d367e94f3ebd41cd504ac78d5f6f5b873d51388c8dcb11317dac152939b519"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-gfm-strikethrough@2.0.1",
+      "type": "library",
+      "name": "mdast-util-gfm-strikethrough",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "mdast extension to parse and serialize GFM strikethrough",
+      "purl": "pkg:npm/mdast-util-gfm-strikethrough@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-gfm-strikethrough/-/mdast-util-gfm-strikethrough-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3ae247aafaf8e79a70bb639a3ab8abedd6f3aace2395628eb65bbd2fa1a37088e3430372c34d959ed42caff124ebf035def8275df52105e9164543f53a4362bf"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-gfm-table@2.0.0",
+      "type": "library",
+      "name": "mdast-util-gfm-table",
+      "version": "2.0.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "mdast extension to parse and serialize GFM tables",
+      "purl": "pkg:npm/mdast-util-gfm-table@2.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-gfm-table/-/mdast-util-gfm-table-2.0.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "efc504bde6f3cffac92312ef13b66d0ddfef210d111effb7321e4347dea9edc4bb1ec0616082020c10aef1cb1335634eead0567ea5cf59e911ba3d8534e18e66"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-gfm-task-list-item@2.0.0",
+      "type": "library",
+      "name": "mdast-util-gfm-task-list-item",
+      "version": "2.0.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "mdast extension to parse and serialize GFM task list items",
+      "purl": "pkg:npm/mdast-util-gfm-task-list-item@2.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-gfm-task-list-item/-/mdast-util-gfm-task-list-item-2.0.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "22bb6f36f8f10b5a34ead6810152739c49e4887c4b153ce0a2751dcbc873155783ba7d2e4e3c71ad119568d16a914d70251dd104f11fb31994ea30d63e87eb4d"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-gfm@3.1.0",
+      "type": "library",
+      "name": "mdast-util-gfm",
+      "version": "3.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "mdast extension to parse and serialize GFM (GitHub Flavored Markdown)",
+      "purl": "pkg:npm/mdast-util-gfm@3.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-gfm/-/mdast-util-gfm-3.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d2e95f75038cdf2b07842275a74ea5d1bd152a5854d30b90b37b61c5941a8237233eb94546a636d79b991871c96a7f461005ddf4c6df3e3149cfea8c91547acd"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-phrasing@4.1.0",
+      "type": "library",
+      "name": "mdast-util-phrasing",
+      "version": "4.1.0",
+      "scope": "required",
+      "author": "Victor Felder <victor@draft.li> (https://draft.li)",
+      "description": "mdast utility to check if a node is phrasing content",
+      "purl": "pkg:npm/mdast-util-phrasing@4.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-phrasing/-/mdast-util-phrasing-4.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4ea202c32bc9269070bc600c6638f82769f45fc416a76d5bf65d28ede5f2549db960d5986c90d52320f56d95c4e96b55e9198a2556264002966b4cd6380073db"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-to-hast@13.2.1",
+      "type": "library",
+      "name": "mdast-util-to-hast",
+      "version": "13.2.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "mdast utility to transform to hast",
+      "purl": "pkg:npm/mdast-util-to-hast@13.2.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-to-hast/-/mdast-util-to-hast-13.2.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "71cb6cab6c29e6f4ec2c871aca66e552b8a24dc65dd02c16b426cbbeb3b36020d9a16c8c355f2c67b92b8f4f454a7b22262dd656c1cb33893a0eaff268fc825c"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-to-markdown@2.2.0",
+      "type": "library",
+      "name": "mdast-util-to-markdown",
+      "version": "2.2.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "mdast utility to serialize markdown",
+      "purl": "pkg:npm/mdast-util-to-markdown@2.2.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-to-markdown/-/mdast-util-to-markdown-2.2.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d899ff003ac7145cb29e204c8b46e77136c9a94efc2b7fd3118bf3bf0ad65b30fd3183d46bf1a6e2bde739e285420fcf0cce41b1b0d875cf1a7245b835363a34"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "mdast-util-to-string@4.0.0",
+      "type": "library",
+      "name": "mdast-util-to-string",
+      "version": "4.0.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "mdast utility to get the plain text content of a node",
+      "purl": "pkg:npm/mdast-util-to-string@4.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/mdast-util-to-string/-/mdast-util-to-string-4.0.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d07e38bc38a69f9d45d18c2fc522529b47820ce25346598dd11d72061e072e3f70895d439f44285c66ef1405a3da1488b554e50a6045d61a8a948c9405514b3e"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-core-commonmark@2.0.4",
+      "type": "library",
+      "name": "micromark-core-commonmark",
+      "version": "2.0.4",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "The CommonMark markdown constructs",
+      "purl": "pkg:npm/micromark-core-commonmark@2.0.4",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-core-commonmark/-/micromark-core-commonmark-2.0.4.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c3111e13cbfc5d5bceaf19f54d98fbe2a62102d4d0b12aae7c7552dee355c93d4cba95f187268793cffdc4334f87d0662fbed03438164e467746c607076af2ef"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-extension-gfm-autolink-literal@2.1.0",
+      "type": "library",
+      "name": "micromark-extension-gfm-autolink-literal",
+      "version": "2.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark extension to support GFM autolink literals",
+      "purl": "pkg:npm/micromark-extension-gfm-autolink-literal@2.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-extension-gfm-autolink-literal/-/micromark-extension-gfm-autolink-literal-2.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a0e83b927ce189c810dede100a309681399f361bd06c30e725e56ef6ff35afb365b4d0959a13f2d5f2515f6ee921269f7632fe495738777978f066faa5b472a7"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-extension-gfm-footnote@2.1.0",
+      "type": "library",
+      "name": "micromark-extension-gfm-footnote",
+      "version": "2.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark extension to support GFM footnotes",
+      "purl": "pkg:npm/micromark-extension-gfm-footnote@2.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-extension-gfm-footnote/-/micromark-extension-gfm-footnote-2.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "ff23e1c48d67b670cdb221edccb2989c4def7fd259e9c022b2a5436ae869e02107c656f8ba8393c4e089fbdb39d5b201f14d4dd4527545738a4c8943e41fe0ab"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-extension-gfm-strikethrough@2.1.0",
+      "type": "library",
+      "name": "micromark-extension-gfm-strikethrough",
+      "version": "2.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark extension to support GFM strikethrough",
+      "purl": "pkg:npm/micromark-extension-gfm-strikethrough@2.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-extension-gfm-strikethrough/-/micromark-extension-gfm-strikethrough-2.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "003563a4e3a48f3d6186464b94189803d711d809dff05e07a9950ee9ee5e0dc3d07744f1c397f12f3cf19c491291f9c3d30ce24868afeec62193f92dbdb7f5bb"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-extension-gfm-table@2.1.2",
+      "type": "library",
+      "name": "micromark-extension-gfm-table",
+      "version": "2.1.2",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark extension to support GFM tables",
+      "purl": "pkg:npm/micromark-extension-gfm-table@2.1.2",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-extension-gfm-table/-/micromark-extension-gfm-table-2.1.2.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a51ce6e240d3bb4323966064c664bdc98870eb49e771f704c2ef4d35d3c54901055d2f7964ac882324d21eefe8dd178152b2ca604abeed86970919ff6cf07830"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-extension-gfm-task-list-item@2.1.0",
+      "type": "library",
+      "name": "micromark-extension-gfm-task-list-item",
+      "version": "2.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark extension to support GFM task list items",
+      "purl": "pkg:npm/micromark-extension-gfm-task-list-item@2.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-extension-gfm-task-list-item/-/micromark-extension-gfm-task-list-item-2.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a8805986ac6a23a7e32c36054c121ae1e8af0cc9cff8e66ab0dc26437c4d2c4e02c7073ecdf4047dbb3ab73028d878eaf9b87aab917e67cfdc92cacb15859043"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-extension-gfm@3.0.0",
+      "type": "library",
+      "name": "micromark-extension-gfm",
+      "version": "3.0.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark extension to support GFM (GitHub Flavored Markdown)",
+      "purl": "pkg:npm/micromark-extension-gfm@3.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-extension-gfm/-/micromark-extension-gfm-3.0.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "bec280ad0b22726eedd33d86ba09022ad65e86a526df5a1e18157f2954a8ad64b2f1994d02fef2b63161bdaaf2522094258aacf8da04e80161a50bc14cce90e3"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-factory-destination@2.0.1",
+      "type": "library",
+      "name": "micromark-factory-destination",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark factory to parse destinations (found in resources, definitions)",
+      "purl": "pkg:npm/micromark-factory-destination@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-factory-destination/-/micromark-factory-destination-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "5deeab0dd2659266c5444c694ce9918fd37731a5a66c081da52ac142f085aa17b3527e001ea2476da1277db5586227b1552b3ffeda8e758fc3c618dd0a226720"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-factory-label@2.0.1",
+      "type": "library",
+      "name": "micromark-factory-label",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark factory to parse labels (found in media, definitions)",
+      "purl": "pkg:npm/micromark-factory-label@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-factory-label/-/micromark-factory-label-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "54531e932404c6a216ef120285c5e7e28936f58137ae7bb2bde5b7c194165aa17836ff56939ae027df4accfbc78e498f5c5f7715721b069e98756dedef5ffb56"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-factory-space@2.1.0",
+      "type": "library",
+      "name": "micromark-factory-space",
+      "version": "2.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark factory to parse markdown space (found in lots of places)",
+      "purl": "pkg:npm/micromark-factory-space@2.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-factory-space/-/micromark-factory-space-2.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7d2f219cb2239e3bdd4088f7f467ae83cc16b11d07ad8678dca4a12b135fc13eedd8b387a3f2db59913311a48e8f0b63742b23a04eacc878689c4cd6d33bf4f9"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-factory-title@2.0.1",
+      "type": "library",
+      "name": "micromark-factory-title",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark factory to parse markdown titles (found in resources, definitions)",
+      "purl": "pkg:npm/micromark-factory-title@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-factory-title/-/micromark-factory-title-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e5b67edc28e101df5e0a16131ec8f2e931b1a4e1522a028a24f271af6f778d36dfaf2d8a0e85a48416fa4dc3d5078366cda3e132cd45ae6f40647ece0f80a3cf"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-factory-whitespace@2.0.1",
+      "type": "library",
+      "name": "micromark-factory-whitespace",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark factory to parse markdown whitespace (found in lots of places)",
+      "purl": "pkg:npm/micromark-factory-whitespace@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-factory-whitespace/-/micromark-factory-whitespace-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "39bd27b99dcf2adfe7d213911f2be80fdb9986bf996bcb05a0ff8e9cc72758ae659e04b300b81060a32bf512553962ea418bb29faba5a865925ddc1fe85f3495"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-character@2.1.1",
+      "type": "library",
+      "name": "micromark-util-character",
+      "version": "2.1.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility to handle character codes",
+      "purl": "pkg:npm/micromark-util-character@2.1.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-character/-/micromark-util-character-2.1.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c2ff2d7544c9ded8521451492ada5828e62218fdbebfde87be4e13bbc2a9080b1332ceb28be9d5986875b32bd20ac6b1cf8e49e896f0fbd0c3ea0f7bf8d57aed"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-chunked@2.0.1",
+      "type": "library",
+      "name": "micromark-util-chunked",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility to splice and push with giant arrays",
+      "purl": "pkg:npm/micromark-util-chunked@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-chunked/-/micromark-util-chunked-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "41434510e3c42df9afbfee3188d836b1161e4bf3fce294d6d130a03f9cdcf45a577ad1d8d1a6fb4b12b201008d09cd5e2b4e39f6ea0b235cb9a0ee5573575b84"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-classify-character@2.0.1",
+      "type": "library",
+      "name": "micromark-util-classify-character",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility to classify whether a character is whitespace or punctuation",
+      "purl": "pkg:npm/micromark-util-classify-character@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-classify-character/-/micromark-util-classify-character-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2b4907ccce9a7d6fcc6de59858b8e81d0bf5b2083643d11c707103cd293188ffc469a80dcc29bb4ff58c299deb8cc6ef229bc189983047774a33282d038986d5"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-combine-extensions@2.0.1",
+      "type": "library",
+      "name": "micromark-util-combine-extensions",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility to combine syntax or html extensions",
+      "purl": "pkg:npm/micromark-util-combine-extensions@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-combine-extensions/-/micromark-util-combine-extensions-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3a70271fc5239b2e7d25cc99c3c2526caf5c1a9755638e0d2a048cec4f4487b0e22d2d84f513507f474e35a183cc41bdca3125e6172a788b23e217d190b1ff06"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-decode-numeric-character-reference@2.0.2",
+      "type": "library",
+      "name": "micromark-util-decode-numeric-character-reference",
+      "version": "2.0.2",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility to decode numeric character references",
+      "purl": "pkg:npm/micromark-util-decode-numeric-character-reference@2.0.2",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-decode-numeric-character-reference/-/micromark-util-decode-numeric-character-reference-2.0.2.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "71c51b624e82c1576498240ccabeb8757cf8d847c71a43d09418f9a7b6151b3abc23b0ad8d7649aee6c061ecdfed1a7e6e33ec7a244ea9eec6e9fa0577e944bb"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-decode-string@2.0.1",
+      "type": "library",
+      "name": "micromark-util-decode-string",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility to decode markdown strings",
+      "purl": "pkg:npm/micromark-util-decode-string@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-decode-string/-/micromark-util-decode-string-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9c357fefb163e9e1f5ca7c2c7184ceb1b2bbad1fff523d1b65707025945f68b109d6218147a9087cd9a536a6aa25feb8f443f417735635d7898b4dde96594d51"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-edit-map@1.0.0",
+      "type": "library",
+      "name": "micromark-util-edit-map",
+      "version": "1.0.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility to batch changes to lists of events",
+      "purl": "pkg:npm/micromark-util-edit-map@1.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-edit-map/-/micromark-util-edit-map-1.0.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3dada58e5b042fab15c056987b2ace2d261b42def726f19b3ce605abef401255e24a77c8e50e38eb9451675b07bfb9438c33a71910c36aa3d7a8296a58afead5"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-html-tag-name@2.0.1",
+      "type": "library",
+      "name": "micromark-util-html-tag-name",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility with list of html tag names",
+      "purl": "pkg:npm/micromark-util-html-tag-name@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-html-tag-name/-/micromark-util-html-tag-name-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d9c3448980e1096288f86b3d4f44e2cac935dfa4a7475de184ef325ba04637284e0b8a98167c05d6729f0f71c50085c0e5ce3946b206d6e6f5d46897798775c4"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-normalize-identifier@2.0.1",
+      "type": "library",
+      "name": "micromark-util-normalize-identifier",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility normalize identifiers (as found in references, definitions)",
+      "purl": "pkg:npm/micromark-util-normalize-identifier@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-normalize-identifier/-/micromark-util-normalize-identifier-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b313ea9a8ef42f201126cd30d947250023d4504aa5b42909e8f84a74c203b89de049ffd0fbf1887b758a9742236ff1b21fd94ea5491100edb0a7419590bbd2f5"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-resolve-all@2.0.1",
+      "type": "library",
+      "name": "micromark-util-resolve-all",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility to resolve subtokens",
+      "purl": "pkg:npm/micromark-util-resolve-all@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-resolve-all/-/micromark-util-resolve-all-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "55d432c455854f6fc51898304272586ded638d0a0d4d2e118e09664a34d496950c6bde47b71f4d1de616e2b1832736e3bc2b25f5e2e3310c0678496caa6cdc1e"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-sanitize-uri@2.0.1",
+      "type": "library",
+      "name": "micromark-util-sanitize-uri",
+      "version": "2.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility to sanitize urls",
+      "purl": "pkg:npm/micromark-util-sanitize-uri@2.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-sanitize-uri/-/micromark-util-sanitize-uri-2.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f4df48a2667f62e18665999079cd4c6e0c6d960a2e8314e8755c03cf3128b8f2a8dea156bf29851d67270e2dafcd5d5f7fa91ab3db9c5bea37cb324af5807501"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark-util-subtokenize@2.1.0",
+      "type": "library",
+      "name": "micromark-util-subtokenize",
+      "version": "2.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "micromark utility to tokenize subtokens",
+      "purl": "pkg:npm/micromark-util-subtokenize@2.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark-util-subtokenize/-/micromark-util-subtokenize-2.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "5d02eee79da249cb6f9c47205f0ebe4b1ef919f9403cd103d6ac7b78127ec327416f62826d165ef8dc2f20410c33cdee9a5d7ed96497a4101ca7d2140a009858"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "micromark@4.0.3",
+      "type": "library",
+      "name": "micromark",
+      "version": "4.0.3",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "small commonmark compliant markdown parser with positional info and concrete tokens",
+      "purl": "pkg:npm/micromark@4.0.3",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/micromark/-/micromark-4.0.3.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a0661f4331d21b974e328bd0709ddfc93999956016a62d17034b09c09b3e8ba393f3ca35f89b70ffccf40a6768c122f11a18452bcf6b43fa17a61ff0374d8f37"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "monaco-editor@0.57.0",
+      "type": "library",
+      "name": "monaco-editor",
+      "version": "0.57.0",
+      "scope": "required",
+      "author": "Microsoft Corporation",
+      "description": "A browser based code editor",
+      "purl": "pkg:npm/monaco-editor@0.57.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/monaco-editor/-/monaco-editor-0.57.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/microsoft/monaco-editor"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/microsoft/monaco-editor"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e41908f4a1a8aab36f04651ed79fd0959ab73a8a19f162e0d40c53a5aa874423f71cda733cf64a136103cfc33b73e551982794c3506ba78731fcf5a6de423fe4"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "node-addon-api@7.1.1",
+      "type": "library",
+      "name": "node-addon-api",
+      "version": "7.1.1",
+      "scope": "required",
+      "description": "Node.js API (Node-API)",
+      "purl": "pkg:npm/node-addon-api@7.1.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "node_modules (loaded at run time)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/node-addon-api/-/node-addon-api-7.1.1.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git://github.com/nodejs/node-addon-api.git"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/nodejs/node-addon-api"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/nodejs/node-addon-api/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e66ddbb32ae3156135c5fee7cfb61774de2e76756d5caebf61f827e6a9da84be9b0a47f6c8ab789379ee4ca02d4f8af7206f09351da772c20c759b80cc98c741"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "node-pty@1.1.0",
+      "type": "library",
+      "name": "node-pty",
+      "version": "1.1.0",
+      "scope": "required",
+      "author": "Microsoft Corporation",
+      "description": "Fork pseudoterminals in Node.JS",
+      "purl": "pkg:npm/node-pty@1.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "node_modules (loaded at run time)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/node-pty/-/node-pty-1.1.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git://github.com/microsoft/node-pty.git"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/microsoft/node-pty"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/microsoft/node-pty/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "db426ab6eb58e893d74d49cbd228f5b9a77b41ed5b693e3a972a25876b1210d0dde2c4f3299e279801647800110cac2694b8cfc7a5ca465c11531c233b2fa552"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "property-information@7.2.0",
+      "type": "library",
+      "name": "property-information",
+      "version": "7.2.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Info on the properties and attributes of the web platform",
+      "purl": "pkg:npm/property-information@7.2.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/property-information/-/property-information-7.2.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "200b73201eac52259a258ad7f6c9a9dd5e3aa4119b05e2c5446761db9920d77df855c0650fc1f384f78d216407f738469a8da2b487b6e441edf5d40fec6e619a"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "react-dom@19.3.0",
+      "type": "library",
+      "name": "react-dom",
+      "version": "19.3.0",
+      "scope": "required",
+      "description": "React package for working with the DOM.",
+      "purl": "pkg:npm/react-dom@19.3.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/react-dom/-/react-dom-19.3.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/react/react.git"
+        },
+        {
+          "type": "website",
+          "url": "https://react.dev/"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/react/react/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "24393c76089fe753a31680c4ef4f8e4fd202c98afeebd1e59a284dc29d7e36c7db9dadede6c22209af59264b43990e3fd5bfeb9f6ea1200476b985c332be6bd1"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "react-markdown@10.1.0",
+      "type": "library",
+      "name": "react-markdown",
+      "version": "10.1.0",
+      "scope": "required",
+      "author": "Espen Hovlandsdal <espen@hovlandsdal.com>",
+      "description": "React component to render markdown",
+      "purl": "pkg:npm/react-markdown@10.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/react-markdown/-/react-markdown-10.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a8ac55a292d3fd3c80e815f751ee4dc1a6ceb00ce6d10ee400fc2ae8bfb0583c22b18b3b47cbd9d27457aaaeab92e79ba31a648ef2c653d7d689f897fd9645c5"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "react-resizable-panels@4.14.2",
+      "type": "library",
+      "name": "react-resizable-panels",
+      "version": "4.14.2",
+      "scope": "required",
+      "author": "Brian Vaughn <brian.david.vaughn@gmail.com> (https://github.com/bvaughn/)",
+      "purl": "pkg:npm/react-resizable-panels@4.14.2",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/react-resizable-panels/-/react-resizable-panels-4.14.2.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/bvaughn/react-resizable-panels.git"
+        },
+        {
+          "type": "website",
+          "url": "https://react-resizable-panels.vercel.app/"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b37e667d7870a4f10f9c1f8128f09927d5595340876f523db6b9bdb628c418136fd52ae5d07cc8c1e10d7979ec42f7745e6f4178e0641330c65493993369a411"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "react@19.3.0",
+      "type": "library",
+      "name": "react",
+      "version": "19.3.0",
+      "scope": "required",
+      "description": "React is a JavaScript library for building user interfaces.",
+      "purl": "pkg:npm/react@19.3.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/react/-/react-19.3.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/react/react.git"
+        },
+        {
+          "type": "website",
+          "url": "https://react.dev/"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "13c2d471bb415addb46db9766281dfc7864305dc554df38ab42667f5c0d227897afe7ba8029729201723e3bb76c19a155fc836647b8c1db892860091d53e52a2"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "remark-gfm@4.0.1",
+      "type": "library",
+      "name": "remark-gfm",
+      "version": "4.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "remark plugin to support GFM (autolink literals, footnotes, strikethrough, tables, tasklists)",
+      "purl": "pkg:npm/remark-gfm@4.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/remark-gfm/-/remark-gfm-4.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d6aba87d9d9143d11675e377e12efdf8a131575efae3ec02506a29e423cbd5619d0f4a1c3e9bbdd65ccf19bc163040a9129778da4246430cd17f2a2ff63e3236"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "remark-parse@11.0.0",
+      "type": "library",
+      "name": "remark-parse",
+      "version": "11.0.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "remark plugin to add support for parsing markdown input",
+      "purl": "pkg:npm/remark-parse@11.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/remark-parse/-/remark-parse-11.0.0.tgz"
+        },
+        {
+          "type": "website",
+          "url": "https://remark.js.org"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "142c6528b3469274b96daff5966a588a3314cd7d9eb315b9c50aa35b1c3678715f4b631275a1d520d166863a3ea8dd5685984d8a6ab475901337da47d080eba4"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "remark-rehype@11.1.2",
+      "type": "library",
+      "name": "remark-rehype",
+      "version": "11.1.2",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "remark plugin that turns markdown into HTML to support rehype",
+      "purl": "pkg:npm/remark-rehype@11.1.2",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/remark-rehype/-/remark-rehype-11.1.2.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "0e1ee5e7b89a9da128229cdba743c2f542807424959250fc139469c3b1137db4e5dc5a9c38e82ae6ad8b54386018291a06fee9db82578a43ddbe18661ef28cb3"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "scheduler@0.28.0",
+      "type": "library",
+      "name": "scheduler",
+      "version": "0.28.0",
+      "scope": "required",
+      "description": "Cooperative scheduler for the browser environment.",
+      "purl": "pkg:npm/scheduler@0.28.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/scheduler/-/scheduler-0.28.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/react/react.git"
+        },
+        {
+          "type": "website",
+          "url": "https://react.dev/"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/react/react/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "8eea2b7c2988908c3cb53fa9e415d29ba3c98d017fc9c11898acb3511088b7f45a64884bf8fba56d0f58bb6cf51dd3890dda834e5c40d7ec4a0661d726c73303"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "space-separated-tokens@2.0.2",
+      "type": "library",
+      "name": "space-separated-tokens",
+      "version": "2.0.2",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Parse and stringify space separated tokens",
+      "purl": "pkg:npm/space-separated-tokens@2.0.2",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/space-separated-tokens/-/space-separated-tokens-2.0.2.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3c41a5030ac6f325c65d18d6df67c66e0eba24094e0306ce6eea95a09a6ffe6460a160d07e01f5c033efb735b25123405c119293c87be796036db704cb7487d9"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "state-local@1.0.7",
+      "type": "library",
+      "name": "state-local",
+      "version": "1.0.7",
+      "scope": "required",
+      "author": "Suren Atoyan <contact@surenatoyan.com>",
+      "description": "Tiny, simple, and robust technique for defining and acting with local states",
+      "purl": "pkg:npm/state-local@1.0.7",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/state-local/-/state-local-1.0.7.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/suren-atoyan/state-local"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/suren-atoyan/state-local#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/suren-atoyan/state-local/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1d310730d89e6a4127a1edf7b21058719ecd5fcdc00948c2bbc738d22386119b27823f7346792a4bd8f5a6a40f5f0a1b07465c553936ed111bec2390d14479f7"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "style-to-js@1.1.21",
+      "type": "library",
+      "name": "style-to-js",
+      "version": "1.1.21",
+      "scope": "required",
+      "author": "Mark <mark@remarkablemark.org>",
+      "description": "Parses CSS inline style to JavaScript object (camelCased).",
+      "purl": "pkg:npm/style-to-js@1.1.21",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/style-to-js/-/style-to-js-1.1.21.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/remarkablemark/style-to-js.git"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/remarkablemark/style-to-js/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "46341eb7126bad424b40f1db2e4bba53fa1c1adcf28db24c3fd94234aec083408d87af749d21fcc28a961fdbb5ea732360102893e8bb24ed4d3f6a4ecbc22c3d"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "style-to-object@1.0.14",
+      "type": "library",
+      "name": "style-to-object",
+      "version": "1.0.14",
+      "scope": "required",
+      "author": "Mark <mark@remarkablemark.org>",
+      "description": "Parse CSS inline style to JavaScript object.",
+      "purl": "pkg:npm/style-to-object@1.0.14",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/style-to-object/-/style-to-object-1.0.14.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/remarkablemark/style-to-object.git"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/remarkablemark/style-to-object/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2c837bad42c8d2306c716418692b30a6dc9d7ab95aac592343eb7bf67cedcbcb5c20071e5689845652f31f954fe029acbfa32d2a1b3ba9a022c25729f8c81ac7"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "trim-lines@3.0.1",
+      "type": "library",
+      "name": "trim-lines",
+      "version": "3.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Remove spaces and tabs around line-breaks",
+      "purl": "pkg:npm/trim-lines@3.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/trim-lines/-/trim-lines-3.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9118fc07e60764273d91061d59f241dbfa1497dac0f7da9ba3061806daf8ba2e26672010d89a6f54177fe94d989680137ea06105348c853a60047b54d0c7f746"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "trough@2.2.0",
+      "type": "library",
+      "name": "trough",
+      "version": "2.2.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "`trough` is middleware",
+      "purl": "pkg:npm/trough@2.2.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/trough/-/trough-2.2.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b663292b4d018d9894c95cafac12bb9277ab3609a0bdc57f28b572ba66bf482f9340dd7aec6acc45c880353cf4f7e937cd6f0bf2deb48d63b51a97e465d8d36b"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "unified@11.0.5",
+      "type": "library",
+      "name": "unified",
+      "version": "11.0.5",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "parse, inspect, transform, and serialize content through syntax trees",
+      "purl": "pkg:npm/unified@11.0.5",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/unified/-/unified-11.0.5.tgz"
+        },
+        {
+          "type": "website",
+          "url": "https://unifiedjs.com"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c4abc684f5b0de4f3842387c6c8dd97898ea9f269d2be18416d6b349f66ffeb29e4e44e3389868ea616a87648cf7a888719a24c623a983bf066b34d283cf8a1c"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "unist-util-is@6.0.1",
+      "type": "library",
+      "name": "unist-util-is",
+      "version": "6.0.1",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "unist utility to check if a node passes a test",
+      "purl": "pkg:npm/unist-util-is@6.0.1",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/unist-util-is/-/unist-util-is-6.0.1.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2ec8882dbb41113903cfc23da75750d2ec91516b9a43377f72e11e4b5868452c96e44e571a64f39706353ab373cda906a3023d0ebfc8f0755ac38853b67c72f2"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "unist-util-position@5.0.0",
+      "type": "library",
+      "name": "unist-util-position",
+      "version": "5.0.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "unist utility to get the position of a node",
+      "purl": "pkg:npm/unist-util-position@5.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/unist-util-position/-/unist-util-position-5.0.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7ee72c0bb1e35ef901e51de44c23bb9148d176b4b4049b7733f14fc661cc04e9bc2508b606c1c01c5b32dbb13412894ff2ba743735ec27e8cd3f20d6bce2593c"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "unist-util-stringify-position@4.0.0",
+      "type": "library",
+      "name": "unist-util-stringify-position",
+      "version": "4.0.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "unist utility to serialize a node, position, or point as a human readable location",
+      "purl": "pkg:npm/unist-util-stringify-position@4.0.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/unist-util-stringify-position/-/unist-util-stringify-position-4.0.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d00495d3a000a0a083912dbec70e515c9cb0aeebaba5b0b82594a6ee7afb30eb75a23033bf2c9a3be53165fd7c8fc14217a926cc264a70080dff2bb6826d9781"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "unist-util-visit-parents@6.0.2",
+      "type": "library",
+      "name": "unist-util-visit-parents",
+      "version": "6.0.2",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "unist utility to recursively walk over nodes, with ancestral information",
+      "purl": "pkg:npm/unist-util-visit-parents@6.0.2",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/unist-util-visit-parents/-/unist-util-visit-parents-6.0.2.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "828875b354c1aea4aaba449cf30ae3c1684bd21889c6003c9b8905c46950fbc1584370bf9b5d45713b386187a6ed5ebae0084756f82840b93cf744ac76caf621"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "unist-util-visit@5.1.0",
+      "type": "library",
+      "name": "unist-util-visit",
+      "version": "5.1.0",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "unist utility to visit nodes",
+      "purl": "pkg:npm/unist-util-visit@5.1.0",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/unist-util-visit/-/unist-util-visit-5.1.0.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9bebc87727823a976bfd07900aed84cf15ffa21812f0a6e73c38059e2e1d42c7d20ada73f14a83c98e468d1aeef0f0cab989fb16ad7d8f5090fa7252b0628ece"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "vfile-message@4.0.3",
+      "type": "library",
+      "name": "vfile-message",
+      "version": "4.0.3",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "vfile utility to create a virtual message",
+      "purl": "pkg:npm/vfile-message@4.0.3",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/vfile-message/-/vfile-message-4.0.3.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4131f3b067751216d9b3802c436d095f5ac2ddc3a5b7f21626bba4f3ddc37cb46be7b95c9ce78c6961b82b426b46d6b89882592ad87602ede6337bb4dff2562b"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "vfile@6.0.3",
+      "type": "library",
+      "name": "vfile",
+      "version": "6.0.3",
+      "scope": "required",
+      "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+      "description": "Virtual file format for text processing",
+      "purl": "pkg:npm/vfile@6.0.3",
+      "properties": [
+        {
+          "name": "signoff:shipped-as",
+          "value": "bundled into the renderer code"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/vfile/-/vfile-6.0.3.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2b321b1fff6d5dab76bb7d237feb26330142b27a38c0755d366cc5c8bf93fcbdd41aaaa4e8929f56a3853991296521c00c7d64e3469be8d5085d9ab8db6a2fdd"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "signoff-ai@1.0.0",
+      "dependsOn": [
+        "@electron-toolkit/preload@3.0.2",
+        "@electron-toolkit/utils@4.0.0",
+        "@monaco-editor/loader@1.7.0",
+        "@monaco-editor/react@4.7.0",
+        "@ungap/structured-clone@1.4.0",
+        "@xterm/addon-fit@0.11.0",
+        "@xterm/xterm@6.0.0",
+        "bail@2.0.2",
+        "better-sqlite3@13.0.3",
+        "ccount@2.0.1",
+        "comma-separated-tokens@2.0.3",
+        "decode-named-character-reference@1.3.0",
+        "devlop@1.1.0",
+        "dompurify@3.4.17",
+        "electron@44.5.1",
+        "escape-string-regexp@5.0.0",
+        "estree-util-is-identifier-name@3.0.0",
+        "extend@3.0.2",
+        "hast-util-to-jsx-runtime@2.3.6",
+        "hast-util-whitespace@3.0.0",
+        "html-url-attributes@3.0.1",
+        "inline-style-parser@0.2.7",
+        "is-plain-obj@4.1.0",
+        "longest-streak@3.1.0",
+        "markdown-table@3.0.4",
+        "mdast-util-find-and-replace@3.0.3",
+        "mdast-util-from-markdown@2.1.0",
+        "mdast-util-gfm-autolink-literal@2.0.1",
+        "mdast-util-gfm-footnote@2.1.0",
+        "mdast-util-gfm-strikethrough@2.0.1",
+        "mdast-util-gfm-table@2.0.0",
+        "mdast-util-gfm-task-list-item@2.0.0",
+        "mdast-util-gfm@3.1.0",
+        "mdast-util-phrasing@4.1.0",
+        "mdast-util-to-hast@13.2.1",
+        "mdast-util-to-markdown@2.2.0",
+        "mdast-util-to-string@4.0.0",
+        "micromark-core-commonmark@2.0.4",
+        "micromark-extension-gfm-autolink-literal@2.1.0",
+        "micromark-extension-gfm-footnote@2.1.0",
+        "micromark-extension-gfm-strikethrough@2.1.0",
+        "micromark-extension-gfm-table@2.1.2",
+        "micromark-extension-gfm-task-list-item@2.1.0",
+        "micromark-extension-gfm@3.0.0",
+        "micromark-factory-destination@2.0.1",
+        "micromark-factory-label@2.0.1",
+        "micromark-factory-space@2.1.0",
+        "micromark-factory-title@2.0.1",
+        "micromark-factory-whitespace@2.0.1",
+        "micromark-util-character@2.1.1",
+        "micromark-util-chunked@2.0.1",
+        "micromark-util-classify-character@2.0.1",
+        "micromark-util-combine-extensions@2.0.1",
+        "micromark-util-decode-numeric-character-reference@2.0.2",
+        "micromark-util-decode-string@2.0.1",
+        "micromark-util-edit-map@1.0.0",
+        "micromark-util-html-tag-name@2.0.1",
+        "micromark-util-normalize-identifier@2.0.1",
+        "micromark-util-resolve-all@2.0.1",
+        "micromark-util-sanitize-uri@2.0.1",
+        "micromark-util-subtokenize@2.1.0",
+        "micromark@4.0.3",
+        "monaco-editor@0.57.0",
+        "node-addon-api@7.1.1",
+        "node-pty@1.1.0",
+        "property-information@7.2.0",
+        "react-dom@19.3.0",
+        "react-markdown@10.1.0",
+        "react-resizable-panels@4.14.2",
+        "react@19.3.0",
+        "remark-gfm@4.0.1",
+        "remark-parse@11.0.0",
+        "remark-rehype@11.1.2",
+        "scheduler@0.28.0",
+        "space-separated-tokens@2.0.2",
+        "state-local@1.0.7",
+        "style-to-js@1.1.21",
+        "style-to-object@1.0.14",
+        "trim-lines@3.0.1",
+        "trough@2.2.0",
+        "unified@11.0.5",
+        "unist-util-is@6.0.1",
+        "unist-util-position@5.0.0",
+        "unist-util-stringify-position@4.0.0",
+        "unist-util-visit-parents@6.0.2",
+        "unist-util-visit@5.1.0",
+        "vfile-message@4.0.3",
+        "vfile@6.0.3"
+      ]
+    },
+    {
+      "ref": "@electron-toolkit/preload@3.0.2",
+      "dependsOn": [
+        "electron@44.5.1"
+      ]
+    },
+    {
+      "ref": "@electron-toolkit/utils@4.0.0",
+      "dependsOn": [
+        "electron@44.5.1"
+      ]
+    },
+    {
+      "ref": "@monaco-editor/loader@1.7.0",
+      "dependsOn": [
+        "state-local@1.0.7"
+      ]
+    },
+    {
+      "ref": "@monaco-editor/react@4.7.0",
+      "dependsOn": [
+        "monaco-editor@0.57.0",
+        "react@19.3.0",
+        "react-dom@19.3.0",
+        "@monaco-editor/loader@1.7.0"
+      ]
+    },
+    {
+      "ref": "@ungap/structured-clone@1.4.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "@xterm/addon-fit@0.11.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "@xterm/xterm@6.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "bail@2.0.2",
+      "dependsOn": []
+    },
+    {
+      "ref": "better-sqlite3@13.0.3",
+      "dependsOn": []
+    },
+    {
+      "ref": "ccount@2.0.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "comma-separated-tokens@2.0.3",
+      "dependsOn": []
+    },
+    {
+      "ref": "decode-named-character-reference@1.3.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "devlop@1.1.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "dompurify@3.4.17",
+      "dependsOn": []
+    },
+    {
+      "ref": "electron@44.5.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "estree-util-is-identifier-name@3.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "extend@3.0.2",
+      "dependsOn": []
+    },
+    {
+      "ref": "hast-util-to-jsx-runtime@2.3.6",
+      "dependsOn": [
+        "comma-separated-tokens@2.0.3",
+        "devlop@1.1.0",
+        "estree-util-is-identifier-name@3.0.0",
+        "hast-util-whitespace@3.0.0",
+        "property-information@7.2.0",
+        "space-separated-tokens@2.0.2",
+        "style-to-js@1.1.21",
+        "unist-util-position@5.0.0",
+        "vfile-message@4.0.3"
+      ]
+    },
+    {
+      "ref": "hast-util-whitespace@3.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "html-url-attributes@3.0.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "inline-style-parser@0.2.7",
+      "dependsOn": []
+    },
+    {
+      "ref": "is-plain-obj@4.1.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "longest-streak@3.1.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "markdown-table@3.0.4",
+      "dependsOn": []
+    },
+    {
+      "ref": "mdast-util-find-and-replace@3.0.3",
+      "dependsOn": [
+        "escape-string-regexp@5.0.0",
+        "unist-util-is@6.0.1",
+        "unist-util-visit-parents@6.0.2"
+      ]
+    },
+    {
+      "ref": "escape-string-regexp@5.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "mdast-util-from-markdown@2.1.0",
+      "dependsOn": [
+        "decode-named-character-reference@1.3.0",
+        "devlop@1.1.0",
+        "mdast-util-to-string@4.0.0",
+        "micromark@4.0.3",
+        "micromark-util-decode-numeric-character-reference@2.0.2",
+        "micromark-util-decode-string@2.0.1",
+        "micromark-util-normalize-identifier@2.0.1",
+        "unist-util-stringify-position@4.0.0"
+      ]
+    },
+    {
+      "ref": "mdast-util-gfm@3.1.0",
+      "dependsOn": [
+        "mdast-util-from-markdown@2.1.0",
+        "mdast-util-gfm-autolink-literal@2.0.1",
+        "mdast-util-gfm-footnote@2.1.0",
+        "mdast-util-gfm-strikethrough@2.0.1",
+        "mdast-util-gfm-table@2.0.0",
+        "mdast-util-gfm-task-list-item@2.0.0",
+        "mdast-util-to-markdown@2.2.0"
+      ]
+    },
+    {
+      "ref": "mdast-util-gfm-autolink-literal@2.0.1",
+      "dependsOn": [
+        "ccount@2.0.1",
+        "devlop@1.1.0",
+        "mdast-util-find-and-replace@3.0.3",
+        "micromark-util-character@2.1.1"
+      ]
+    },
+    {
+      "ref": "mdast-util-gfm-footnote@2.1.0",
+      "dependsOn": [
+        "devlop@1.1.0",
+        "mdast-util-from-markdown@2.1.0",
+        "mdast-util-to-markdown@2.2.0",
+        "micromark-util-normalize-identifier@2.0.1"
+      ]
+    },
+    {
+      "ref": "mdast-util-gfm-strikethrough@2.0.1",
+      "dependsOn": [
+        "mdast-util-from-markdown@2.1.0",
+        "mdast-util-to-markdown@2.2.0"
+      ]
+    },
+    {
+      "ref": "mdast-util-gfm-table@2.0.0",
+      "dependsOn": [
+        "devlop@1.1.0",
+        "markdown-table@3.0.4",
+        "mdast-util-from-markdown@2.1.0",
+        "mdast-util-to-markdown@2.2.0"
+      ]
+    },
+    {
+      "ref": "mdast-util-gfm-task-list-item@2.0.0",
+      "dependsOn": [
+        "devlop@1.1.0",
+        "mdast-util-from-markdown@2.1.0",
+        "mdast-util-to-markdown@2.2.0"
+      ]
+    },
+    {
+      "ref": "mdast-util-phrasing@4.1.0",
+      "dependsOn": [
+        "unist-util-is@6.0.1"
+      ]
+    },
+    {
+      "ref": "mdast-util-to-hast@13.2.1",
+      "dependsOn": [
+        "@ungap/structured-clone@1.4.0",
+        "devlop@1.1.0",
+        "micromark-util-sanitize-uri@2.0.1",
+        "trim-lines@3.0.1",
+        "unist-util-position@5.0.0",
+        "unist-util-visit@5.1.0",
+        "vfile@6.0.3"
+      ]
+    },
+    {
+      "ref": "mdast-util-to-markdown@2.2.0",
+      "dependsOn": [
+        "longest-streak@3.1.0",
+        "mdast-util-phrasing@4.1.0",
+        "mdast-util-to-string@4.0.0",
+        "micromark-util-character@2.1.1",
+        "micromark-util-classify-character@2.0.1",
+        "micromark-util-decode-string@2.0.1",
+        "micromark-util-html-tag-name@2.0.1",
+        "unist-util-visit@5.1.0"
+      ]
+    },
+    {
+      "ref": "mdast-util-to-string@4.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "micromark@4.0.3",
+      "dependsOn": [
+        "decode-named-character-reference@1.3.0",
+        "devlop@1.1.0",
+        "micromark-core-commonmark@2.0.4",
+        "micromark-factory-space@2.1.0",
+        "micromark-util-character@2.1.1",
+        "micromark-util-chunked@2.0.1",
+        "micromark-util-combine-extensions@2.0.1",
+        "micromark-util-decode-numeric-character-reference@2.0.2",
+        "micromark-util-edit-map@1.0.0",
+        "micromark-util-normalize-identifier@2.0.1",
+        "micromark-util-resolve-all@2.0.1",
+        "micromark-util-sanitize-uri@2.0.1",
+        "micromark-util-subtokenize@2.1.0"
+      ]
+    },
+    {
+      "ref": "micromark-core-commonmark@2.0.4",
+      "dependsOn": [
+        "decode-named-character-reference@1.3.0",
+        "devlop@1.1.0",
+        "micromark-factory-destination@2.0.1",
+        "micromark-factory-label@2.0.1",
+        "micromark-factory-space@2.1.0",
+        "micromark-factory-title@2.0.1",
+        "micromark-factory-whitespace@2.0.1",
+        "micromark-util-character@2.1.1",
+        "micromark-util-chunked@2.0.1",
+        "micromark-util-classify-character@2.0.1",
+        "micromark-util-edit-map@1.0.0",
+        "micromark-util-html-tag-name@2.0.1",
+        "micromark-util-normalize-identifier@2.0.1",
+        "micromark-util-resolve-all@2.0.1",
+        "micromark-util-subtokenize@2.1.0"
+      ]
+    },
+    {
+      "ref": "micromark-extension-gfm@3.0.0",
+      "dependsOn": [
+        "micromark-extension-gfm-autolink-literal@2.1.0",
+        "micromark-extension-gfm-footnote@2.1.0",
+        "micromark-extension-gfm-strikethrough@2.1.0",
+        "micromark-extension-gfm-table@2.1.2",
+        "micromark-extension-gfm-task-list-item@2.1.0",
+        "micromark-util-combine-extensions@2.0.1"
+      ]
+    },
+    {
+      "ref": "micromark-extension-gfm-autolink-literal@2.1.0",
+      "dependsOn": [
+        "micromark-util-character@2.1.1",
+        "micromark-util-sanitize-uri@2.0.1"
+      ]
+    },
+    {
+      "ref": "micromark-extension-gfm-footnote@2.1.0",
+      "dependsOn": [
+        "devlop@1.1.0",
+        "micromark-core-commonmark@2.0.4",
+        "micromark-factory-space@2.1.0",
+        "micromark-util-character@2.1.1",
+        "micromark-util-normalize-identifier@2.0.1",
+        "micromark-util-sanitize-uri@2.0.1"
+      ]
+    },
+    {
+      "ref": "micromark-extension-gfm-strikethrough@2.1.0",
+      "dependsOn": [
+        "devlop@1.1.0",
+        "micromark-util-chunked@2.0.1",
+        "micromark-util-classify-character@2.0.1",
+        "micromark-util-resolve-all@2.0.1"
+      ]
+    },
+    {
+      "ref": "micromark-extension-gfm-table@2.1.2",
+      "dependsOn": [
+        "devlop@1.1.0",
+        "micromark-factory-space@2.1.0",
+        "micromark-util-character@2.1.1"
+      ]
+    },
+    {
+      "ref": "micromark-extension-gfm-task-list-item@2.1.0",
+      "dependsOn": [
+        "devlop@1.1.0",
+        "micromark-factory-space@2.1.0",
+        "micromark-util-character@2.1.1"
+      ]
+    },
+    {
+      "ref": "micromark-factory-destination@2.0.1",
+      "dependsOn": [
+        "micromark-util-character@2.1.1"
+      ]
+    },
+    {
+      "ref": "micromark-factory-label@2.0.1",
+      "dependsOn": [
+        "devlop@1.1.0",
+        "micromark-util-character@2.1.1"
+      ]
+    },
+    {
+      "ref": "micromark-factory-space@2.1.0",
+      "dependsOn": [
+        "micromark-util-character@2.1.1"
+      ]
+    },
+    {
+      "ref": "micromark-factory-title@2.0.1",
+      "dependsOn": [
+        "micromark-factory-space@2.1.0",
+        "micromark-util-character@2.1.1"
+      ]
+    },
+    {
+      "ref": "micromark-factory-whitespace@2.0.1",
+      "dependsOn": [
+        "micromark-factory-space@2.1.0",
+        "micromark-util-character@2.1.1"
+      ]
+    },
+    {
+      "ref": "micromark-util-character@2.1.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "micromark-util-chunked@2.0.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "micromark-util-classify-character@2.0.1",
+      "dependsOn": [
+        "micromark-util-character@2.1.1"
+      ]
+    },
+    {
+      "ref": "micromark-util-combine-extensions@2.0.1",
+      "dependsOn": [
+        "micromark-util-chunked@2.0.1"
+      ]
+    },
+    {
+      "ref": "micromark-util-decode-numeric-character-reference@2.0.2",
+      "dependsOn": []
+    },
+    {
+      "ref": "micromark-util-decode-string@2.0.1",
+      "dependsOn": [
+        "micromark-util-character@2.1.1",
+        "micromark-util-decode-numeric-character-reference@2.0.2",
+        "decode-named-character-reference@1.3.0"
+      ]
+    },
+    {
+      "ref": "micromark-util-edit-map@1.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "micromark-util-html-tag-name@2.0.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "micromark-util-normalize-identifier@2.0.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "micromark-util-resolve-all@2.0.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "micromark-util-sanitize-uri@2.0.1",
+      "dependsOn": [
+        "micromark-util-character@2.1.1"
+      ]
+    },
+    {
+      "ref": "micromark-util-subtokenize@2.1.0",
+      "dependsOn": [
+        "devlop@1.1.0",
+        "micromark-util-chunked@2.0.1"
+      ]
+    },
+    {
+      "ref": "monaco-editor@0.57.0",
+      "dependsOn": [
+        "dompurify@3.4.17"
+      ]
+    },
+    {
+      "ref": "node-pty@1.1.0",
+      "dependsOn": [
+        "node-addon-api@7.1.1"
+      ]
+    },
+    {
+      "ref": "node-addon-api@7.1.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "property-information@7.2.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "react@19.3.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "react-dom@19.3.0",
+      "dependsOn": [
+        "react@19.3.0",
+        "scheduler@0.28.0"
+      ]
+    },
+    {
+      "ref": "react-markdown@10.1.0",
+      "dependsOn": [
+        "react@19.3.0",
+        "devlop@1.1.0",
+        "hast-util-to-jsx-runtime@2.3.6",
+        "html-url-attributes@3.0.1",
+        "mdast-util-to-hast@13.2.1",
+        "remark-parse@11.0.0",
+        "remark-rehype@11.1.2",
+        "unified@11.0.5",
+        "unist-util-visit@5.1.0",
+        "vfile@6.0.3"
+      ]
+    },
+    {
+      "ref": "react-resizable-panels@4.14.2",
+      "dependsOn": [
+        "react@19.3.0",
+        "react-dom@19.3.0"
+      ]
+    },
+    {
+      "ref": "remark-gfm@4.0.1",
+      "dependsOn": [
+        "mdast-util-gfm@3.1.0",
+        "micromark-extension-gfm@3.0.0",
+        "remark-parse@11.0.0",
+        "unified@11.0.5"
+      ]
+    },
+    {
+      "ref": "remark-parse@11.0.0",
+      "dependsOn": [
+        "mdast-util-from-markdown@2.1.0",
+        "unified@11.0.5"
+      ]
+    },
+    {
+      "ref": "remark-rehype@11.1.2",
+      "dependsOn": [
+        "mdast-util-to-hast@13.2.1",
+        "unified@11.0.5",
+        "vfile@6.0.3"
+      ]
+    },
+    {
+      "ref": "scheduler@0.28.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "space-separated-tokens@2.0.2",
+      "dependsOn": []
+    },
+    {
+      "ref": "state-local@1.0.7",
+      "dependsOn": []
+    },
+    {
+      "ref": "style-to-js@1.1.21",
+      "dependsOn": [
+        "style-to-object@1.0.14"
+      ]
+    },
+    {
+      "ref": "style-to-object@1.0.14",
+      "dependsOn": [
+        "inline-style-parser@0.2.7"
+      ]
+    },
+    {
+      "ref": "trim-lines@3.0.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "trough@2.2.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "unified@11.0.5",
+      "dependsOn": [
+        "bail@2.0.2",
+        "devlop@1.1.0",
+        "extend@3.0.2",
+        "is-plain-obj@4.1.0",
+        "trough@2.2.0",
+        "vfile@6.0.3"
+      ]
+    },
+    {
+      "ref": "unist-util-is@6.0.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "unist-util-position@5.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "unist-util-stringify-position@4.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "unist-util-visit@5.1.0",
+      "dependsOn": [
+        "unist-util-is@6.0.1",
+        "unist-util-visit-parents@6.0.2"
+      ]
+    },
+    {
+      "ref": "unist-util-visit-parents@6.0.2",
+      "dependsOn": [
+        "unist-util-is@6.0.1"
+      ]
+    },
+    {
+      "ref": "vfile@6.0.3",
+      "dependsOn": [
+        "vfile-message@4.0.3"
+      ]
+    },
+    {
+      "ref": "vfile-message@4.0.3",
+      "dependsOn": [
+        "unist-util-stringify-position@4.0.0"
+      ]
+    }
+  ]
+}

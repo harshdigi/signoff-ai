@@ -1,0 +1,10 @@
+{
+  "name": "decision-protocol",
+  "displayName": "Decision protocol",
+  "version": "0.1.0",
+  "description": "Registers the session on the Signoff AI board, puts signoff (and its old name decide) on PATH and delivers board messages",
+  "author": {
+    "name": "harshdigi",
+    "url": "https://github.com/harshdigi"
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "name": "signoff-ai",
+  "version": "1.0.0",
+  "description": "Signoff AI: Claude builds, you sign off. A desktop layer over your own Claude Code",
+  "author": "Harsh Ahuja (harshdigi) (https://github.com/harshdigi)",
+  "homepage": "https://github.com/harshdigi/signoff-ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harshdigi/signoff-ai.git"
+  },
+  "main": "./out/main/index.js",
+  "scripts": {
+    "format": "prettier --write .",
+    "lint": "eslint --cache .",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "start": "electron-vite preview",
+    "dev": "electron-vite dev",
+    "build": "npm run typecheck && electron-vite build && npm run build:cli",
+    "postinstall": "electron-builder install-app-deps && chmod +x node_modules/node-pty/prebuilds/*/spawn-helper",
+    "build:unpack": "npm run build && electron-builder --dir",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:mac:local": "npm run build && electron-builder --mac --dir",
+    "dist:mac:friends": "npm run build && electron-builder --mac dmg --universal",
+    "build:linux": "npm run build && electron-builder --linux",
+    "test": "npm run build:cli && vitest run",
+    "build:cli": "node scripts/build-cli.mjs"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "better-sqlite3": "^13.0.3",
+    "node-pty": "^1.1.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config-prettier": "^3.0.0",
+    "@electron-toolkit/eslint-config-ts": "^3.1.0",
+    "@electron-toolkit/tsconfig": "^2.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@monaco-editor/react": "^4.7.0",
+    "@types/node": "^22.19.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "dompurify": "3.4.17",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^5.0.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "monaco-editor": "^0.57.0",
+    "prettier": "^3.7.4",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4.14.2",
+    "remark-gfm": "^4.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6",
+    "vitest": "^5.0.3",
+    "zod": "^4.6.5"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.3": true,
+    "node-pty@1.1.0": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.3": true
+  },
+  "overrides": {
+    "dompurify": "3.4.17"
+  },
+  "license": "FSL-1.1-ALv2"
+}

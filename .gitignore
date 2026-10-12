@@ -1,0 +1,25 @@
+# Signoff AI · written by harshdigi (https://github.com/harshdigi)
+# Dependencies and build output
+node_modules
+dist
+out
+*.tsbuildinfo
+.eslintcache
+*.log*
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+
+# Never commit secrets or local data
+.env
+.env.*
+.npmrc
+*.pem
+*.key
+*.p12
+*.mobileprovision
+*.db
+*.db-*
+*.jsonl

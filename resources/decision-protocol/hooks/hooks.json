@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/signoff hook session-start", "timeout": 10, "statusMessage": "Registering on the decision board" }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/signoff hook permission", "timeout": 600, "statusMessage": "Waiting for your answer in Signoff AI" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/signoff hook stop", "timeout": 10, "statusMessage": "Checking decision board messages" }
+        ]
+      }
+    ]
+  }
+}

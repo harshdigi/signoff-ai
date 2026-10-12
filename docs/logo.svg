@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#0D9488"/>
+    </linearGradient>
+  </defs>
+  <!-- macOS icon grid: 824px tile with 100px transparent margin -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <!-- check mark -->
+  <path d="M318 520 L452 652 L728 362" fill="none" stroke="#FFFFFF" stroke-width="92" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- signature stroke -->
+  <path d="M300 772 C 400 728, 470 812, 560 770 S 700 738, 742 760" fill="none" stroke="#FFFFFF" stroke-opacity="0.9" stroke-width="30" stroke-linecap="round"/>
+</svg>
