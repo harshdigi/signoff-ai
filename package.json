@@ -26,7 +26,8 @@
     "dist:mac:friends": "npm run build && electron-builder --mac dmg --universal",
     "build:linux": "npm run build && electron-builder --linux",
     "test": "npm run build:cli && vitest run",
-    "build:cli": "node scripts/build-cli.mjs"
+    "build:cli": "node scripts/build-cli.mjs",
+    "screenshots": "ELECTRON_RUN_AS_NODE=1 electron scripts/screenshots.mjs"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

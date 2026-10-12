@@ -12,6 +12,9 @@ export function appFiles(): { resources: string; cli: string } {
 
 // One data folder for dev and packaged builds (~/Library/Application Support/decision-ide on macOS),
 // so renaming the app ("Signoff AI") does not start an empty board. decide uses the same folder.
+// Development only: SIGNOFF_USER_DATA points a dev run at another data folder (demo data for screenshots, tests).
+// Installed builds ignore it, so the shipped app always uses the folder above.
 export function pinUserData(): void {
-  app.setPath('userData', join(app.getPath('appData'), 'decision-ide'))
+  const dev = !app.isPackaged ? process.env.SIGNOFF_USER_DATA : undefined
+  app.setPath('userData', dev || join(app.getPath('appData'), 'decision-ide'))
 }
