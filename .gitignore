@@ -3,6 +3,8 @@
 node_modules
 dist
 out
+# Built from native/speech by scripts/build-speech.mjs
+resources/speech/signoff-speech
 *.tsbuildinfo
 .eslintcache
 *.log*

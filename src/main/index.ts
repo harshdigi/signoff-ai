@@ -1,6 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 
 import { homedir } from 'os'
 import { join } from 'path'
@@ -31,6 +31,7 @@ let mainWindow: BrowserWindow | null = null
 const terminals = new TerminalManager()
 import icon from '../../resources/icon.png?asset'
 import { sendTo } from './window-send'
+import { SpeechInput } from './speech'
 import { repairIntegration } from './integration'
 import { appPage, denyPermissions, guardIpc, hardenWindow, lockDataDir } from './security'
 
@@ -60,6 +61,9 @@ function createWindow(): void {
     }
   })
 
+  // Full screen hides macOS's window buttons, so the top bar drops the space it keeps for them.
+  mainWindow.on('enter-full-screen', () => sendTo(mainWindow, 'window:fullscreen', true))
+  mainWindow.on('leave-full-screen', () => sendTo(mainWindow, 'window:fullscreen', false))
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
   })
@@ -102,6 +106,7 @@ app.on('open-url', (e, url) => {
 })
 
 app.whenReady().then(() => {
+  ipcMain.handle('window:isFullScreen', () => mainWindow?.isFullScreen() ?? false)
   // Set app user model id for windows
   electronApp.setAppUserModelId('io.github.harshdigi.signoffai') // Windows taskbar identity; same as the bundle id
 
@@ -156,6 +161,12 @@ app.whenReady().then(() => {
     stopIde()
     chat.stopAll()
   })
+  // Voice input in the chat box (speech.ts): the language comes from Settings, empty = the Mac's own.
+  const speech = new SpeechInput(join(files.resources, 'speech/signoff-speech'), (e) => sendTo(mainWindow, 'speech:event', e))
+  ipcMain.handle('speech:start', () => speech.start(getSettings(store).speechLocale || null))
+  ipcMain.handle('speech:stop', () => speech.stop())
+  ipcMain.handle('speech:languages', () => speech.languages())
+  app.on('before-quit', () => speech.kill())
 
   createWindow()
 

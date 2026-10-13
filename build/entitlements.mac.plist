@@ -4,6 +4,7 @@
      - allow-jit, allow-unsigned-executable-memory: V8, Electron's JavaScript engine, compiles code at run time.
      - disable-library-validation: the app is ad-hoc signed (no Apple team id), so its own native modules
        (better-sqlite3, node-pty) would otherwise be refused. Drop it once a Developer ID signs the app.
+     - device.audio-input: the microphone, for voice input in the chat (only while you use it; macOS asks first).
      Removed: allow-dyld-environment-variables (allowed injecting libraries through DYLD_* variables). -->
 <plist version="1.0">
   <dict>
@@ -12,6 +13,8 @@
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
     <true/>
     <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.device.audio-input</key>
     <true/>
   </dict>
 </plist>

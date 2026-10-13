@@ -20,12 +20,15 @@ export type Settings = {
   maxChildren: number                // default 3: most child sessions one parent may run at once (IDE/D22)
   docsOffered: string[]              // folders already offered "Generate flow docs" (asked once per folder)
   defaultMode: (typeof SAFE_MODES)[number] // default 'default' (Manual): the mode new and resumed chats start in
+  tidyDecisions: boolean             // default true: when a turn ends, ask the session once to close decisions the chat settled
+  speechLocale: string               // default empty: voice input listens in the Mac's own language; else e.g. 'en-IN'
+  speechAutoSend: boolean            // default false: voice input fills the box; true: it also sends when you stop
 }
 
 // A skill on the top bar. key = catalog kind:name; label = what the button says (e.g. "Start my day").
 export type Pin = { key: string; label: string }
 
-export const DEFAULTS: Settings = { profile: 'developer', preferences: '', autoHandoff: true, handoffAt: 75, branching: 'main', branchTemplate: '{KEY}-{slug}', flowDocs: '', nearbySkills: true, pins: [], onOpen: null, askTicket: true, maxChildren: 3, docsOffered: [], defaultMode: 'default' }
+export const DEFAULTS: Settings = { profile: 'developer', preferences: '', autoHandoff: true, handoffAt: 75, branching: 'main', branchTemplate: '{KEY}-{slug}', flowDocs: '', nearbySkills: true, pins: [], onOpen: null, askTicket: true, maxChildren: 3, docsOffered: [], defaultMode: 'default', tidyDecisions: true, speechLocale: '', speechAutoSend: false }
 const KEY = 'app'
 
 export function getSettings(db: Store): Settings {
@@ -42,6 +45,7 @@ export function saveSettings(db: Store, patch: Partial<Settings>): Settings {
   if (patch.onOpen && !pins.some((p) => p.key === patch.onOpen)) throw new Error('only a pinned skill can run when the app opens')
   if (patch.handoffAt !== undefined && !(patch.handoffAt >= 40 && patch.handoffAt <= 95)) throw new Error('handoff point must be between 40 and 95 percent')
   if (patch.maxChildren !== undefined && !(Number.isInteger(patch.maxChildren) && patch.maxChildren >= 1 && patch.maxChildren <= 10)) throw new Error('child sessions per parent must be 1 to 10')
+  if (patch.speechLocale !== undefined && !/^([a-z]{2,3}([-_][A-Za-z0-9]{2,8})*)?$/.test(patch.speechLocale)) throw new Error(`bad voice input language ${patch.speechLocale}`)
   if (patch.defaultMode !== undefined && !(SAFE_MODES as readonly string[]).includes(patch.defaultMode)) throw new Error(`bad default mode ${patch.defaultMode}`)
   const next = { ...getSettings(db), ...patch }
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(KEY, JSON.stringify(next))

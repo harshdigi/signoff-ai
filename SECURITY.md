@@ -21,11 +21,14 @@ how that power is kept in check.
 9. Anything that sends data outside (messages, tickets, pushes, PRs) needs your approval, one at a time.
 10. Commands run only in folders you trusted.
 11. Release builds: no NODE_OPTIONS, no --inspect, code only from the integrity-checked archive, hardened runtime.
+12. Voice input: the microphone is used only by the voice helper, only while 🎤 is on, and speech is recognised on
+    the Mac only (a language without an on-device model is refused). The window gets text, never audio.
 
 ## What the app does not do
 
 - No network calls of its own: no telemetry, no update checks. Claude traffic goes through your own Claude Code.
 - It never sees your Claude login, API keys or MCP credentials.
+- It never records: no audio is stored or sent. Voice input turns speech into text on your Mac and keeps nothing.
 - Your data stays on your machine: `~/Library/Application Support/decision-ide/`.
 
 ## Reporting a vulnerability

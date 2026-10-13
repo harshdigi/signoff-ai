@@ -137,6 +137,7 @@ The two High findings were both about the window being able to leave the app's o
 | Outward actions | Tool calls that send something outside (messages, tickets, `git push`, PRs) are always shown as an editable draft and approved one at a time. "Allow for this chat" never covers them (`src/shared/outward.ts`). |
 | MCP credentials | The window never receives them; configured servers are listed with credentials masked. |
 | Edits to the user's files | Only with Terminal integration turned on, with a backup before each change, marker blocks so only the app's own lines are touched, and an Undo. The app refuses to overwrite a `signoff` or `decide` launcher it didn't write. |
+| Microphone (added after 1.0.1) | Voice input runs a small native helper (`native/speech/main.swift`) only while the user has 🎤 on. It uses Apple's speech recognition with `requiresOnDeviceRecognition`, so audio stays on the Mac; a language without an on-device model is refused rather than sent to Apple. The helper prints text only; the window never gets audio or a browser microphone permission. macOS asks before first use (usage texts in `electron-builder.yml`, entitlement `device.audio-input`). |
 | Network | The app has no telemetry, update checks or network calls. The URLs in the code are documentation links and the official Claude and git installer pages. |
 | Packaged contents | No databases, transcripts, `.env` files, keys, logs, or paths from the build machine (checked by unpacking the dmg). |
 
@@ -155,6 +156,7 @@ These are enforced by code, not by instructions to Claude. The source is `src/ma
 9. Outward actions always need the user's approval, one at a time.
 10. Commands run only in folders the user trusted.
 11. Packaged builds: no `NODE_OPTIONS`, no `--inspect` in app mode, code only from the integrity-checked archive, hardened runtime, no library injection.
+12. Voice input (added after the audit): the microphone only through the voice helper, only while 🎤 is on, recognition on the Mac only. The window's permission rule (5) is unchanged.
 
 ## 6. Dependencies
 
