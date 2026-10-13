@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { useEffect, useState } from 'react'
 import { errText, itemKey, type CatalogItem, type Pin } from './types'
+import { MODES, type Mode } from '../chat/modes'
 
 // Settings dialog. Values apply to sessions started after saving (the system prompt is set at start).
-type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number }
+type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode }
 
 export default function Settings({ close, catalog, openShortcuts }: { close: () => void; catalog: CatalogItem[]; openShortcuts: () => void }): React.JSX.Element {
   const [s, setS] = useState<S | null>(null)
@@ -64,6 +65,13 @@ export default function Settings({ close, catalog, openShortcuts }: { close: () 
                 </div>
               ))}
               {s.pins.length > 0 && <label className="inline"><input type="radio" name="onopen" checked={!s.onOpen} onChange={() => setS({ ...s, onOpen: null })} /> Run nothing when the app opens</label>}
+            </div>
+            <div className="field">
+              <div className="label">Default mode for new chats</div>
+              <select value={s.defaultMode} onChange={(e) => setS({ ...s, defaultMode: e.target.value as Mode })}>
+                {MODES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+              </select>
+              <div className="meta">New, resumed and team chats start in this mode. To change it for one chat, press ⇧Tab in that chat.</div>
             </div>
             <div className="field">
               <div className="label">Team sessions</div>

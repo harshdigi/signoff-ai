@@ -63,6 +63,7 @@ let socket: string
 let tmux: Tmux
 let n = 0
 const env = { PATH: process.env.PATH, HOME: process.env.HOME }
+let settings: Settings
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'tchat-'))
   writeFileSync(join(dir, 'claude'), FAKE)
@@ -75,7 +76,7 @@ beforeEach(() => {
   delete process.env.FAKE_TRUST
   db = openStore(join(dir, 'board.db'))
   terms = new TerminalManager()
-  const settings: Settings = { ...DEFAULTS }
+  settings = { ...DEFAULTS }
   socket = `dide-chat-${process.pid}-${n++}`
   tmux = new Tmux(join(__dirname, '../../../resources/tmux.conf'), socket)
   chat = new ChatManager(db, () => ({ args: ['--plugin-dir', '/p'], env: { DECISION_IDE_DB: 'x' }, decide: '/bin/decide' }), { settings: () => settings, files: () => ['a.rb'], attachments: join(dir, 'att'), tmux }, terms)
@@ -115,6 +116,15 @@ describe('terminal chats', () => {
     await until(() => !chat.status(id).busy)
     expect(argv()[0]).toEqual(['--plugin-dir', '/p', '--session-id', id, '--permission-mode', 'default'])
     expect(db.prepare('SELECT title, context_used FROM sessions WHERE id = ?').get(id)).toEqual({ title: 'hello there', context_used: 100 })
+  })
+
+  it('new and resumed chats start in the default mode from Settings; an asked-for mode wins', () => {
+    settings.defaultMode = 'acceptEdits'
+    const fresh = chat.create('/tmp')
+    const asked = chat.create('/tmp', { mode: 'plan' })
+    const resumed = chat.resume('11111111-1111-4111-8111-111111111111', '/tmp', 'Old chat')
+    const mode = (id: string): string => (db.prepare('SELECT mode FROM sessions WHERE id = ?').get(id) as { mode: string }).mode
+    expect([mode(fresh), mode(asked), mode(resumed)]).toEqual(['acceptEdits', 'plan', 'acceptEdits'])
   })
 
   it('a session started from a team setup records it', () => {

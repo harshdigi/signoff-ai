@@ -11,13 +11,13 @@ import { time, type BoardState } from '../board/types'
 import { errText, type CatalogItem, type ChatStatus } from '../ide/types'
 import ApprovalCard from './ApprovalCard'
 import { latestTodos, toRows, toolSummary, waitingInTerminal, type ToolRow } from './transcript'
+import { MODES } from './modes'
 
 // The right-hand chat (IDE/D9). Everything waiting on the user for this chat sits above the input:
 // permission prompts, Claude's questions, decisions, reviews and actions.
 // A session running in a terminal can be picked too. If the app owns that terminal, the message is typed into it,
 // exactly as if you typed there (Claude Code queues it if busy). A session in an outside terminal gets a board message instead.
 
-const MODES = [['default', 'Manual'], ['acceptEdits', 'Accept edits'], ['plan', 'Plan'], ['auto', 'Auto']] as const
 const MODELS = [['opus', 'Opus'], ['sonnet', 'Sonnet'], ['haiku', 'Haiku'], ['fable', 'Fable']] as const
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 
