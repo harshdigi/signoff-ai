@@ -1,11 +1,11 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import { mkdtempSync, writeFileSync } from 'fs'
+import { mkdtempSync, readdirSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
-import { openStore, resetStore, SCHEMA_VERSION } from '../index'
+import { backupBeforeUpgrade, openStore, resetStore, SCHEMA_VERSION } from '../index'
 import schema from '../schema.sql?raw'
 import { importBoard } from '../import-board'
 
@@ -139,5 +139,48 @@ describe('resetStore', () => {
     expect(db.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION)
     const backup = openStore(join(dir, 'backup.db'))
     expect(backup.prepare('SELECT count(*) AS n FROM decisions').get()).toEqual({ n: 1 })
+  })
+})
+
+describe('copy before an upgrade', () => {
+  // An existing board one version behind: the newest column dropped and the version stepped back.
+  const olderBoard = (dir: string): string => {
+    const path = join(dir, 'board.db')
+    const db = openStore(path)
+    db.prepare("INSERT INTO sessions (id, state, started_at, updated_at) VALUES ('s1', 'working', 't', 't')").run()
+    db.exec('ALTER TABLE decisions DROP COLUMN later_at')
+    db.pragma(`user_version = ${SCHEMA_VERSION - 1}`)
+    db.close()
+    return path
+  }
+  const backups = (dir: string): string[] => readdirSync(dir).filter((f) => f.includes('.bak-')).sort()
+
+  it('a fresh board gets no copy; an older board is copied as it was, then upgraded', () => {
+    const fresh = tmp()
+    openStore(join(fresh, 'board.db')).close()
+    expect(backups(fresh)).toEqual([])
+
+    const dir = tmp()
+    const path = olderBoard(dir)
+    openStore(path).close()
+    const [copy] = backups(dir)
+    expect(copy).toMatch(new RegExp(`^board\\.db\\.bak-v${SCHEMA_VERSION - 1}-\\d{8}T\\d{9}Z$`))
+    const old = new Database(join(dir, copy), { readonly: true })
+    expect([old.pragma('user_version', { simple: true }), old.prepare('SELECT id FROM sessions').all()]).toEqual([SCHEMA_VERSION - 1, [{ id: 's1' }]])
+    old.close()
+    const now = openStore(path)
+    expect(now.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION)
+    now.close()
+    expect(backups(dir)).toEqual([copy]) // nothing pending: no second copy
+  })
+
+  it('keeps the newest three copies and leaves other files alone', () => {
+    const dir = tmp()
+    const path = olderBoard(dir)
+    writeFileSync(join(dir, 'board.db.bak-pre-v2-2026-10-06'), 'older backup, not ours to prune')
+    const db = new Database(path)
+    for (const day of ['01', '02', '03', '04']) backupBeforeUpgrade(db, path, 18, new Date(`2026-10-${day}T10:00:00.000Z`))
+    db.close()
+    expect(backups(dir)).toEqual(['board.db.bak-pre-v2-2026-10-06', 'board.db.bak-v18-20261002T100000000Z', 'board.db.bak-v18-20261003T100000000Z', 'board.db.bak-v18-20261004T100000000Z'])
   })
 })

@@ -1,6 +1,8 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import Database from 'better-sqlite3'
+import { readdirSync, rmSync } from 'fs'
+import { basename, dirname, join } from 'path'
 import schema from './schema.sql?raw'
 import migrate2 from './migrate-2.sql?raw'
 import migrate3 from './migrate-3.sql?raw'
@@ -30,13 +32,16 @@ export const SCHEMA_VERSION = STEPS.length
 // Opens (and on first run creates) the store.
 // - WAL: sessions, the decide CLI and the UI write at the same time.
 // - busy_timeout: a writer waits for another instead of failing straight away.
+// - Before a newer app upgrades an existing board, a copy is saved next to it (backupBeforeUpgrade).
 export function openStore(path: string): Store {
   const db = new Database(path)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.pragma('busy_timeout = 5000')
+  const from = db.pragma('user_version', { simple: true }) as number
+  if (from > 0 && from < STEPS.length) backupBeforeUpgrade(db, path, from)
   // Each step runs in its own transaction and ends by bumping user_version.
-  for (let v = db.pragma('user_version', { simple: true }) as number; v < STEPS.length; v++) {
+  for (let v = from; v < STEPS.length; v++) {
     db.exec('BEGIN')
     try {
       db.exec(STEPS[v])
@@ -47,6 +52,23 @@ export function openStore(path: string): Store {
     }
   }
   return db
+}
+
+// A copy of the board before its schema is upgraded: <board>.bak-v<old version>-<UTC time to the ms>, newest KEEP_BACKUPS kept.
+// - Milliseconds in the name: the app and a session's CLI can open an old board in the same second.
+// - Not on a fresh install (version 0) or when nothing is pending.
+// - If the copy fails (e.g. a full disk), the error is thrown and the upgrade does not run: no upgrade without a copy.
+const KEEP_BACKUPS = 3
+// at: the time in the name (tests pass one; the app uses now).
+export function backupBeforeUpgrade(db: Store, path: string, from: number, at = new Date()): string {
+  const stamp = at.toISOString().replace(/[-:.]/g, '')
+  const file = `${path}.bak-v${from}-${stamp}`
+  db.prepare('VACUUM INTO ?').run(file)
+  const mine = new RegExp(`^${basename(path).replace(/[.]/g, '\\.')}\\.bak-v\\d+-(\\d{8}T\\d{9}Z)$`)
+  const when = (f: string): string => mine.exec(f)![1]
+  const old = readdirSync(dirname(path)).filter((f) => mine.test(f)).sort((a, b) => when(b).localeCompare(when(a)))
+  for (const f of old.slice(KEEP_BACKUPS)) rmSync(join(dirname(path), f))
+  return file
 }
 
 // Reset (start fresh): a copy of the store goes to `backup` first, then every table is emptied in one transaction.
