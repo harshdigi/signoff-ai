@@ -17,6 +17,9 @@ type Ev = { type?: string; subtype?: string; text?: string; kind?: string; image
 const resultText = (c: unknown): string =>
   typeof c === 'string' ? c : Array.isArray(c) ? c.map((x: { text?: string }) => x.text ?? '').join('\n') : ''
 
+// Text pasted into Claude Code arrives wrapped in <pasted_content id="…"> tags; show just the text.
+export const unwrapPasted = (t: string): string => t.replace(/<pasted_content id="[^"]*">\n?([\s\S]*?)\n?<\/pasted_content id="[^"]*">/g, '$1')
+
 export function toRows(events: Ev[]): Row[] {
   const rows: Row[] = []
   const tools = new Map<string, ToolRow>()
@@ -32,7 +35,7 @@ export function toRows(events: Ev[]): Row[] {
       if (out) { if (out[1].trim()) rows.push({ kind: 'text', text: '```\n' + out[1].trim() + '\n```' }) }
       else if (cmd) rows.push({ kind: 'prompt', text: `${cmd[1]}${cmd[2] ? ' ' + cmd[2] : ''}` })
       else if (bash) rows.push({ kind: 'prompt', text: '! ' + bash[1] })
-      else rows.push(e.kind === 'handoff' ? { kind: 'handoff-note', text: t } : { kind: 'prompt', text: t, ...(e.images ? { images: e.images } : {}) })
+      else rows.push(e.kind === 'handoff' ? { kind: 'handoff-note', text: t } : { kind: 'prompt', text: unwrapPasted(t), ...(e.images ? { images: e.images } : {}) })
       textSincePrompt = false
     }
     else if (e.type === 'turn_end') rows.push({ kind: 'result', text: typeof e.ms === 'number' ? `Done in ${(e.ms / 1000).toFixed(1)}s` : 'Done', isError: false })
@@ -117,4 +120,45 @@ export function waitingInTerminal(events: { type?: string; message?: { content?:
     }
   }
   return null
+}
+
+// One steps row per turn, right under your message: every tool call of that turn, counted by kind, with the one
+// running now while the turn goes on. What Claude writes shows below it, in order and in real time.
+export type StepsRow = { kind: 'steps'; steps: ToolRow[]; live: boolean }
+export type Shown = Row | StepsRow
+
+export function foldTurns(rows: Row[]): Shown[] {
+  const out: Shown[] = []
+  let group: StepsRow | null = null
+  let turnStart = 0 // where this turn's steps row goes: just after your message
+  for (const r of rows) {
+    if (r.kind === 'tool') {
+      if (!group) { group = { kind: 'steps', steps: [], live: true }; out.splice(turnStart, 0, group) }
+      group.steps.push(r)
+      continue
+    }
+    if (r.kind === 'result' && group) group.live = false
+    out.push(r)
+    if (r.kind === 'prompt' || r.kind === 'result') {
+      if (group) group.live = false
+      group = null
+      turnStart = out.length
+    }
+  }
+  return out
+}
+
+// "14 steps · 8 commands · 4 reads · 2 edits": what a folded turn did, by kind of tool.
+const KIND: [RegExp, string, string][] = [[/^Bash$/, 'command', 'commands'], [/^(Read|Glob|Grep|LS)$/, 'read', 'reads'], [/^(Edit|Write|MultiEdit|NotebookEdit)$/, 'edit', 'edits'], [/^(WebFetch|WebSearch)$/, 'web look-up', 'web look-ups']]
+export function stepsSummary(steps: ToolRow[]): string {
+  const counts = new Map<string, number>()
+  let other = 0
+  for (const s of steps) {
+    const k = KIND.find(([re]) => re.test(s.name))
+    if (k) counts.set(k[1], (counts.get(k[1]) ?? 0) + 1)
+    else other++
+  }
+  const parts = KIND.filter(([, one]) => counts.get(one)).map(([, one, many]) => `${counts.get(one)} ${counts.get(one) === 1 ? one : many}`)
+  if (other) parts.push(`${other} other`)
+  return [`${steps.length} step${steps.length === 1 ? '' : 's'}`, ...parts].join(' · ')
 }

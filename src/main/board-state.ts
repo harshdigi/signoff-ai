@@ -31,6 +31,7 @@ export interface Session {
   state: 'starting' | 'working' | 'waiting' | 'done'; cwd: string | null; branch: string | null; tty: string | null
   pid: number | null; archived: boolean; started_at: string; updated_at: string
   via: string | null; mode: string | null; model: string | null   // via 'chat' = an IDE chat
+  effort: string | null                                            // last /effort set from the composer
   parent_id: string | null; context_used: number | null; context_window: number | null; workflow: string | null; role: string | null; tmux: string | null
   pending: number                    // undelivered board messages
 }
