@@ -205,6 +205,28 @@ describe('decide CLI', () => {
     db.close()
   })
 
+  it('Stop hook asks once about decisions the chat moved past; settle closes them', () => {
+    decide([...S, 'register', '--ticket', 'ABC-8'])
+    decide([...S, 'post', '--ticket', 'ABC-8', '--id', 'D1', '--question', 'Which limit?'])
+    const db = openStore(join(dir, 'board.db'))
+    db.prepare("UPDATE decisions SET created_at = '2026-10-14T09:00:00Z' WHERE id = 'ABC-8/D1'").run()
+    db.close()
+    const t = join(dir, 'chat.jsonl')
+    writeFileSync(t, JSON.stringify({ type: 'user', timestamp: '2026-10-14T10:00:00Z', message: { content: 'just use 5k, skip the card' } }) + '\n')
+    const stop = (): string => decide(['hook', 'stop'], {}, JSON.stringify({ session_id: 's1', transcript_path: t })).out
+    expect(JSON.parse(stop()).reason).toContain('- ABC-8/D1: Which limit?')
+    expect(stop()).toBe('') // asked once
+    // Off in Settings: no ask, even for a new stale decision.
+    decide([...S, 'post', '--ticket', 'ABC-8', '--id', 'D2', '--question', 'Which currency?'])
+    const db2 = openStore(join(dir, 'board.db'))
+    db2.prepare("UPDATE decisions SET created_at = '2026-10-14T09:00:00Z' WHERE id = 'ABC-8/D2'").run()
+    saveSettings(db2, { tidyDecisions: false })
+    db2.close()
+    expect(stop()).toBe('')
+    expect(decide([...S, 'settle', '--ticket', 'ABC-8', '--id', 'D1', '--text', '5k per day', '--done'])).toMatchObject({ code: 0, out: 'ok' })
+    expect(decide([...S, 'list', '--ticket', 'ABC-8']).out).toContain('ABC-8/D1 [applied]')
+  })
+
   it('split reads "Title :: task" pieces; done reports to the lead', () => {
     decide([...S, 'register', '--ticket', 'KA-1'])
     const db = openStore(join(dir, 'board.db'))
