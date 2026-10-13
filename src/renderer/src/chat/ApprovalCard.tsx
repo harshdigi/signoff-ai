@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import type { Approval } from '../board/types'
 import { errText } from '../ide/types'
 import { toolSummary } from './transcript'
+import { MdCode } from '../ide/CodeBlock'
 
 type Question = { question: string; header?: string; options: { label: string; description?: string }[]; multiSelect?: boolean }
 
@@ -106,7 +107,7 @@ function PlanCard({ plan, answer, err }: { plan: string; answer: (x: unknown) =>
   return (
     <div className="ccard warn plan">
       <div className="ccard-head"><b>Claude's plan</b> · approve it to let Claude start</div>
-      <div className="md plan-body"><Markdown remarkPlugins={[remarkGfm]}>{plan}</Markdown></div>
+      <div className="md plan-body"><Markdown remarkPlugins={[remarkGfm]} components={{ code: MdCode }}>{plan}</Markdown></div>
       <div className="bar">
         <button className="primary" onClick={() => answer({ allow: true, scope: 'once' })}>Approve plan</button>
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What to change in the plan" />

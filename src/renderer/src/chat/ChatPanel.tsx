@@ -12,6 +12,7 @@ import { errText, type CatalogItem, type ChatStatus } from '../ide/types'
 import ApprovalCard from './ApprovalCard'
 import { latestTodos, toRows, toolSummary, waitingInTerminal, type ToolRow } from './transcript'
 import { MODES } from './modes'
+import { MdCode } from '../ide/CodeBlock'
 
 // The right-hand chat (IDE/D9). Everything waiting on the user for this chat sits above the input:
 // permission prompts, Claude's questions, decisions, reviews and actions.
@@ -94,10 +95,10 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   const ticket = board.sessions.find((x) => x.id === session)?.ticket ?? null
   const md = useMemo<Components>(() => {
     const link = (kids: React.ReactNode): React.ReactNode => Children.map(kids, (k) => (typeof k === 'string' ? <Linked text={k} ticket={ticket} session={session} /> : k))
-    // Inline code naming a file or definition: a link with a hover preview. Code blocks stay as they are.
+    // Inline code naming a file or definition: a link with a hover preview. Fenced blocks are coloured (ide/CodeBlock).
     const code: Components['code'] = ({ className, children }) => {
       const t = String(children)
-      return !className && !t.includes('\n') && looksLikeRef(t) ? <CodeRef text={t} session={session} /> : <code className={className}>{children}</code>
+      return !className && !t.includes('\n') && looksLikeRef(t) ? <CodeRef text={t} session={session} /> : <MdCode className={className}>{children}</MdCode>
     }
     return { p: ({ children }) => <p>{link(children)}</p>, li: ({ children }) => <li>{link(children)}</li>, code }
   }, [ticket, session])
