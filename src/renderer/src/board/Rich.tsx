@@ -4,7 +4,8 @@ import { Fragment, useState } from 'react'
 import CodeRef from '../ide/CodeRef'
 import { looksLikeRef } from '../ide/code-ref'
 
-// Session replies are plain text with structure: ALL-CAPS or "#" headings, "- " bullets, `code`, **bold**, file:line refs.
+// Session replies are plain text with structure: ALL-CAPS or "#" headings, "- " bullets, "1." numbered points, `code`,
+// **bold**, file:line refs.
 const INLINE = /(`[^`]+`|\*\*[^*]+\*\*|\b[\w./-]+\.(?:rb|py|js|ts|tsx|jsx|md|yml|yaml|json|sql|sh|html|css)(?::\d+(?:-\d+)?)?)/g
 
 // Code spans that name a file or definition become links with a hover preview (ide/CodeRef).
@@ -24,14 +25,24 @@ export default function Rich({ text, clampAt = 14, session = null }: { text: str
   const long = lines.length > clampAt || text.length > 1400
   const blocks: React.JSX.Element[] = []
   let list: string[] = []
+  let ordered = false
   const flush = (): void => {
-    if (list.length) blocks.push(<ul key={blocks.length}>{list.map((l, i) => <li key={i}><Inline text={l} session={session} /></li>)}</ul>)
+    const items = list.map((l, i) => <li key={i}><Inline text={l} session={session} /></li>)
+    if (list.length) blocks.push(ordered ? <ol key={blocks.length}>{items}</ol> : <ul key={blocks.length}>{items}</ul>)
     list = []
   }
   for (const raw of lines) {
     const t = raw.trim()
     const bullet = /^[-*•]\s+(.*)$/.exec(t)
-    if (bullet) { list.push(bullet[1]); continue }
+    const numbered = /^\d+[.)]\s+(.*)$/.exec(t)
+    const item = bullet ?? numbered
+    if (item) {
+      // a switch between bullets and numbers starts a new list
+      if (list.length && ordered !== !!numbered) flush()
+      ordered = !!numbered
+      list.push(item[1])
+      continue
+    }
     flush()
     if (!t) continue
     const letters = t.replace(/[^A-Za-z]/g, '')

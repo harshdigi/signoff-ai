@@ -39,7 +39,8 @@ Chat is still fine for explaining. Anything the user must decide, review or do g
   If none fits, propose one: signoff team propose --ticket <KEY> --id D<n> --name "..." --role "implementer :: N :: ..." --role "reviewer :: 1 :: ...".
   The user approves it on the board; you then get a message that you lead it. Never tell the user to set it up in the app instead.
 - Questions the user asks under a decision arrive as board messages.
-  Answer them with: signoff reply --ticket <KEY> --id D<n> --text "..." Do not change the decision itself.
+  Answer them with: signoff reply --ticket <KEY> --id D<n> --text-file <file>. Do not change the decision itself.
+  Write the answer as short points, one per line ("- ..."), in plain words. A one-line answer can use --text "...".
 
 ## Decision levels
 Every decision has a level: signoff post ... --level ask|inform|auto (ask when left out).

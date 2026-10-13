@@ -115,7 +115,7 @@ select, input { font: inherit; color: var(--ink); background: var(--panel); bord
 .turn-end.bad { color: #d14d41; }
 .thinking { color: var(--quiet); font-style: italic; }
 .chat-waiting { max-height: 50%; overflow-y: auto; border-top: 2px solid var(--warn); padding: 8px; background: var(--warn-tint); }
-.waiting-title { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--warn); margin-bottom: 6px; }
+.waiting-title { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--warn); margin-bottom: 6px; }
 .ccard { background: var(--panel); border: 1px solid var(--warn); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
 .ccard-head { margin-bottom: 6px; }
 .ccard .bar input { flex: 1; min-width: 120px; }
@@ -486,6 +486,7 @@ button.ref { all: unset; cursor: pointer; color: var(--accent, #3b82f6); text-de
 .wf-edit textarea { min-height: 44px; }
 /* open for product */
 .pill.product { color: #8a5cf6; border-color: #8a5cf6; background: #8a5cf614; }
+.pill.later { color: var(--quiet); border-color: var(--quiet); }
 .card .product-note { margin: 6px 0; padding: 6px 8px; border-left: 3px solid #8a5cf6; background: var(--panel); }
 .card .product-note button { margin-top: 4px; }
 .route-ask { margin: 6px 0; padding: 8px; border: 1px solid var(--accent); border-radius: 4px; background: var(--panel); font-size: 12px; }

@@ -20,16 +20,16 @@ self.MonacoEnvironment = {
 }
 loader.config({ monaco })
 
-const BY_EXT: Record<string, string> = {
-  ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript',
-  json: 'json', md: 'markdown', css: 'css', scss: 'scss', html: 'html', erb: 'html', rb: 'ruby', rake: 'ruby',
-  py: 'python', go: 'go', rs: 'rust', java: 'java', kt: 'kotlin', swift: 'swift', sql: 'sql', sh: 'shell',
-  yml: 'yaml', yaml: 'yaml', xml: 'xml', php: 'php', cs: 'csharp', c: 'c', h: 'c', cpp: 'cpp', dockerfile: 'dockerfile'
+// Code coloured the same way the editor colours it, as HTML (Monaco escapes the text). Chat and doc code blocks use it.
+export async function colorize(code: string, language: string, dark: boolean): Promise<string> {
+  monaco.editor.setTheme(dark ? 'vs-dark' : 'vs') // the token colours come from the active theme
+  return monaco.editor.colorize(code, language, { tabSize: 2 })
 }
 
-export function languageOf(path: string): string {
-  const name = path.split('/').pop()!.toLowerCase()
-  if (name === 'gemfile' || name === 'rakefile') return 'ruby'
-  if (name === 'dockerfile') return 'dockerfile'
-  return BY_EXT[name.split('.').pop() || ''] || 'plaintext'
+// The same, one HTML string per line of the code (Monaco ends each line with <br/>).
+export async function colorizeLines(code: string, language: string, dark: boolean): Promise<string[]> {
+  const n = code.split('\n').length
+  return (await colorize(code, language, dark)).split(/<br\s*\/?>/).slice(0, n)
 }
+
+export { languageOf } from './languages'

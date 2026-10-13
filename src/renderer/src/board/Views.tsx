@@ -1,7 +1,7 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { DecisionCard, ReviewCard } from './Cards'
-import { forProduct, label, onYou, time, type BoardState, type Decision, type Review, type Session } from './types'
+import { forLater, forProduct, label, onYou, time, type BoardState, type Decision, type Review, type Session } from './types'
 import { productMarkdown } from './product'
 import TerminalView from '../components/TerminalView'
 import { useState } from 'react'
@@ -47,6 +47,7 @@ export function General({ b, refresh, open }: { b: BoardState; refresh: () => vo
   const actions = live.filter((d) => d.action)
   const asks = live.filter((d) => !d.action && onYou(d))
   const product = live.filter(forProduct)
+  const later = live.filter(forLater)
   const history = b.decisions.filter((d) => d.status !== 'open').sort(newestFirst)
   return (
     <div className="view">
@@ -56,6 +57,7 @@ export function General({ b, refresh, open }: { b: BoardState; refresh: () => vo
       {asks.map((d) => <DecisionCard key={d.id} d={d} b={b} refresh={refresh} />)}
       {!asks.length && !reviews.length && <p className="empty">Nothing waiting on you.</p>}
       {product.length > 0 && <ProductList list={product} b={b} refresh={refresh} />}
+      {later.length > 0 && <><h2>Later ({later.length})</h2>{later.map((d) => <DecisionCard key={d.id} d={d} b={b} refresh={refresh} />)}</>}
       <h2>Sessions</h2>
       <table>
         <thead><tr><th>Session</th><th>What it is doing</th><th>State</th><th>Open</th><th>Updated</th></tr></thead>

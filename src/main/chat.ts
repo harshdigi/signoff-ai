@@ -119,7 +119,7 @@ export class ChatManager {
   create(cwd: string, o: { ticket?: string | null; branch?: string | null; title?: string; parent?: string; mode?: string | null; model?: string | null; workflow?: string | null; role?: string | null } = {}): string {
     const id = randomUUID()
     b.touchSession(this.db, id, { cwd, via: 'chat', state: 'starting', title: o.title ?? 'New chat', ticket: o.ticket ?? undefined, branch: o.branch ?? undefined })
-    this.db.prepare('UPDATE sessions SET mode = ?, model = ?, parent_id = ?, workflow = ?, role = ? WHERE id = ?').run(o.mode ?? 'default', o.model ?? null, o.parent ?? null, o.workflow ?? null, o.role ?? null, id)
+    this.db.prepare('UPDATE sessions SET mode = ?, model = ?, parent_id = ?, workflow = ?, role = ? WHERE id = ?').run(o.mode ?? this.deps.settings().defaultMode, o.model ?? null, o.parent ?? null, o.workflow ?? null, o.role ?? null, id)
     return id
   }
 
@@ -130,7 +130,7 @@ export class ChatManager {
     if (known) b.setRemoved(this.db, id, false)
     else {
       b.touchSession(this.db, id, { cwd, via: 'chat', state: 'starting', title })
-      this.db.prepare("UPDATE sessions SET mode = 'default' WHERE id = ?").run(id)
+      this.db.prepare('UPDATE sessions SET mode = ? WHERE id = ?').run(this.deps.settings().defaultMode, id)
     }
     return id
   }

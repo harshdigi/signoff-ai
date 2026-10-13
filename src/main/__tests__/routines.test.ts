@@ -33,6 +33,13 @@ describe('your own skills', () => {
     expect(() => saveSettings(db, { onOpen: 'skill:other' })).toThrow('only a pinned skill can run when the app opens')
     expect(() => saveSettings(db, { pins: [{ key: 'skill:x', label: ' ' }] })).toThrow('each pin needs a skill and a label')
   })
+
+  it('the default chat mode is Manual and only a safe mode can be saved', () => {
+    const db = openStore(join(mkdtempSync(join(tmpdir(), 'mode-')), 'board.db'))
+    expect(getSettings(db).defaultMode).toBe('default')
+    expect(saveSettings(db, { defaultMode: 'auto' }).defaultMode).toBe('auto')
+    expect(() => saveSettings(db, { defaultMode: 'bypassPermissions' as never })).toThrow('bad default mode bypassPermissions')
+  })
 })
 
 describe('Siri and Shortcuts', () => {

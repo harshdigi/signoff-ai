@@ -36,18 +36,18 @@ const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_COD
   list      [--ticket K] [--open]
   answer    --ticket K --id Dn --text T
   ack       --ticket K --id Dn [--id ...]
-  reply     --ticket K --id Dn --text T
+  reply     --ticket K --id Dn --text T | --text-file FILE   (a file keeps line breaks: points, paragraphs)
   withdraw  --ticket K --id Dn --reason R
   propose   --ticket K --title T --patch FILE [--summary S | --summary-file FILE] [--file NAME]
   review    --id R-n
-  review-reply --id R-n --change Cn --text T
+  review-reply --id R-n --change Cn --text T | --text-file FILE
   recall    <words> [--ticket K] [--limit N]   earlier decisions, reviews and chats about a topic
   split     --ticket K --id Dn --piece "Title :: what to do" [--piece ...] [--role R]   a team lead proposes child sessions
   done      --summary S   a team member finished its piece (tells the lead and the reviewers)
   team      list | use --workflow ID | propose --ticket K --id Dn --name N [--description D] --role "role :: count|N :: what it does"...
             [--good-for G]... [--not-for N]...   team setups: list them, lead one from this session, or propose a new one
             (the user approves it on the board; it is saved in Workflows and this session leads it)
-  comment   reply --id N --text T | list   answer a review comment (#cN) so the reply shows by the code; list: unanswered ones
+  comment   reply --id N --text T | --text-file FILE | list   answer a review comment (#cN) so the reply shows by the code; list: unanswered ones
   test      add --title T [--steps S] [--expected E] | set --idx N --status pending|pass|fail|blocked [--evidence E] | list
             the test plan of this session's ticket (or this session): draft cases, then verify them with evidence
   run       add --label L --command C [--group launch|console|test|seed|other] [--folder F] | list [--folder F] | remove --label L [--folder F]
@@ -238,7 +238,7 @@ function main(argv: string[]): number {
       option: { type: 'string', multiple: true }, recommend: { type: 'string' }, evidence: { type: 'string', multiple: true },
       ref: { type: 'string', multiple: true }, action: { type: 'string' }, command: { type: 'string' }, force: { type: 'boolean' },
       review: { type: 'string' }, timeout: { type: 'string' }, interval: { type: 'string' }, open: { type: 'boolean' },
-      text: { type: 'string' }, reason: { type: 'string' }, patch: { type: 'string' }, summary: { type: 'string' },
+      text: { type: 'string' }, 'text-file': { type: 'string' }, reason: { type: 'string' }, patch: { type: 'string' }, summary: { type: 'string' },
       'summary-file': { type: 'string' }, file: { type: 'string' }, change: { type: 'string' }, level: { type: 'string' },
       decision: { type: 'string', multiple: true }, jira: { type: 'string' }, idx: { type: 'string' }, status: { type: 'string' }, limit: { type: 'string' },
       skill: { type: 'string' }, folder: { type: 'string' }, model: { type: 'string' }, piece: { type: 'string', multiple: true }, role: { type: 'string', multiple: true }, name: { type: 'string' }, workflow: { type: 'string' }, 'good-for': { type: 'string', multiple: true }, 'not-for': { type: 'string', multiple: true }, of: { type: 'string' }, label: { type: 'string' }, group: { type: 'string' }, steps: { type: 'string' }, expected: { type: 'string' },
@@ -261,6 +261,8 @@ function main(argv: string[]): number {
     if (typeof v !== 'string' || !v) throw new Usage(`--${name} is required`)
     return v
   }
+  // --text-file keeps an answer's line breaks (points, paragraphs); --text is one shell argument.
+  const text = (): string => (o['text-file'] ? readFileSync(o['text-file'], 'utf8') : req('text'))
 
   switch (cmd) {
     case 'register':
@@ -325,7 +327,7 @@ function main(argv: string[]): number {
         if (!o.id?.length) throw new Usage('--id is required')
         const id = Number(o.id[0].replace(/^#?c/i, ''))
         if (!Number.isInteger(id)) throw new Usage('--id is the comment number, e.g. 12 or c12')
-        const c = replyComment(db, id, req('text'))
+        const c = replyComment(db, id, text())
         console.log(`#c${c.id} answered`)
       } else if (sub === 'list') for (const c of openComments(db, sid())) console.log(`#c${c.id} ${c.path}:${c.start_line}-${c.end_line} ${c.text.split('\n')[0]}`)
       else throw new Usage('comment reply | list')
@@ -371,7 +373,7 @@ function main(argv: string[]): number {
       console.log('ok')
       return 0
     case 'reply':
-      for (const id of ids()) b.addToThread(db, id, sid(), req('text'))
+      for (const id of ids()) b.addToThread(db, id, sid(), text())
       console.log('ok')
       return 0
     case 'withdraw':
@@ -394,7 +396,7 @@ function main(argv: string[]): number {
     case 'review-reply': {
       const id = (o.id || [])[0]
       if (!id) throw new Usage('--id is required')
-      b.reviewReply(db, id, req('change'), sid(), req('text'))
+      b.reviewReply(db, id, req('change'), sid(), text())
       console.log('ok')
       return 0
     }

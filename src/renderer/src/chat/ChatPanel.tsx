@@ -11,13 +11,14 @@ import { time, type BoardState } from '../board/types'
 import { errText, type CatalogItem, type ChatStatus } from '../ide/types'
 import ApprovalCard from './ApprovalCard'
 import { latestTodos, toRows, toolSummary, waitingInTerminal, type ToolRow } from './transcript'
+import { MODES } from './modes'
+import { MdCode } from '../ide/CodeBlock'
 
 // The right-hand chat (IDE/D9). Everything waiting on the user for this chat sits above the input:
 // permission prompts, Claude's questions, decisions, reviews and actions.
 // A session running in a terminal can be picked too. If the app owns that terminal, the message is typed into it,
 // exactly as if you typed there (Claude Code queues it if busy). A session in an outside terminal gets a board message instead.
 
-const MODES = [['default', 'Manual'], ['acceptEdits', 'Accept edits'], ['plan', 'Plan'], ['auto', 'Auto']] as const
 const MODELS = [['opus', 'Opus'], ['sonnet', 'Sonnet'], ['haiku', 'Haiku'], ['fable', 'Fable']] as const
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 
@@ -56,6 +57,14 @@ type Props = {
   terminalFor: (session: string) => string | null; showTerminal: (id: string) => void
 }
 
+const storedFold = (session: string): boolean => {
+  try {
+    return localStorage.getItem(`waiting-folded:${session}`) === '1'
+  } catch {
+    return false // storage unavailable: shown open, as by default
+  }
+}
+
 const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refresh, folder, trusted, session, setSession, catalog, terminalFor, showTerminal }, ref) {
   const [events, setEvents] = useState<Record<string, unknown>[]>([])
   const [live, setLive] = useState('')
@@ -64,6 +73,17 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   const [err, setErr] = useState<string | null>(null)
   const [menuIndex, setMenuIndex] = useState(0)
   const [images, setImages] = useState<Img[]>([])
+  // "Waiting on you" can be folded per session; remembered on this computer only (storage can fail: then it shows open).
+  const [folded, setFolded] = useState<Record<string, boolean>>({})
+  const waitingFolded = session ? folded[session] ?? storedFold(session) : false
+  const toggleWaiting = (): void => {
+    if (!session) return
+    setFolded({ ...folded, [session]: !waitingFolded })
+    try {
+      if (waitingFolded) localStorage.removeItem(`waiting-folded:${session}`)
+      else localStorage.setItem(`waiting-folded:${session}`, '1')
+    } catch { /* not remembered; it still folds for now */ }
+  }
   // A message naming another ticket waits here until you choose where it goes (main/context.ts route).
   type Choice = 'here' | 'existing' | 'new'
   const [routing, setRouting] = useState<{ key: string; current: string | null; existing: string | null; text: string; images: Img[] } | null>(null)
@@ -75,10 +95,10 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   const ticket = board.sessions.find((x) => x.id === session)?.ticket ?? null
   const md = useMemo<Components>(() => {
     const link = (kids: React.ReactNode): React.ReactNode => Children.map(kids, (k) => (typeof k === 'string' ? <Linked text={k} ticket={ticket} session={session} /> : k))
-    // Inline code naming a file or definition: a link with a hover preview. Code blocks stay as they are.
+    // Inline code naming a file or definition: a link with a hover preview. Fenced blocks are coloured (ide/CodeBlock).
     const code: Components['code'] = ({ className, children }) => {
       const t = String(children)
-      return !className && !t.includes('\n') && looksLikeRef(t) ? <CodeRef text={t} session={session} /> : <code className={className}>{children}</code>
+      return !className && !t.includes('\n') && looksLikeRef(t) ? <CodeRef text={t} session={session} /> : <MdCode className={className}>{children}</MdCode>
     }
     return { p: ({ children }) => <p>{link(children)}</p>, li: ({ children }) => <li>{link(children)}</li>, code }
   }, [ticket, session])
@@ -261,7 +281,7 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
 
   const approvals = board.approvals.filter((a) => a.session_id === session)
   const informed = board.decisions.filter((d) => d.session === session && d.level === 'inform' && d.status !== 'open').slice(-5).reverse()
-  const decisions = board.decisions.filter((d) => d.session === session && d.status === 'open')
+  const decisions = board.decisions.filter((d) => d.session === session && d.status === 'open' && !d.later_at) // set aside: in Decisions → Later
   const reviews = board.reviews.filter((r) => r.session === session && r.status === 'open')
   const busy = !!status?.busy
   const todos = useMemo(() => latestTodos(events as never[]), [events])
@@ -342,10 +362,14 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
       )}
       {(approvals.length > 0 || decisions.length > 0 || reviews.length > 0) && (
         <div className="chat-waiting">
-          <div className="waiting-title">Waiting on you ({approvals.length + decisions.length + reviews.length})</div>
-          {approvals.map((a) => <ApprovalCard key={a.id} a={a} toTerminal={showChatTerminal} />)}
-          {decisions.map((d) => <DecisionCard key={d.id} d={d} b={board} refresh={refresh} />)}
-          {reviews.map((r) => <ReviewCard key={r.id} r={r} b={board} refresh={refresh} />)}
+          <button className="waiting-title" onClick={toggleWaiting} title={waitingFolded ? 'Show what is waiting' : 'Fold this away; the count stays'}>
+            {waitingFolded ? '▸' : '▾'} Waiting on you ({approvals.length + decisions.length + reviews.length})
+          </button>
+          {!waitingFolded && <>
+            {approvals.map((a) => <ApprovalCard key={a.id} a={a} toTerminal={showChatTerminal} />)}
+            {decisions.map((d) => <DecisionCard key={d.id} d={d} b={board} refresh={refresh} />)}
+            {reviews.map((r) => <ReviewCard key={r.id} r={r} b={board} refresh={refresh} />)}
+          </>}
         </div>
       )}
       <div className="composer">

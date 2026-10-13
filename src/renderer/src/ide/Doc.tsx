@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { errText } from './types'
+import { MdCode } from './CodeBlock'
 
 // One flow doc, rendered, with the status of each code anchor in it.
 type A = { heading: string; docLine: number; file: string; start: number | null; end: number | null; status: 'ok' | 'stale' | 'elsewhere' }
@@ -26,7 +27,7 @@ export default function DocView({ rel }: { rel: string }): React.JSX.Element {
           {stale.map((a) => <div key={a.docLine + a.file} className="ref">line {a.docLine}: {a.file}:{a.start}{a.end !== a.start ? `-${a.end}` : ''} <span className="meta">{a.heading}</span></div>)}
         </div>
       )}
-      <div className="md"><Markdown remarkPlugins={[remarkGfm]}>{doc.content}</Markdown></div>
+      <div className="md"><Markdown remarkPlugins={[remarkGfm]} components={{ code: MdCode }}>{doc.content}</Markdown></div>
     </div>
   )
 }
