@@ -13,7 +13,7 @@ You do not need to install Claude Code, Node or anything else first. The app set
 
 ## Install
 
-1. Open `decision-ide-1.0.0.dmg`.
+1. Open `signoff-ai-<version>.dmg`.
 2. Drag **Signoff AI** onto **Applications**.
 3. Eject the disk image.
 
@@ -48,8 +48,15 @@ Your Claude Code login and settings stay in Claude Code's own files; the app doe
 
 ## Updating
 
-There is no auto-update yet. When you get a newer `.dmg`, drag the new app onto Applications and replace the old one.
-Your data is kept.
+There is no auto-update yet. To update:
+
+1. Quit Signoff AI (⌘Q). Sessions it started end; their conversations stay saved and resume when you open them.
+2. Open the newer `.dmg` and drag **Signoff AI** onto **Applications**. Choose **Replace**.
+3. Open the app. If macOS asks again for access to a folder such as Documents, click **Allow**.
+
+Your data is kept: it lives outside the app (above), and replacing the app does not touch it.
+When a new version also updates the board's format, the app first saves a copy next to it
+(`board.db.bak-v<old version>-<time>`; the newest three are kept), then updates it.
 
 ## Uninstall
 

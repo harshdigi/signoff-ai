@@ -1,6 +1,7 @@
 # Software bill of materials (SBOM)
 
-CycloneDX 1.5 JSON, generated 13 October 2026 (IST) for Signoff AI 1.0.0.
+CycloneDX 1.5 JSON, generated 13 October 2026 (IST) for Signoff AI 1.0.0, updated for 1.0.1 (no dependency changes since 1.0.0;
+only the app's own version changed).
 
 | File | What it lists |
 |---|---|
