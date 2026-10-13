@@ -4,7 +4,7 @@ import type { BoardState } from '../board/types'
 import { base, type Commit, type EditorTab, type ReviewView, type Scope, type Scoped, type ScopedFile, type ScopedSet } from './types'
 import { isTest, ordered } from './review-order'
 
-// Review (Files changed tab): pick a scope, then walk the files as Code and Tests folder trees. Opening a file shows
+// Review (Files changed tab): pick a scope, then the files in folded Code and Tests sections, grouped by folder. Opening a file shows
 // its diff with Prev / Next and "Mark reviewed", so the list is only needed to jump around.
 const LETTER: Record<string, string> = { modified: 'M', added: 'A', deleted: 'D', renamed: 'R', untracked: 'U', conflict: '!' }
 const SCOPE_LABEL: [Scope, string, string][] = [
@@ -14,62 +14,39 @@ const SCOPE_LABEL: [Scope, string, string][] = [
   ['commit', 'Commit', 'One commit'],
   ['uncommitted', 'Uncommitted', 'Not committed yet']
 ]
-type Node = { name: string; dirs: Map<string, Node>; files: ScopedFile[] }
-const tree = (files: ScopedFile[]): Node => {
-  const root: Node = { name: '', dirs: new Map(), files: [] }
-  for (const f of files) {
-    const parts = f.path.split('/')
-    let n = root
-    for (const p of parts.slice(0, -1)) {
-      if (!n.dirs.has(p)) n.dirs.set(p, { name: p, dirs: new Map(), files: [] })
-      n = n.dirs.get(p)!
-    }
-    n.files.push(f)
+// Files grouped by their folder, one level only: a small grey folder line, then its files, all at one indent.
+function Files({ files, set, open, active }: { files: ScopedFile[]; set: ScopedSet; open: (set: ScopedSet, f: ScopedFile) => void; active: string }): React.JSX.Element {
+  const byDir = new Map<string, ScopedFile[]>()
+  for (const f of [...files].sort((a, b) => a.path.localeCompare(b.path))) {
+    const dir = f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : ''
+    byDir.set(dir, [...(byDir.get(dir) ?? []), f])
   }
-  return root
-}
-// "app" > "services" > "checkout" with nothing else in between shows as one folder line.
-const squash = (n: Node): Node => {
-  let cur = n
-  let name = n.name
-  while (cur.files.length === 0 && cur.dirs.size === 1) {
-    cur = [...cur.dirs.values()][0]
-    name = name ? `${name}/${cur.name}` : cur.name
-  }
-  return { ...cur, name }
-}
-const count = (n: Node): { all: number; done: number } => {
-  let all = n.files.length
-  let done = n.files.filter((f) => f.reviewed === 'done').length
-  for (const d of n.dirs.values()) {
-    const c = count(d)
-    all += c.all
-    done += c.done
-  }
-  return { all, done }
-}
-
-function Folder({ node, set, open, active, depth }: { node: Node; set: ScopedSet; open: (set: ScopedSet, f: ScopedFile) => void; active: string; depth: number }): React.JSX.Element {
-  const dirs = [...node.dirs.values()].map(squash).sort((a, b) => a.name.localeCompare(b.name))
-  const body = (
+  return (
     <>
-      {dirs.map((d) => <Folder key={d.name} node={d} set={set} open={open} active={active} depth={depth + 1} />)}
-      {[...node.files].sort((a, b) => a.path.localeCompare(b.path)).map((f) => (
-        <div key={f.path} className={'side-item rv-file' + (active === `diff:${set.root}::${f.path}` ? ' on' : '') + (f.reviewed === 'done' ? ' rv-done' : '')} onClick={() => open(set, f)} title={f.path}>
-          <span className={'st ' + f.status}>{LETTER[f.status]}</span>
-          <span className={'name' + (f.status === 'deleted' ? ' gone' : '')}>{base(f.path)}</span>
-          {f.reviewed === 'done' && <span className="rv-mark" title="Reviewed">✓</span>}
-          {f.reviewed === 'changed' && <span className="rv-mark changed" title="Changed since you reviewed it">●</span>}
+      {[...byDir.entries()].map(([dir, list]) => (
+        <div key={dir} className="rv-group">
+          {dir && <div className="rv-dirname" title={dir}>{dir}/</div>}
+          {list.map((f) => (
+            <div key={f.path} className={'side-item rv-file' + (active === `diff:${set.root}::${f.path}` ? ' on' : '') + (f.reviewed === 'done' ? ' rv-done' : '')} onClick={() => open(set, f)} title={f.path}>
+              <span className={'st ' + f.status}>{LETTER[f.status]}</span>
+              <span className={'name' + (f.status === 'deleted' ? ' gone' : '')}>{base(f.path)}</span>
+              {f.reviewed === 'done' && <span className="rv-mark" title="Reviewed">✓</span>}
+              {f.reviewed === 'changed' && <span className="rv-mark changed" title="Changed since you reviewed it">●</span>}
+            </div>
+          ))}
         </div>
       ))}
     </>
   )
-  if (depth === 0) return body
-  const c = count(node)
+}
+
+// A folded section (Code, Tests…): its name, how many files, and how many you have reviewed.
+function Section({ title, files, children }: { title: string; files: ScopedFile[]; children: React.ReactNode }): React.JSX.Element {
+  const done = files.filter((f) => f.reviewed === 'done').length
   return (
-    <details className="rv-dir" open={c.done < c.all}>
-      <summary><span className="name">{node.name}/</span><span className="n">{c.done}/{c.all}</span></summary>
-      {body}
+    <details className="rv-kind">
+      <summary>{title}<span className="n">{done ? `${done}/${files.length} reviewed` : files.length}</span></summary>
+      {children}
     </details>
   )
 }
@@ -112,8 +89,8 @@ export default function ReviewView({ board, view, setView, scoped, active, openT
         return (
           <div key={set.root} className="rv-repo">
             <div className="side-group" title={set.root}>{base(set.root)}{set.branch ? ` · ⎇ ${set.branch}` : ''}</div>
-            {code.length > 0 && <details className="rv-kind" open><summary>Code <span className="n">{code.length}</span></summary><Folder node={tree(code)} set={set} open={open} active={active} depth={0} /></details>}
-            {tests.length > 0 && <details className="rv-kind" open><summary>Tests <span className="n">{tests.length}</span></summary><Folder node={tree(tests)} set={set} open={open} active={active} depth={0} /></details>}
+            {code.length > 0 && <Section title="Code" files={code}><Files files={code} set={set} open={open} active={active} /></Section>}
+            {tests.length > 0 && <Section title="Tests" files={tests}><Files files={tests} set={set} open={open} active={active} /></Section>}
           </div>
         )
       })}

@@ -3,6 +3,8 @@
 import { Fragment, useEffect, useState } from 'react'
 import { forLater, forProduct, waitingOn, type BoardState } from '../board/types'
 import { base, errText, itemKey, type CatalogItem, type EditorTab, type Pin } from './types'
+import { SideHead } from './SideHead'
+import { Chev } from './icons'
 
 export type View = 'decisions' | 'sessions' | 'search' | 'run' | 'mcps' | 'workflows' | 'skills'
 
@@ -16,7 +18,7 @@ export function DecisionsSideView({ board, openSession, openAll }: { board: Boar
   const later = board.decisions.filter(forLater)
   return (
     <div className="side-body">
-      <div className="side-item" onClick={openAll}><span className="st">◆</span><span className="name">All decisions</span></div>
+      <SideHead title="DECISIONS" actions={[{ icon: 'list', title: 'All decisions: everything waiting, plus history', onClick: openAll }]} />
       <div className="side-group">Waiting on you</div>
       {waiting.length === 0 && <div className="side-empty">Nothing waiting on you.</div>}
       {waiting.map((s) => (
@@ -86,6 +88,10 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
   const kids = (id: string): typeof here => here.filter((s) => s.parent_id === id)
   // A session whose parent is gone or removed shows at the top level.
   const roots = here.filter((s) => !s.parent_id || !ids.has(s.parent_id))
+  const byId = new Map(here.map((s) => [s.id, s]))
+  // Tickets from Start ticket show on their plan session: key, and subtasks done of all (click: the ticket's page).
+  const tickets = board.tickets.filter((t) => t.folder === folder)
+  const plans = new Map(tickets.filter((t) => t.plan_session).map((t) => [t.plan_session!, { key: t.key, done: t.subtasks.filter((x) => x.status === 'done').length, total: t.subtasks.length }]))
   const tree = (s: (typeof here)[number], depth: number): React.JSX.Element => {
     const children = grouped ? kids(s.id) : []
     const shut = folded.has(s.id)
@@ -94,9 +100,10 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
       <Fragment key={s.id}>
         <div className="sess-tree" style={{ paddingLeft: depth * 14 }}>
           {children.length > 0
-            ? <button className="row-act fold" title={shut ? `Show ${children.length}` : 'Collapse'} onClick={fold}>{shut ? '▸' : '▾'}</button>
-            : depth > 0 ? <span className="fold-gap" /> : null}
-          <SessionRow s={s} label={s.title || s.ticket || s.id.slice(0, 8)} where={place(s.cwd)} active={current === s.id} count={open(s.id)} onOpen={() => openSession(s.id)} onRemove={() => removeIt(s.id)} />
+            ? <button className="row-act fold" title={shut ? `Show ${children.length}` : 'Collapse'} onClick={fold}><Chev open={!shut} /></button>
+            : grouped ? <span className="fold-gap" /> : null /* same slot on every row, so names line up */}
+          <SessionRow s={s} label={s.title || s.ticket || s.id.slice(0, 8)} where={place(s.cwd)} active={current === s.id} count={open(s.id)} onOpen={() => openSession(s.id)} onRemove={() => removeIt(s.id)}
+            plan={plans.get(s.id)} openTicket={(key) => openTab({ kind: 'ticket', id: key })} showKey={!grouped || byId.get(s.parent_id ?? '')?.ticket !== s.ticket} />
           {shut && <span className="count" title="Sessions under this one">{children.length}</span>}
         </div>
         {!shut && children.map((c) => tree(c, depth + 1))}
@@ -105,21 +112,20 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
   }
   return (
     <div className="side-body">
-      <div className="side-group">Tickets</div>
-      {board.tickets.filter((t) => t.folder === folder).length === 0 && <div className="side-empty">Start one with "Start ticket" in the toolbar.</div>}
-      {board.tickets.filter((t) => t.folder === folder).map((t) => (
+      <SideHead title="SESSIONS" actions={[
+        grouped
+          ? { icon: 'list', title: 'Show every session on its own line', onClick: () => setView('flat') }
+          : { icon: 'tree', title: 'Group team members and subtask sessions under the session that started them', onClick: () => setView('grouped') },
+        { icon: 'clock', title: 'History: resume a conversation Claude Code saved for this folder (like claude --resume)', onClick: resume },
+        { icon: 'plus', title: 'New session', onClick: newSession }
+      ]} />
+      {/* A ticket from Start ticket whose plan session is not in the list (removed, or another folder's): still reachable. */}
+      {tickets.filter((t) => !t.plan_session || !ids.has(t.plan_session)).map((t) => (
         <div key={t.key} className="side-item" onClick={() => openTab({ kind: 'ticket', id: t.key })}>
-          <span className="st pending">T</span><span className="name">{t.key}{t.title ? ` · ${t.title}` : ''}</span>
-          <span className="dir">{t.subtasks.filter((s) => s.status === 'done').length}/{t.subtasks.length}</span>
+          <span className="pill key-pill">{t.key}</span><span className="name">{t.title ?? 'Ticket'}</span>
+          <span className="dir">{t.subtasks.filter((x) => x.status === 'done').length}/{t.subtasks.length}</span>
         </div>
       ))}
-      <div className="side-group">Sessions</div>
-      <div className="side-item" onClick={newSession}><span className="st">＋</span><span className="name">New session</span></div>
-      <div className="side-item" onClick={resume} title="Continue a conversation Claude Code saved for this folder, like claude --resume"><span className="st">↺</span><span className="name">Resume a Claude conversation…</span></div>
-      <div className="mode-toggle sess-view">
-        <button className={grouped ? 'on' : ''} onClick={() => setView('grouped')} title="Team members and subtask sessions under the session that started them">Grouped</button>
-        <button className={grouped ? '' : 'on'} onClick={() => setView('flat')} title="Every session on its own line">Individual</button>
-      </div>
       {(grouped ? roots : here).map((s) => tree(s, 0))}
       {removed.length > 0 && (
         <>
@@ -137,9 +143,14 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
 }
 
 // One row: click to open; ✎ renames in place (Enter saves, Esc cancels); × asks once, then removes.
-export function SessionRow({ s, label, where, active, count, onOpen, onRemove }: {
+// plan: this session plans a ticket (Start ticket): its subtasks' progress, and a link to the ticket's page.
+export function SessionRow({ s, label, where, active, count, onOpen, onRemove, plan, openTicket, showKey = true }: {
   s: BoardState['sessions'][number]; label: string; where: string | null; active: boolean; count: number; onOpen: () => void; onRemove: () => void
+  plan?: { key: string; done: number; total: number }; openTicket?: (key: string) => void
+  showKey?: boolean // false under a parent on the same ticket: the key is already shown there
 }): React.JSX.Element {
+  // The issue key (from Start ticket, its branch, or a ticket link in its first message), the folder, the team role.
+  const meta = [showKey && s.ticket && !label.startsWith(s.ticket) ? s.ticket : null, where, s.role && s.role !== label ? s.role : null].filter((x): x is string => !!x)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(label)
   const [confirm, setConfirm] = useState(false)
@@ -155,10 +166,14 @@ export function SessionRow({ s, label, where, active, count, onOpen, onRemove }:
   )
   return (
     <div className={'side-item session-row' + (active ? ' on' : '')} onClick={onOpen} title={s.description || ''}>
-      <span className={'state-dot ' + s.state} /><span className="name">{label}</span>
-      {s.role && <span className="pill role-pill">{s.role}</span>}
-      {where && <span className="dir" title={`Runs in ${s.cwd}: its MCPs and settings come from there`}>{where}</span>}
-      {s.via !== 'chat' && <span className="tag" title={s.tmux ? 'Started in a Terminal window; shared, so you can use it here too' : 'Started in a Terminal window without the shared wrapper; the app can only leave it messages'}>Terminal</span>}
+      <span className={'state-dot ' + s.state} />
+      {/* Two quiet lines: the name, then one grey line with the issue key, where it runs and its team role. */}
+      <span className="sess-text">
+        <span className="name">{label}</span>
+        {meta.length > 0 && <span className="sess-meta" title={where ? `Runs in ${s.cwd}: its MCPs and settings come from there` : undefined}>{meta.join(' · ')}</span>}
+      </span>
+      {s.via !== 'chat' && <span className="sess-term" title={s.tmux ? 'Started in a Terminal window; shared, so you can use it here too' : 'Started in a Terminal window without the shared wrapper; the app can only leave it messages'}>›_</span>}
+      {plan && <button className="row-act plan" title={`${plan.key}: ${plan.done} of ${plan.total} subtasks done. Open the ticket`} onClick={(e) => { e.stopPropagation(); openTicket?.(plan.key) }}>{plan.done}/{plan.total}</button>}
       {count > 0 && <span className="count">{count}</span>}
       {confirm ? (
         <span className="row-confirm" onClick={(e) => e.stopPropagation()}>
@@ -190,7 +205,10 @@ export function SkillsView({ catalog, run, pins, togglePin, created }: {
   const groups: [string, CatalogItem[]][] = [['Skills', shown.filter((c) => c.kind === 'skill')], ['Commands', shown.filter((c) => c.kind === 'command')], ['Agents', shown.filter((c) => c.kind === 'agent')]]
   return (
     <div className="side-body">
-      {making ? <NewSkillForm done={(ok) => { setMaking(false); if (ok) created() }} /> : <button className="wide" onClick={() => setMaking(true)}>New skill…</button>}
+      <SideHead title="SKILLS & AGENTS" actions={[making
+        ? { icon: 'close', title: 'Close', onClick: () => setMaking(false) }
+        : { icon: 'plus', title: 'New skill', onClick: () => setMaking(true) }]} />
+      {making && <NewSkillForm done={(ok) => { setMaking(false); if (ok) created() }} />}
       <input className="side-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter skills and agents" />
       {nearby && (
         <details className="nearby">

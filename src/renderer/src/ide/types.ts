@@ -25,7 +25,8 @@ export type Pin = { key: string; label: string }
 // workflows.ts; line: the team in one line, e.g. "1 implementer + 1 reviewer".
 export type Role = { role: string; count: number | null; does: string }
 export type Workflow = { id: string; name: string; description: string; team: Role[]; goodFor: string[]; notFor: string[]; builtIn: boolean; line: string }
-export type ChatStatus = { session: string; running: boolean; busy: boolean }
+export type TerminalMenu = { question: string; detail: string[]; options: string[]; selected: number }
+export type ChatStatus = { session: string; running: boolean; busy: boolean; menu?: TerminalMenu | null }
 export type Term = { id: string; title: string; exited: boolean; session: string | null }  // session: the Claude session in it, if any
 
 // Editor tabs in the middle area. Decisions and Session are always there; Session shows the selected session.

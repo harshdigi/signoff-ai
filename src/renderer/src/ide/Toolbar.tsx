@@ -1,81 +1,103 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { useState } from 'react'
+import { Chev, Icon } from './icons'
 import { base, type CatalogItem, type Task, type Workspace } from './types'
 
-// Top bar: folder menu, run buttons (IDE/D13), skill quick actions (IDE/D14), palette.
-// A button shows only when the folder or the user's setup has something behind it.
+// Top bar, one line at a fixed height:
+// - left: where you are (folder ▾, and the git branch when the folder is a repo);
+// - middle: one search box (⌘K);
+// - right: icons for Run ▾, Review ▾, Skills ▾ and Commands, then Start ticket as the main action.
+// Pinned and quick skills (Describe ticket, Create PR, Update docs) live in the Skills menu, so long names never
+// widen or grow the bar. Every icon has a tooltip with its name and shortcut.
 
 type Props = {
-  ws: Workspace; tasks: Task[]; catalog: CatalogItem[]; trusted: boolean
+  fullScreen: boolean; ws: Workspace; branch: string | null
+  sessionName: string | null // shown when the left menu is closed, so you still see which session is open
+   tasks: Task[]; catalog: CatalogItem[]; trusted: boolean
   pickFolder: () => void; openFolder: (p: string) => void
   runTask: (t: Task) => void; runSkill: (c: CatalogItem) => void; review: () => void; palette: () => void; search: () => void; startTicket: () => void
-  pinned: { label: string; item: CatalogItem }[]; runPinned: (c: CatalogItem) => void
+  pinned: { label: string; item: CatalogItem }[]; runPinned: (c: CatalogItem) => void; browseSkills: () => void
 }
 
-// Start ticket is built in (the pipeline); these appear when you have a skill for them.
+// Start ticket is built in (the pipeline); these show in the Skills menu when you have a skill for them.
 const QUICK: [CatalogItem['role'], string][] = [['describe-ticket', 'Describe ticket'], ['create-pr', 'Create PR'], ['docs', 'Update docs']]
+type Menu = 'folder' | 'run' | 'review' | 'skills'
 
-export default function Toolbar({ ws, tasks, catalog, trusted, pickFolder, openFolder, runTask, runSkill, review, palette, search, startTicket, pinned, runPinned }: Props): React.JSX.Element {
-  const [menu, setMenu] = useState<'folder' | 'tasks' | 'review' | null>(null)
-  const first = (g: Task['group']): Task | undefined => tasks.find((t) => t.group === g)
-  const launch = first('launch')
-  const test = first('test')
-  const seed = first('seed')
-  const toggle = (m: 'folder' | 'tasks' | 'review'): void => setMenu(menu === m ? null : m)
+export default function Toolbar(p: Props): React.JSX.Element {
+  const { ws, branch, tasks, catalog, trusted } = p
+  const [menu, setMenu] = useState<Menu | null>(null)
+  const toggle = (m: Menu): void => setMenu(menu === m ? null : m)
+  const pick = (f: () => void) => (): void => { setMenu(null); f() }
+  const launch = tasks.find((t) => t.group === 'launch')
+  const quick = QUICK.flatMap(([role, label]) => { const c = catalog.find((x) => x.role === role); return c ? [{ label, c }] : [] })
   return (
-    <div className="toolbar" onMouseLeave={() => setMenu(null)}>
-      <div className="tb-menu">
-        <button className="tb-folder" onClick={() => toggle('folder')}>{ws.current ? base(ws.current) : 'Open Folder…'} ▾</button>
-        {menu === 'folder' && (
-          <div className="dropdown">
-            <div onClick={() => { setMenu(null); pickFolder() }}>Open Folder…</div>
-            {ws.recent.length > 0 && <div className="dd-head">Recent</div>}
-            {ws.recent.map((p) => <div key={p} onClick={() => { setMenu(null); openFolder(p) }} title={p}>{base(p)} <span className="meta">{p}</span></div>)}
-          </div>
-        )}
-      </div>
-      <div className="tb-group">
-        {launch && <button className="tb-run" disabled={!trusted} onClick={() => runTask(launch)} title={launch.command}>▶ Launch</button>}
-        {test && <button disabled={!trusted} onClick={() => runTask(test)} title={test.command}>Run tests</button>}
-        {seed && <button disabled={!trusted} onClick={() => runTask(seed)} title={seed.command}>Seed DB</button>}
-        {tasks.length > 0 && (
-          <div className="tb-menu">
-            <button disabled={!trusted} onClick={() => toggle('tasks')}>Tasks ▾</button>
-            {menu === 'tasks' && (
-              <div className="dropdown">
-                {tasks.map((t) => <div key={t.id} onClick={() => { setMenu(null); runTask(t) }} title={t.command}>{t.label} <span className="meta">{t.command}</span></div>)}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      <div className="tb-group">
-        <button disabled={!trusted} onClick={startTicket} title="Plan a ticket, then a branch, worktree and chat per subtask">Start ticket</button>
+    <div className={'toolbar' + (p.fullScreen ? ' full' : '')} onMouseLeave={() => setMenu(null)}>
+      <div className="tb-where">
         <div className="tb-menu">
-          <button disabled={!trusted} onClick={() => toggle('review')}>Review changes ▾</button>
-          {menu === 'review' && (
+          <button className="tb-btn tb-folder" onClick={() => toggle('folder')} title={ws.current ?? 'Open a folder'}>
+            <Icon name="folder" />{ws.current ? base(ws.current) : 'Open Folder…'}<Chev open />
+          </button>
+          {menu === 'folder' && (
             <div className="dropdown">
-              <div onClick={() => { setMenu(null); review() }}>Review uncommitted changes <span className="meta">plain prompt</span></div>
+              <div onClick={pick(p.pickFolder)}>Open Folder…</div>
+              {ws.recent.length > 0 && <div className="dd-head">Recent</div>}
+              {ws.recent.map((r) => <div key={r} onClick={pick(() => p.openFolder(r))} title={r}>{base(r)} <span className="meta">{r}</span></div>)}
+            </div>
+          )}
+        </div>
+        {branch && <><span className="tb-sep">/</span><span className="tb-branch" title={`Current git branch: ${branch}`}><Icon name="branch" />{branch}</span></>}
+        {p.sessionName && <><span className="tb-sep">/</span><span className="tb-branch" title={`Open session: ${p.sessionName}`}><Icon name="chat" />{p.sessionName}</span></>}
+      </div>
+
+      <button className="tb-search" onClick={p.search} title="Search code, files, decisions and chats (⌘K)">
+        <Icon name="search" /><span>Search</span><kbd>⌘K</kbd>
+      </button>
+
+      <div className="tb-actions">
+        <div className="tb-menu">
+          <button className="tb-btn tb-icon tb-run" disabled={!trusted || !tasks.length}
+            onClick={() => (launch ? p.runTask(launch) : toggle('run'))}
+            title={!tasks.length ? 'Run: no app, test or seed command found in this folder' : launch ? `Run the app: ${launch.command}` : 'Run a task'}>
+            <Icon name="play" />
+          </button>
+          {tasks.length > 0 && <button className="tb-btn tb-caret" disabled={!trusted} onClick={() => toggle('run')} title="Tests, seed and every task"><Chev open /></button>}
+          {menu === 'run' && (
+            <div className="dropdown right">
+              {tasks.map((t) => <div key={t.id} onClick={pick(() => p.runTask(t))} title={t.command}>{t.label} <span className="meta">{t.command}</span></div>)}
+            </div>
+          )}
+        </div>
+        <div className="tb-menu">
+          <button className="tb-btn tb-icon" disabled={!trusted} onClick={() => toggle('review')} title="Review changes"><Icon name="review" /></button>
+          {menu === 'review' && (
+            <div className="dropdown right">
+              <div onClick={pick(p.review)}>Review uncommitted changes <span className="meta">plain prompt</span></div>
               {catalog.filter((c) => c.role === 'review').map((c) => (
-                <div key={c.kind + c.name} onClick={() => { setMenu(null); runSkill(c) }} title={c.description}>{c.name} <span className="meta">{c.kind} · {c.source}</span></div>
+                <div key={c.kind + c.name} onClick={pick(() => p.runSkill(c))} title={c.description}>{c.name} <span className="meta">{c.kind} · {c.source}</span></div>
               ))}
             </div>
           )}
         </div>
-        {QUICK.map(([role, label]) => {
-          const c = catalog.find((x) => x.role === role)
-          return c && <button key={role} disabled={!trusted} onClick={() => runSkill(c)} title={`${c.invoke} — ${c.description}`}>{label}</button>
-        })}
-      </div>
-      {pinned.length > 0 && (
-        <div className="tb-group">
-          {pinned.map((p) => <button key={p.item.kind + p.item.name} className="tb-pin" disabled={!trusted} onClick={() => runPinned(p.item)} title={`${p.item.invoke}: ${p.item.description}`}>{p.label}</button>)}
+        <div className="tb-menu">
+          <button className="tb-btn tb-icon" onClick={() => toggle('skills')} title="Skills: pinned and quick actions"><Icon name="spark" /></button>
+          {menu === 'skills' && (
+            <div className="dropdown right">
+              {p.pinned.length > 0 && <div className="dd-head">Pinned</div>}
+              {p.pinned.map((x) => <div key={x.item.kind + x.item.name} className={trusted ? '' : 'off'} onClick={trusted ? pick(() => p.runPinned(x.item)) : undefined} title={`${x.item.invoke}: ${x.item.description}`}>★ {x.label}</div>)}
+              {quick.length > 0 && <div className="dd-head">Quick</div>}
+              {quick.map(({ label, c }) => <div key={label} className={trusted ? '' : 'off'} onClick={trusted ? pick(() => p.runSkill(c)) : undefined} title={`${c.invoke}: ${c.description}`}>{label}</div>)}
+              <div className="dd-head">All skills</div>
+              <div onClick={pick(p.browseSkills)}>Browse and pin skills…</div>
+            </div>
+          )}
         </div>
-      )}
-      <span className="grow" />
-      <button className="tb-palette" onClick={search} title="Search decisions, reviews, chats and docs (⌘K)">⌕ Search</button>
-      <button className="tb-palette" onClick={palette} title="Command palette (⇧⌘P)">⌘ Commands</button>
+        <button className="tb-btn tb-icon" onClick={p.palette} title="Commands (⇧⌘P)"><Icon name="command" /></button>
+        <span className="tb-div" />
+        <button className="tb-btn tb-primary" disabled={!trusted} onClick={p.startTicket} title="Plan a ticket, then a branch, worktree and chat per subtask">
+          <Icon name="ticket" />Start ticket
+        </button>
+      </div>
     </div>
   )
 }

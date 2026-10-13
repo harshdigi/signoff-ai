@@ -16,9 +16,11 @@ import { base, errText, tabKey, type Changes, type ChangeSet, type DiffMode, typ
 import { ordered, type Entry } from './review-order'
 import { CommentBox, CommentsPanel, DraftBar, type Selection } from './Comments'
 
-// The middle area: VS Code-style tabs over the Decisions inbox, session pages, reviews and file diffs.
+// The middle area: the page picked in the left bar (a session, or all decisions), and files opened on top of it.
+// No tab bar for the page itself; a slim strip shows only while a file, diff, ticket or doc is open:
+// "← <page>" goes back to the page, each opened item has its ×.
 type Props = {
-  tabs: EditorTab[]; active: string; setActive: (k: string) => void; close: (k: string) => void
+  tabs: EditorTab[]; page: 'session' | 'decisions'; active: string; setActive: (k: string) => void; close: (k: string) => void
   board: BoardState; refresh: () => void; changes: Changes | null; scoped: Scoped | null; reloadScoped: () => void
   openTab: (t: EditorTab) => void; replaceTab: (oldKey: string, t: EditorTab) => void; dark: boolean
   mode: DiffMode
@@ -29,8 +31,11 @@ type Props = {
   sessionTitle: string; sessionPage: React.ReactNode
 }
 
-export default function Editor({ tabs, active, setActive, close, board, refresh, changes, scoped, reloadScoped, openTab, replaceTab, dark, mode, breakAt, commentSession, openChat, ask, sessionTitle, sessionPage }: Props): React.JSX.Element {
+export default function Editor({ tabs, page, active, setActive, close, board, refresh, changes, scoped, reloadScoped, openTab, replaceTab, dark, mode, breakAt, commentSession, openChat, ask, sessionTitle, sessionPage }: Props): React.JSX.Element {
   const tab = tabs.find((t) => tabKey(t) === active) ?? tabs[0]
+  const isPage = (t: EditorTab): boolean => t.kind === 'session' || t.kind === 'decisions'
+  const lastPage: EditorTab = { kind: page } // the page to go back to: the one shown now, else the one shown last
+  const opened = tabs.filter((t) => !isPage(t))
   const title = (t: EditorTab): string =>
     t.kind === 'decisions' ? 'All decisions'
     : t.kind === 'session' ? sessionTitle
@@ -40,17 +45,22 @@ export default function Editor({ tabs, active, setActive, close, board, refresh,
     : base(t.id)
   return (
     <div className="editor">
-      <div className="editor-tabs">
-        {tabs.map((t) => {
-          const k = tabKey(t)
-          return (
-            <div key={k} className={'etab' + (k === tabKey(tab) ? ' on' : '')} onClick={() => setActive(k)} title={t.kind === 'diff' || t.kind === 'file' ? t.path : undefined}>
-              {title(t)}
-              {t.kind !== 'decisions' && t.kind !== 'session' && <span className="x" onClick={(e) => { e.stopPropagation(); close(k) }}>×</span>}
-            </div>
-          )
-        })}
-      </div>
+      {opened.length > 0 && (
+        <div className="editor-tabs">
+          <div className={'etab page' + (isPage(tab) ? ' on' : '')} onClick={() => setActive(page)} title="Back to the page">
+            {isPage(tab) ? '' : '← '}{title(lastPage)}
+          </div>
+          {opened.map((t) => {
+            const k = tabKey(t)
+            return (
+              <div key={k} className={'etab' + (k === tabKey(tab) ? ' on' : '')} onClick={() => setActive(k)} title={t.kind === 'diff' || t.kind === 'file' ? t.path : undefined}>
+                {title(t)}
+                <span className="x" onClick={(e) => { e.stopPropagation(); close(k) }}>×</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
       <div className="editor-body">
         {tab.kind === 'decisions' && <General b={board} refresh={refresh} open={openChat} />}
         {/* Always mounted, so the session's chat keeps its state while another tab is shown. */}
@@ -75,7 +85,7 @@ export default function Editor({ tabs, active, setActive, close, board, refresh,
 }
 
 // With a review view: Prev / Next through its files (j / k), and Reviewed (with "Reviewed → Next" to keep going).
-function FileDiffView({ set, path, view, mode, dark, ask, openTab, entries, go, reload, breakAt, board, commentSession, openChat }: {
+export function FileDiffView({ set, path, view, mode, dark, ask, openTab, entries, go, reload, breakAt, board, commentSession, openChat }: {
   set: ChangeSet | null; path: string; view?: ReviewView; mode: DiffMode; dark: boolean; ask: (t: string) => void; openTab: (t: EditorTab) => void
   entries?: Entry[]; go?: (e: Entry) => void; reload?: () => void
   breakAt?: (root: string, path: string, line: number) => boolean  // false: no debugger attached
