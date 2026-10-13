@@ -119,7 +119,7 @@ More in [INSTALL.md](INSTALL.md).
 
 ```bash
 npm ci
-npm test                    # 199 tests
+npm test
 npm run dist:mac:friends    # dist/signoff-ai-<version>.dmg
 npm run dev                 # run in development
 ```
