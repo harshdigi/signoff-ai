@@ -331,9 +331,14 @@ export function splitPatch(text: string, defaultFile = 'proposal'): { file: stri
   for (const line of text.split('\n')) {
     let m = DIFF_GIT.exec(line)
     if (m) { cur = start(m[2]); cur.lines.push(line); continue }
+    // A "--- a/…" line after a hunk starts the next file (plain diffs of several files, no "diff --git" lines);
+    // its "+++ b/…" line then names it.
+    if (/^--- \S/.test(line) && cur?.lines.some((l) => l.startsWith('@@'))) { cur = start(defaultFile); cur.lines.push(line); continue }
     m = PLUS_FILE.exec(line)
     if (m && (cur === null || !cur.lines.some((l) => l.startsWith('+++')))) {
-      if (cur === null || (cur.file !== m[1] && cur.lines.some((l) => !/^(diff|---|index)/.test(l)))) cur = start(m[1])
+      const onlyHeaders = cur !== null && cur.lines.every((l) => /^(diff|---|index)/.test(l))
+      if (cur === null || (cur.file !== m[1] && !onlyHeaders)) cur = start(m[1])
+      else if (onlyHeaders) cur.file = m[1] // a "--- a/…" line came first: the "+++ b/…" line names this file
       cur.lines.push(line); continue
     }
     m = HASH_FILE.exec(line)

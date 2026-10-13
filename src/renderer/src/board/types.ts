@@ -21,7 +21,7 @@ export interface Session {
   id: string; title: string | null; description: string | null; note: string | null; ticket: string | null
   state: 'starting' | 'working' | 'waiting' | 'done'; branch: string | null; cwd: string | null; archived: boolean
   started_at: string; updated_at: string; pending: number
-  via: string | null; mode: string | null; model: string | null
+  via: string | null; mode: string | null; model: string | null; effort: string | null
   parent_id: string | null; context_used: number | null; context_window: number | null; workflow: string | null; role: string | null; tmux: string | null
 }
 export interface Approval {
@@ -63,3 +63,16 @@ export const forLater = (d: Decision): boolean => d.status === 'open' && !!d.lat
 // What a session waits on you for: open decisions (not those sent to product) and reviews, and permission prompts.
 export const waitingOn = (b: BoardState, sid: string): number =>
   b.decisions.filter((d) => d.session === sid && onYou(d)).length + b.reviews.filter((r) => r.session === sid && r.status === 'open').length + b.approvals.filter((a) => a.session_id === sid).length
+
+// How long ago, short: "just now", "5 min ago", "3 h ago", "yesterday", "4 days ago"; older: the date (time()).
+export const ago = (s: string | null | undefined, now = Date.now()): string => {
+  if (!s) return ''
+  const t = new Date(s).getTime()
+  if (isNaN(t)) return s
+  const min = Math.round((now - t) / 60000)
+  if (min < 1) return 'just now'
+  if (min < 60) return `${min} min ago`
+  if (min < 24 * 60) return `${Math.round(min / 60)} h ago`
+  const days = Math.round(min / (24 * 60))
+  return days === 1 ? 'yesterday' : days < 7 ? `${days} days ago` : time(s)
+}

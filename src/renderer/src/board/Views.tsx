@@ -21,7 +21,7 @@ function DecisionRow({ d, b, refresh }: { d: Decision; b: BoardState; refresh: (
         <span className="crow-q">{d.question}</span><span className="crow-a">{result}</span>
         <span className="meta">{time(d.answered_at || d.withdrawn_at || d.created_at)}</span>
       </summary>
-      <DecisionCard d={d} b={b} refresh={refresh} />
+      <DecisionCard d={d} b={b} refresh={refresh} startOpen />
     </details>
   )
 }

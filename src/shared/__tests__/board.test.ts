@@ -150,6 +150,10 @@ describe('reviews', () => {
     expect(b.splitPatch(PATCH).map((c) => c.file)).toEqual(['db/migrate/x_add_vat.rb', 'packs/billing/app/models/invoice.rb'])
     const git = 'diff --git a/a.rb b/a.rb\n--- a/a.rb\n+++ b/a.rb\n@@ -1 +1 @@\n-x\n+y\ndiff --git a/b.rb b/b.rb\n--- a/b.rb\n+++ b/b.rb\n-p\n+q\n'
     expect(b.splitPatch(git).map((c) => c.file)).toEqual(['a.rb', 'b.rb'])
+    // A plain unified diff starts with "--- a/…": the file is named by its "+++ b/…" line, not "proposal".
+    expect(b.splitPatch('--- a/src/x.ts\n+++ b/src/x.ts\n@@ -1 +1 @@\n-a\n+b').map((c) => c.file)).toEqual(['src/x.ts'])
+    // Several files in a plain diff: each "--- a/…" after a hunk starts the next one.
+    expect(b.splitPatch('--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-a\n+b\n--- a/y.ts\n+++ b/y.ts\n@@ -2 +2 @@\n-c\n+d').map((c) => c.file)).toEqual(['x.ts', 'y.ts'])
   })
 
   it('submit needs every file settled unless accept-all', () => {
