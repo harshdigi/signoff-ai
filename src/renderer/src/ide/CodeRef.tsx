@@ -3,6 +3,9 @@
 import { useRef, useState } from 'react'
 import { around } from './code-ref'
 import { base, errText } from './types'
+import { CodeLine } from './CodeBlock'
+import { useColoredLines } from './use-colored-lines'
+import { languageForPath } from './languages'
 
 // A code reference in a message: it looks like a link. Hover shows the code around it; click opens the file there.
 // - Looked up only on hover or click (main/code-search.ts resolveRef), then remembered while the app runs.
@@ -26,10 +29,11 @@ const fileText = (r: Ref): Promise<string> => {
   return p
 }
 function Preview({ ref_, lines }: { ref_: Ref; lines: { n: number; text: string }[] }): React.JSX.Element {
+  const html = useColoredLines(lines.map((l) => l.text), languageForPath(ref_.path))
   return (
     <>
       <span className="cref-head">{base(ref_.root)}/{ref_.path}:{ref_.line}</span>
-      <span className="cref-code">{lines.map((l) => <span key={l.n} className={'cref-ln' + (l.n === ref_.line ? ' on' : '')}><i>{l.n}</i>{l.text || ' '}</span>)}</span>
+      <span className="cref-code">{lines.map((l, i) => <span key={l.n} className={'cref-ln' + (l.n === ref_.line ? ' on' : '')}><i>{l.n}</i><CodeLine html={html?.[i]} text={l.text} /></span>)}</span>
     </>
   )
 }

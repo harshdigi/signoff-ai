@@ -16,6 +16,12 @@ export function languageOf(path: string): string {
   return BY_EXT[name.split('.').pop() || ''] || 'plaintext'
 }
 
+// A file's language for colouring, or null when Monaco has none for it (the code then stays one colour).
+export function languageForPath(path: string): string | null {
+  const l = languageOf(path)
+  return l === 'plaintext' ? null : l
+}
+
 const KNOWN = new Set(Object.values(BY_EXT))
 const ALIASES: Record<string, string> = { bash: 'shell', zsh: 'shell', console: 'shell' }
 

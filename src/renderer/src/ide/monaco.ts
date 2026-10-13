@@ -26,4 +26,10 @@ export async function colorize(code: string, language: string, dark: boolean): P
   return monaco.editor.colorize(code, language, { tabSize: 2 })
 }
 
+// The same, one HTML string per line of the code (Monaco ends each line with <br/>).
+export async function colorizeLines(code: string, language: string, dark: boolean): Promise<string[]> {
+  const n = code.split('\n').length
+  return (await colorize(code, language, dark)).split(/<br\s*\/?>/).slice(0, n)
+}
+
 export { languageOf } from './languages'

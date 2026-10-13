@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Rich from '../board/Rich'
 import { time, type Comment } from '../board/types'
 import { errText } from './types'
+import { CodePre } from './CodeBlock'
+import { languageForPath } from './languages'
 
 // Code comments in review: write one on selected lines, keep it as a draft to batch, or send it straight to the chat.
 // Claude's answer (signoff comment reply) shows here, next to the code, as well as in the chat.
@@ -41,7 +43,7 @@ export function CommentsPanel({ list, reveal }: { list: Comment[]; reveal: (line
       {[...list].reverse().map((c) => (
         <div key={c.id} className={'cm-item st-' + c.status}>
           <div className="row"><button className="link" onClick={() => reveal(c.start_line)}>#c{c.id} · {lines(c)}</button><span className={'pill ' + (c.status === 'answered' ? 'answered' : c.status === 'sent' ? 'open' : '')}>{c.status === 'sent' ? 'waiting for Claude' : c.status}</span></div>
-          <pre className="cm-code">{c.code.split('\n').slice(0, 4).join('\n')}{c.code.split('\n').length > 4 ? '\n…' : ''}</pre>
+          <CodePre className="cm-code" code={c.code.split('\n').slice(0, 4).join('\n') + (c.code.split('\n').length > 4 ? '\n…' : '')} language={languageForPath(c.path)} />
           {editing?.id === c.id
             ? <><textarea value={editing.text} onChange={(e) => setEditing({ ...editing, text: e.target.value })} /><div className="bar"><button className="primary" onClick={() => { run(window.api.comments.edit(c.id, editing.text)); setEditing(null) }}>Save</button><button onClick={() => setEditing(null)}>Cancel</button></div></>
             : <div className="cm-text">{c.text}</div>}

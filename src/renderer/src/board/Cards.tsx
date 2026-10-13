@@ -9,6 +9,9 @@ import { split2 } from './option'
 import { SetupPreview } from '../ide/Workflows'
 import type { Workflow } from '../ide/types'
 import { forLater, forProduct, label, time, type BoardState, type Change, type Decision, type Review, type ThreadEntry } from './types'
+import { CodeDiff, CodeLine, CodePre } from '../ide/CodeBlock'
+import { useColoredLines } from '../ide/use-colored-lines'
+import { languageForPath } from '../ide/languages'
 
 // The session a card came from, as a link to its chat. A session no longer on the board stays plain text.
 function SessionLink({ b, id }: { b: BoardState; id: string | null }): React.JSX.Element {
@@ -33,6 +36,7 @@ function Evidence({ d, item, show }: { d: Decision; item: string; show: boolean 
   const [ref, note] = split2(item)
   const [open, setOpen] = useState(show)
   const [snip, setSnip] = useState<{ file: string; from: number; to: number; lines: { n: number; text: string }[] } | null | undefined>(undefined)
+  const colored = useColoredLines(snip?.lines.map((l) => l.text) ?? [], snip ? languageForPath(snip.file) : null)
   useEffect(() => {
     if (open && snip === undefined && d.session) void window.api.evidence(d.session, ref).then(setSnip, () => setSnip(null))
   }, [open, snip, d.session, ref])
@@ -40,7 +44,7 @@ function Evidence({ d, item, show }: { d: Decision; item: string; show: boolean 
     <div className="ev2">
       <button className="link ev-ref" onClick={() => setOpen(!open)} title="Show or hide the code">{open ? '▾' : '▸'} {ref}</button>
       {note && <span className="ev-note"> {note}</span>}
-      {open && snip && <pre className="snip">{snip.lines.map((l) => <div key={l.n} className={l.n >= snip.from && l.n <= snip.to ? 'hit' : ''}><span className="ln">{l.n}</span>{l.text}</div>)}</pre>}
+      {open && snip && <pre className="snip">{snip.lines.map((l, i) => <div key={l.n} className={l.n >= snip.from && l.n <= snip.to ? 'hit' : ''}><span className="ln">{l.n}</span><CodeLine html={colored?.[i]} text={l.text} /></div>)}</pre>}
       {open && snip === null && <div className="meta">Could not show this code (no line number, or the file is not in the session folder).</div>}
     </div>
   )
@@ -104,7 +108,7 @@ export function DecisionCard({ d, b, refresh, onRun }: { d: Decision; b: BoardSt
       )}
       {d.if_wrong && <div className="ifwrong"><b>If wrong:</b> {d.if_wrong}</div>}
       {d.evidence.length > 0 && <div className="evs"><div className="ctx-h">Evidence</div>{d.evidence.map((e) => <Evidence key={e} d={d} item={e} show={open} />)}</div>}
-      {d.command && <pre className="cmd">$ {d.command}</pre>}
+      {d.command && <CodePre className="cmd" code={d.command} language="shell" />}
       {d.status === 'withdrawn' && (
         <div className="msg"><b>Withdrawn:</b> {d.withdrawn_reason}{' '}
           <button onClick={() => run(() => window.api.board.reopen(d.id))} title="Open it again; its session is told to wait for your answer">Reopen</button></div>
@@ -169,12 +173,6 @@ export function DecisionCard({ d, b, refresh, onRun }: { d: Decision; b: BoardSt
       {err && <div className="err">{err}</div>}
     </div>
   )
-}
-
-function DiffView({ diff }: { diff: string }): React.JSX.Element {
-  return <pre className="diff">{diff.split('\n').map((l, i) => (
-    <div key={i} className={/^(\+\+\+|---|diff |index |#\s)/.test(l) ? 'dl-head' : l.startsWith('@@') ? 'dl-hunk' : l.startsWith('+') ? 'dl-add' : l.startsWith('-') ? 'dl-del' : ''}>{l || ' '}</div>
-  ))}</pre>
 }
 
 export function ReviewCard({ r, b, refresh }: { r: Review; b: BoardState; refresh: () => void }): React.JSX.Element {
@@ -275,7 +273,7 @@ function ChangeDiff({ review, change }: { review: string; change: Change }): Rea
   return (
     <details open={change.diff !== null && change.lines <= 40} onToggle={(e) => load((e.target as HTMLDetailsElement).open)}>
       <summary className="meta">Diff ({change.lines} lines)</summary>
-      {diff !== null ? <DiffView diff={diff} /> : <div className="meta">Loading…</div>}
+      {diff !== null ? <CodeDiff diff={diff} language={languageForPath(change.file)} /> : <div className="meta">Loading…</div>}
     </details>
   )
 }

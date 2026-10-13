@@ -6,7 +6,8 @@ import remarkGfm from 'remark-gfm'
 import type { Approval } from '../board/types'
 import { errText } from '../ide/types'
 import { toolSummary } from './transcript'
-import { MdCode } from '../ide/CodeBlock'
+import { CodeDiff, CodePre, MdCode } from '../ide/CodeBlock'
+import { languageForPath } from '../ide/languages'
 
 type Question = { question: string; header?: string; options: { label: string; description?: string }[]; multiSelect?: boolean }
 
@@ -22,12 +23,14 @@ export default function ApprovalCard({ a, toTerminal }: { a: Approval; toTermina
   if (a.outward) return <DraftCard a={a} input={input} answer={answer} err={err} />
   if (a.tool_name === 'ExitPlanMode') return <PlanCard plan={String(input.plan ?? '')} answer={answer} err={err} />
   const edit = a.tool_name === 'Edit' && typeof input.old_string === 'string'
+  const fileLanguage = typeof input.file_path === 'string' ? languageForPath(input.file_path) : null
   return (
     <div className="ccard warn">
       <div className="ccard-head">Allow <b>{a.tool_name}</b>?</div>
-      <pre className="cmd">{toolSummary(a.tool_name, input) || JSON.stringify(input, null, 2)}</pre>
-      {edit && <pre className="mini-diff">{String(input.old_string).split('\n').map((l) => '- ' + l).join('\n')}{'\n'}{String(input.new_string).split('\n').map((l) => '+ ' + l).join('\n')}</pre>}
-      {a.tool_name === 'Write' && typeof input.content === 'string' && <pre className="mini-diff">{(input.content as string).slice(0, 2000)}</pre>}
+      <CodePre className="cmd" code={toolSummary(a.tool_name, input) || JSON.stringify(input, null, 2)} language={a.tool_name === 'Bash' ? 'shell' : null} />
+      {edit && <CodeDiff className="mini-diff" language={fileLanguage}
+        diff={[...String(input.old_string).split('\n').map((l) => '-' + l), ...String(input.new_string).split('\n').map((l) => '+' + l)].join('\n')} />}
+      {a.tool_name === 'Write' && typeof input.content === 'string' && <CodePre className="mini-diff" code={(input.content as string).slice(0, 2000)} language={fileLanguage} />}
       <div className="bar">
         <button className="primary" onClick={() => answer({ allow: true, scope: 'once' })}>Allow</button>
         <button onClick={() => answer({ allow: true, scope: 'chat' })} title={a.tool_name === 'Bash' ? 'This exact command, for the rest of this chat' : `${a.tool_name}, for the rest of this chat`}>Allow for this chat</button>

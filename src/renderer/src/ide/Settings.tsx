@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { errText, itemKey, type CatalogItem, type Pin } from './types'
 import { MODES, type Mode } from '../chat/modes'
+import { CodePre } from './CodeBlock'
 
 // Settings dialog. Values apply to sessions started after saving (the system prompt is set at start).
 type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode }
@@ -146,9 +147,9 @@ function TerminalIntegration(): React.JSX.Element {
                 {plan.prototypeBoard && <li>Copies sessions, decisions and reviews from {plan.prototypeBoard}</li>}
               </ul>
               <details><summary>Show {plan.settingsPath} before and after</summary>
-                <div className="before-after"><pre>{plan.before}</pre><pre>{plan.after}</pre></div>
+                <div className="before-after"><CodePre code={plan.before} language="json" /><CodePre code={plan.after} language="json" /></div>
               </details>
-              {plan.shellFile && <details><summary>Show the block added to {plan.shellFile}</summary><pre className="cmd">{plan.shellBlock}</pre></details>}
+              {plan.shellFile && <details><summary>Show the block added to {plan.shellFile}</summary><CodePre className="cmd" code={plan.shellBlock} language="shell" /></details>}
             </>
           )}
           <div className="bar">{plan.on ? <button onClick={undo}>Undo terminal integration</button> : <button className="primary" onClick={enable}>Turn on</button>}</div>
