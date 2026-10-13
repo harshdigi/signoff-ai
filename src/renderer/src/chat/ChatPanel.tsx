@@ -56,6 +56,14 @@ type Props = {
   terminalFor: (session: string) => string | null; showTerminal: (id: string) => void
 }
 
+const storedFold = (session: string): boolean => {
+  try {
+    return localStorage.getItem(`waiting-folded:${session}`) === '1'
+  } catch {
+    return false // storage unavailable: shown open, as by default
+  }
+}
+
 const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refresh, folder, trusted, session, setSession, catalog, terminalFor, showTerminal }, ref) {
   const [events, setEvents] = useState<Record<string, unknown>[]>([])
   const [live, setLive] = useState('')
@@ -64,6 +72,17 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   const [err, setErr] = useState<string | null>(null)
   const [menuIndex, setMenuIndex] = useState(0)
   const [images, setImages] = useState<Img[]>([])
+  // "Waiting on you" can be folded per session; remembered on this computer only (storage can fail: then it shows open).
+  const [folded, setFolded] = useState<Record<string, boolean>>({})
+  const waitingFolded = session ? folded[session] ?? storedFold(session) : false
+  const toggleWaiting = (): void => {
+    if (!session) return
+    setFolded({ ...folded, [session]: !waitingFolded })
+    try {
+      if (waitingFolded) localStorage.removeItem(`waiting-folded:${session}`)
+      else localStorage.setItem(`waiting-folded:${session}`, '1')
+    } catch { /* not remembered; it still folds for now */ }
+  }
   // A message naming another ticket waits here until you choose where it goes (main/context.ts route).
   type Choice = 'here' | 'existing' | 'new'
   const [routing, setRouting] = useState<{ key: string; current: string | null; existing: string | null; text: string; images: Img[] } | null>(null)
@@ -342,10 +361,14 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
       )}
       {(approvals.length > 0 || decisions.length > 0 || reviews.length > 0) && (
         <div className="chat-waiting">
-          <div className="waiting-title">Waiting on you ({approvals.length + decisions.length + reviews.length})</div>
-          {approvals.map((a) => <ApprovalCard key={a.id} a={a} toTerminal={showChatTerminal} />)}
-          {decisions.map((d) => <DecisionCard key={d.id} d={d} b={board} refresh={refresh} />)}
-          {reviews.map((r) => <ReviewCard key={r.id} r={r} b={board} refresh={refresh} />)}
+          <button className="waiting-title" onClick={toggleWaiting} title={waitingFolded ? 'Show what is waiting' : 'Fold this away; the count stays'}>
+            {waitingFolded ? '▸' : '▾'} Waiting on you ({approvals.length + decisions.length + reviews.length})
+          </button>
+          {!waitingFolded && <>
+            {approvals.map((a) => <ApprovalCard key={a.id} a={a} toTerminal={showChatTerminal} />)}
+            {decisions.map((d) => <DecisionCard key={d.id} d={d} b={board} refresh={refresh} />)}
+            {reviews.map((r) => <ReviewCard key={r.id} r={r} b={board} refresh={refresh} />)}
+          </>}
         </div>
       )}
       <div className="composer">
