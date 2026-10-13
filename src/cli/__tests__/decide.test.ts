@@ -190,6 +190,21 @@ describe('decide CLI', () => {
     after.close()
   })
 
+  it('reply keeps the line breaks of --text-file; --text still works', () => {
+    decide([...S, 'register', '--ticket', 'ABC-7'])
+    expect(decide([...S, 'post', '--ticket', 'ABC-7', '--id', 'D1', '--question', 'Which limit?']).code).toBe(0)
+    writeFileSync(join(dir, 'answer.md'), '- Today: only the US and EU stores use it.\n- The UK store joins with ABC-1.\n')
+    expect(decide([...S, 'reply', '--ticket', 'ABC-7', '--id', 'D1', '--text-file', join(dir, 'answer.md')])).toMatchObject({ code: 0, out: 'ok' })
+    expect(decide([...S, 'reply', '--ticket', 'ABC-7', '--id', 'D1', '--text', 'One line.'])).toMatchObject({ code: 0, out: 'ok' })
+    expect(decide([...S, 'reply', '--ticket', 'ABC-7', '--id', 'D1']).err).toContain('--text is required')
+    const db = openStore(join(dir, 'board.db'))
+    expect(db.prepare("SELECT who, text FROM decision_thread WHERE decision_id = 'ABC-7/D1' ORDER BY id").all()).toEqual([
+      { who: 's1', text: '- Today: only the US and EU stores use it.\n- The UK store joins with ABC-1.' },
+      { who: 's1', text: 'One line.' }
+    ])
+    db.close()
+  })
+
   it('split reads "Title :: task" pieces; done reports to the lead', () => {
     decide([...S, 'register', '--ticket', 'KA-1'])
     const db = openStore(join(dir, 'board.db'))

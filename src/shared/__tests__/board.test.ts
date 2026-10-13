@@ -198,7 +198,7 @@ describe('rename and remove sessions', () => {
     postDecision(db, { ticket: 'ABC-1', number: 'D3', session: 's1', question: 'Which limit?' })
     askAbout(db, 'ABC-1/D3', 'Draft a Slack message for this')
     expect(db.prepare("SELECT who, text FROM decision_thread WHERE decision_id = 'ABC-1/D3'").all()).toEqual([{ who: 'you', text: 'Draft a Slack message for this' }])
-    expect(pendingMessages(db, 's1').map((m) => m.text)).toEqual(['The user asks about ABC-1/D3 ("Which limit?"): Draft a Slack message for this\nAnswer under the decision with: signoff reply --ticket ABC-1 --id D3 --text "..." (do not change the decision itself).'])
+    expect(pendingMessages(db, 's1').map((m) => m.text)).toEqual(['The user asks about ABC-1/D3 ("Which limit?"): Draft a Slack message for this\nAnswer under the decision as short points, one per line ("- ..."), written to a file: signoff reply --ticket ABC-1 --id D3 --text-file <file> (do not change the decision itself).'])
   })
 })
 

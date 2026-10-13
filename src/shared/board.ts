@@ -167,7 +167,7 @@ export function askAbout(db: Store, id: string, text: string): void {
   need(d!.session_id && db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(d!.session_id), `${id} has no session to answer it`)
   db.transaction(() => {
     addToThread(db, id, 'you', text)
-    queueMessage(db, d!.session_id!, `The user asks about ${id} ("${d!.question}"): ${text.trim()}\nAnswer under the decision with: signoff reply --ticket ${d!.ticket} --id ${d!.number} --text "..." (do not change the decision itself).`, 'board', id)
+    queueMessage(db, d!.session_id!, `The user asks about ${id} ("${d!.question}"): ${text.trim()}\nAnswer under the decision as short points, one per line ("- ..."), written to a file: signoff reply --ticket ${d!.ticket} --id ${d!.number} --text-file <file> (do not change the decision itself).`, 'board', id)
   })()
 }
 
