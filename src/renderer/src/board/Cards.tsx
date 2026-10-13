@@ -8,7 +8,7 @@ import { unpack } from './unpack'
 import { split2 } from './option'
 import { SetupPreview } from '../ide/Workflows'
 import type { Workflow } from '../ide/types'
-import { forProduct, label, time, type BoardState, type Change, type Decision, type Review, type ThreadEntry } from './types'
+import { forLater, forProduct, label, time, type BoardState, type Change, type Decision, type Review, type ThreadEntry } from './types'
 
 // The session a card came from, as a link to its chat. A session no longer on the board stays plain text.
 function SessionLink({ b, id }: { b: BoardState; id: string | null }): React.JSX.Element {
@@ -68,6 +68,7 @@ export function DecisionCard({ d, b, refresh, onRun }: { d: Decision; b: BoardSt
         <span className="id">{d.id}</span><span className={'pill ' + d.status}>{d.status}</span>
         {d.action && <span className="pill">{d.action}</span>}
         {forProduct(d) && <span className="pill product" title={d.product_note ?? ''}>Waiting on product</span>}
+        {forLater(d) && <span className="pill later">Later</span>}
         {d.level !== 'ask' && <span className={'pill level-' + d.level} title={d.level === 'inform' ? 'Claude decided this because the code already settles it' : 'Implementation detail, only logged'}>{d.level === 'inform' ? 'Claude decided' : 'auto'}</span>}
         <span className="meta"><SessionLink b={b} id={d.session} /> · {time(d.created_at)}</span>
         {d.refs.map((r) => <span key={r} className="chip" title={b.decisions.find((x) => x.id === r)?.question}>↳ {r}</span>)}
@@ -104,7 +105,10 @@ export function DecisionCard({ d, b, refresh, onRun }: { d: Decision; b: BoardSt
       {d.if_wrong && <div className="ifwrong"><b>If wrong:</b> {d.if_wrong}</div>}
       {d.evidence.length > 0 && <div className="evs"><div className="ctx-h">Evidence</div>{d.evidence.map((e) => <Evidence key={e} d={d} item={e} show={open} />)}</div>}
       {d.command && <pre className="cmd">$ {d.command}</pre>}
-      {d.status === 'withdrawn' && <div className="msg"><b>Withdrawn:</b> {d.withdrawn_reason}</div>}
+      {d.status === 'withdrawn' && (
+        <div className="msg"><b>Withdrawn:</b> {d.withdrawn_reason}{' '}
+          <button onClick={() => run(() => window.api.board.reopen(d.id))} title="Open it again; its session is told to wait for your answer">Reopen</button></div>
+      )}
       {d.answer && <div className="answer"><b>{d.level === 'ask' ? 'Answer:' : 'Decided:'}</b> {d.answer}<div className="meta">{time(d.answered_at)} via {d.answered_by}</div></div>}
       <Delivery d={d} b={b} run={run} />
       {d.level !== 'ask' && (d.status === 'answered' || d.status === 'applied') && (
@@ -156,7 +160,10 @@ export function DecisionCard({ d, b, refresh, onRun }: { d: Decision; b: BoardSt
           {!d.action && !split && !team && (other || !d.options.length
             ? <button className="primary" disabled={!text.trim()} onClick={() => run(() => window.api.board.answer(d.id, text))}>Send answer</button>
             : <button onClick={() => setOther(true)}>Something else…</button>)}
-          <button onClick={() => run(() => window.api.board.withdraw(d.id, 'made moot by another answer'))}>Dismiss</button>
+          {forLater(d)
+            ? <button onClick={() => run(() => window.api.board.bringBack(d.id))} title="Put it back in Waiting on you">Bring back</button>
+            : !forProduct(d) && <button onClick={() => run(() => window.api.board.setAside(d.id))} title="Not now: it leaves Waiting on you and its session stops waiting; answer it later from Decisions">Later</button>}
+          <button onClick={() => run(() => window.api.board.withdraw(d.id, 'made moot by another answer'))} title="Withdraw it; you can reopen it from the history">Dismiss</button>
         </div>
       )}
       {err && <div className="err">{err}</div>}

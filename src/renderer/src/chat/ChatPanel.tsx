@@ -281,7 +281,7 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
 
   const approvals = board.approvals.filter((a) => a.session_id === session)
   const informed = board.decisions.filter((d) => d.session === session && d.level === 'inform' && d.status !== 'open').slice(-5).reverse()
-  const decisions = board.decisions.filter((d) => d.session === session && d.status === 'open')
+  const decisions = board.decisions.filter((d) => d.session === session && d.status === 'open' && !d.later_at) // set aside: in Decisions → Later
   const reviews = board.reviews.filter((r) => r.session === session && r.status === 'open')
   const busy = !!status?.busy
   const todos = useMemo(() => latestTodos(events as never[]), [events])

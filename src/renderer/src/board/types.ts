@@ -6,7 +6,7 @@ export interface Decision {
   id: string; ticket: string; number: string; session: string | null; question: string; options: string[]; recommend: string | null
   evidence: string[]; refs: string[]; action: 'consent' | 'terminal' | null; command: string | null; kind: string | null; item: string | null
   context: string[]; if_wrong: string | null; draft: string | null
-  product_note: string | null; product_at: string | null
+  product_note: string | null; product_at: string | null; later_at: string | null
   status: 'open' | 'answered' | 'applied' | 'withdrawn'; answer: string | null; answered_by: string | null; answered_at: string | null
   withdrawn_reason: string | null; withdrawn_by: string | null; withdrawn_at: string | null; created_at: string; thread: ThreadEntry[]
   level: 'ask' | 'inform' | 'auto'
@@ -58,7 +58,8 @@ export const time = (s: string | null | undefined): string => {
 export const label = (s: Session | undefined): string => (s ? s.title || s.ticket || s.id.slice(0, 8) : 'unknown session')
 // Open decisions split two ways: sent to the product team, or waiting on you.
 export const forProduct = (d: Decision): boolean => d.status === 'open' && !!d.product_at
-export const onYou = (d: Decision): boolean => d.status === 'open' && !d.product_at
+export const onYou = (d: Decision): boolean => d.status === 'open' && !d.product_at && !d.later_at
+export const forLater = (d: Decision): boolean => d.status === 'open' && !!d.later_at
 // What a session waits on you for: open decisions (not those sent to product) and reviews, and permission prompts.
 export const waitingOn = (b: BoardState, sid: string): number =>
   b.decisions.filter((d) => d.session === sid && onYou(d)).length + b.reviews.filter((r) => r.session === sid && r.status === 'open').length + b.approvals.filter((a) => a.session_id === sid).length

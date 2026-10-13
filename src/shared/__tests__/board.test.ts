@@ -71,6 +71,45 @@ describe('message delivery', () => {
   })
 })
 
+describe('later and reopen', () => {
+  const row = (id: string): { status: string; later_at: string | null; withdrawn_reason: string | null } =>
+    db.prepare('SELECT status, later_at, withdrawn_reason FROM decisions WHERE id = ?').get(id) as never
+  const thread = (id: string): string[] => (db.prepare('SELECT text FROM decision_thread WHERE decision_id = ? ORDER BY id').all(id) as { text: string }[]).map((t) => t.text)
+
+  it('Later sets an open decision aside and tells the session; Bring back returns it', () => {
+    b.postDecision(db, { ticket: 'ABC-1', number: 'D1', session: 's', question: 'Which limit?' })
+    b.setAside(db, 'ABC-1/D1')
+    expect(row('ABC-1/D1')).toMatchObject({ status: 'open', withdrawn_reason: null })
+    expect(row('ABC-1/D1').later_at).not.toBeNull()
+    expect(b.popMessages(db, 's').map((m) => m.text)).toEqual(['The user set ABC-1/D1 ("Which limit?") aside for later.\nDo not wait for it and do not ask it again. Keep working on what does not depend on it; the answer comes as usual when they pick it up.'])
+    expect(() => b.setAside(db, 'ABC-1/D1')).toThrow('ABC-1/D1 is already set aside')
+    b.bringBack(db, 'ABC-1/D1')
+    expect(row('ABC-1/D1')).toEqual({ status: 'open', later_at: null, withdrawn_reason: null })
+    expect(() => b.bringBack(db, 'ABC-1/D1')).toThrow('ABC-1/D1 is not set aside')
+    expect(thread('ABC-1/D1')).toEqual(['Set aside for later', 'Brought back from later'])
+  })
+
+  it('Later needs an open decision that is not waiting on product', () => {
+    b.postDecision(db, { ticket: 'ABC-1', number: 'D2', session: 's', question: 'Q?' })
+    b.openForProduct(db, 'ABC-1/D2', 'Need copy')
+    expect(() => b.setAside(db, 'ABC-1/D2')).toThrow('ABC-1/D2 is waiting on product; bring it back first')
+    b.postDecision(db, { ticket: 'ABC-1', number: 'D3', session: 's', question: 'Q?' })
+    b.answer(db, 'ABC-1/D3', 'Yes', 'board')
+    expect(() => b.setAside(db, 'ABC-1/D3')).toThrow('ABC-1/D3 is answered; only an open decision can be set aside')
+  })
+
+  it('Reopen undoes a dismiss and tells the session to wait again; only a withdrawn decision reopens', () => {
+    b.postDecision(db, { ticket: 'ABC-1', number: 'D4', session: 's', question: 'Retry failed payouts?' })
+    b.withdraw(db, 'ABC-1/D4', 'you', 'made moot by another answer')
+    b.popMessages(db, 's')
+    b.reopen(db, 'ABC-1/D4')
+    expect(row('ABC-1/D4')).toEqual({ status: 'open', later_at: null, withdrawn_reason: null })
+    expect(thread('ABC-1/D4')).toEqual(['Reopened (it was withdrawn: made moot by another answer)'])
+    expect(b.popMessages(db, 's').map((m) => m.text)).toEqual(['The user reopened ABC-1/D4 ("Retry failed payouts?"); it was withdrawn earlier. It is open again: wait for the answer as usual (signoff wait --ticket ABC-1 --id D4).'])
+    expect(() => b.reopen(db, 'ABC-1/D4')).toThrow('ABC-1/D4 is open; only a dismissed decision can be reopened')
+  })
+})
+
 describe('open for product', () => {
   it('parks an open decision with your note, tells the session, and can be taken back', () => {
     b.postDecision(db, { ticket: 'ABC-1', number: 'D1', session: 's', question: 'Show the amount on expired links?' })

@@ -1,7 +1,7 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { Fragment, useEffect, useState } from 'react'
-import { forProduct, waitingOn, type BoardState } from '../board/types'
+import { forLater, forProduct, waitingOn, type BoardState } from '../board/types'
 import { base, errText, itemKey, type CatalogItem, type EditorTab, type Pin } from './types'
 
 export type View = 'decisions' | 'sessions' | 'search' | 'run' | 'mcps' | 'workflows' | 'skills'
@@ -13,6 +13,7 @@ export function DecisionsSideView({ board, openSession, openAll }: { board: Boar
   const count = (sid: string): number => waitingOn(board, sid)
   const waiting = live.filter((s) => count(s.id) > 0)
   const product = board.decisions.filter(forProduct)
+  const later = board.decisions.filter(forLater)
   return (
     <div className="side-body">
       <div className="side-item" onClick={openAll}><span className="st">◆</span><span className="name">All decisions</span></div>
@@ -28,6 +29,14 @@ export function DecisionsSideView({ board, openSession, openAll }: { board: Boar
           <div className="side-group">Waiting on product</div>
           {product.map((d) => (
             <div key={d.id} className="side-item" onClick={openAll} title={d.product_note ?? ''}><span className="st pending">P</span><span className="name">{d.id}</span><span className="dir">{d.question}</span></div>
+          ))}
+        </>
+      )}
+      {later.length > 0 && (
+        <>
+          <div className="side-group">Later</div>
+          {later.map((d) => (
+            <div key={d.id} className="side-item" onClick={openAll}><span className="st">L</span><span className="name">{d.id}</span><span className="dir">{d.question}</span></div>
           ))}
         </>
       )}

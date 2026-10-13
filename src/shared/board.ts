@@ -181,8 +181,7 @@ export function openForProduct(db: Store, id: string, note: string): void {
   db.transaction(() => {
     db.prepare('UPDATE decisions SET product_note = ?, product_at = ?, updated_at = ? WHERE id = ?').run(note.trim(), now(), now(), id)
     addToThread(db, id, 'you', `Open for product: ${note.trim()}`)
-    if (d!.session_id && db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(d!.session_id))
-      queueMessage(db, d!.session_id, `The user sent ${id} ("${d!.question}") to the product team: ${note.trim()}\nDo not wait for it and do not ask it again. Keep working on what does not depend on it; the answer comes as usual when product replies.`, 'board')
+    tellSession(db, d!.session_id, `The user sent ${id} ("${d!.question}") to the product team: ${note.trim()}\nDo not wait for it and do not ask it again. Keep working on what does not depend on it; the answer comes as usual when product replies.`)
   })()
 }
 
@@ -195,6 +194,50 @@ export function backFromProduct(db: Store, id: string): void {
     db.prepare('UPDATE decisions SET product_note = NULL, product_at = NULL, updated_at = ? WHERE id = ?').run(now(), id)
     addToThread(db, id, 'you', 'No longer waiting on product')
   })()
+}
+
+// Later: you put a decision aside. It stays open but leaves "Waiting on you"; its session stops waiting for it.
+export function setAside(db: Store, id: string): void {
+  const d = db.prepare('SELECT session_id, status, question, product_at, later_at FROM decisions WHERE id = ?').get(id) as
+    { session_id: string | null; status: string; question: string; product_at: string | null; later_at: string | null } | undefined
+  need(d, `no decision ${id}`)
+  need(d!.status === 'open', `${id} is ${d!.status}; only an open decision can be set aside`)
+  need(!d!.product_at, `${id} is waiting on product; bring it back first`)
+  need(!d!.later_at, `${id} is already set aside`)
+  db.transaction(() => {
+    db.prepare('UPDATE decisions SET later_at = ?, updated_at = ? WHERE id = ?').run(now(), now(), id)
+    addToThread(db, id, 'you', 'Set aside for later')
+    tellSession(db, d!.session_id, `The user set ${id} ("${d!.question}") aside for later.\nDo not wait for it and do not ask it again. Keep working on what does not depend on it; the answer comes as usual when they pick it up.`)
+  })()
+}
+
+// Bring back: a decision set aside is waiting on you again.
+export function bringBack(db: Store, id: string): void {
+  const d = db.prepare('SELECT later_at FROM decisions WHERE id = ?').get(id) as { later_at: string | null } | undefined
+  need(d, `no decision ${id}`)
+  need(d!.later_at, `${id} is not set aside`)
+  db.transaction(() => {
+    db.prepare('UPDATE decisions SET later_at = NULL, updated_at = ? WHERE id = ?').run(now(), id)
+    addToThread(db, id, 'you', 'Brought back from later')
+  })()
+}
+
+// Reopen: undo a dismiss (or a session's withdraw). The decision is open again and its session hears so.
+export function reopen(db: Store, id: string): void {
+  const d = db.prepare('SELECT session_id, status, question, ticket, number, withdrawn_reason FROM decisions WHERE id = ?').get(id) as
+    { session_id: string | null; status: string; question: string; ticket: string; number: string; withdrawn_reason: string | null } | undefined
+  need(d, `no decision ${id}`)
+  need(d!.status === 'withdrawn', `${id} is ${d!.status}; only a dismissed decision can be reopened`)
+  db.transaction(() => {
+    db.prepare(`UPDATE decisions SET status = 'open', withdrawn_reason = NULL, withdrawn_by = NULL, withdrawn_at = NULL, updated_at = ? WHERE id = ?`).run(now(), id)
+    addToThread(db, id, 'you', `Reopened (it was withdrawn: ${d!.withdrawn_reason ?? 'no reason given'})`)
+    tellSession(db, d!.session_id, `The user reopened ${id} ("${d!.question}"); it was withdrawn earlier. It is open again: wait for the answer as usual (signoff wait --ticket ${d!.ticket} --id ${d!.number}).`)
+  })()
+}
+
+// A board message to a decision's session, when that session is still on the board.
+function tellSession(db: Store, session: string | null, text: string): void {
+  if (session && db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(session)) queueMessage(db, session, text, 'board')
 }
 
 // ---- inbox ------------------------------------------------------------------

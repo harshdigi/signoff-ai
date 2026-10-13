@@ -6,7 +6,7 @@ import type { Decision } from '../../renderer/src/board/types'
 
 const d = (o: Partial<Decision>): Decision => ({
   id: 'ABC-1/D1', ticket: 'ABC-1', number: 'D1', session: 's', question: 'Q?', options: [], recommend: null, evidence: [], refs: [], action: null, command: null,
-  kind: null, item: null, context: [], if_wrong: null, draft: null, product_note: null, product_at: null, status: 'open', answer: null, answered_by: null,
+  kind: null, item: null, context: [], if_wrong: null, draft: null, product_note: null, product_at: null, later_at: null, status: 'open', answer: null, answered_by: null,
   answered_at: null, withdrawn_reason: null, withdrawn_by: null, withdrawn_at: null, created_at: '', thread: [], level: 'ask', ...o
 })
 
