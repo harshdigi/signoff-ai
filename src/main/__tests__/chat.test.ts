@@ -3,7 +3,7 @@
 import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished } from 'vitest'
 import { ChatManager, footerMode, inputHasText } from '../chat'
 import { DEFAULTS, type Settings } from '../settings'
 import { openStore, type Store } from '../store'
@@ -29,7 +29,7 @@ if (resume && !fs.existsSync(file)) { process.stderr.write('No conversation foun
 fs.mkdirSync(path.dirname(file), { recursive: true })
 const line = (o) => fs.appendFileSync(file, JSON.stringify({ sessionId: sid, timestamp: new Date().toISOString(), uuid: Math.random().toString(36).slice(2), ...o }) + '\\n')
 const footers = ['\\u23f8 manual mode on \\u00b7 ? for shortcuts', '\\u23f5\\u23f5 accept edits on (shift+tab to cycle)', '\\u23f8 plan mode on (shift+tab to cycle)']
-let mode = 0, trusting = process.env.FAKE_TRUST === '1', buf = ''
+let mode = 0, trusting = process.env.FAKE_TRUST === '1', buf = '', menuOn = false, sel = 0
 const prompt = () => process.stdout.write('\\r\\n> \\r\\n' + footers[mode] + '\\r\\n')
 process.stdin.setRawMode(true)
 // Like Claude Code: ask for bracketed paste, so a pasted message with line breaks arrives as one.
@@ -42,15 +42,34 @@ process.stdin.on('data', (d) => {
   if (trusting) { if (s.includes('\\r')) { trusting = false; process.stdout.write('Welcome to Claude Code\\r\\n' + 'tip: '.repeat(60)); prompt() } return }
   if (s === '\\x1b[Z') { mode = (mode + 1) % footers.length; prompt(); return }
   if (s === '\\x1b') { fs.appendFileSync(process.env.FAKE_LOG, JSON.stringify({ key: 'esc' }) + '\\n'); return }
+  // FAKE_MENU: like a permission prompt left to the terminal: a numbered menu answered with arrows and Enter.
+  if (menuOn) {
+    for (const k of s.match(/\\x1b\\[[AB]|\\r/g) ?? []) {
+      if (k === '\\x1b[B') sel = Math.min(2, sel + 1)
+      else if (k === '\\x1b[A') sel = Math.max(0, sel - 1)
+      else { menuOn = false; fs.appendFileSync(process.env.FAKE_LOG, JSON.stringify({ chose: sel }) + '\\n'); finish('chose ' + sel); return }
+    }
+    drawMenu(); return
+  }
   // Inside a bracketed paste, line breaks (tmux sends them as \\r) are text, not Enter.
   buf += s.replace(/\\x1b\\[200~([\\s\\S]*?)\\x1b\\[201~/g, (_, p) => p.replace(/\\r/g, '\\n'))
   if (!buf.includes('\\r')) return
   const text = buf.split('\\r')[0]; buf = ''
   line({ type: 'user', message: { role: 'user', content: text } })
+  if (process.env.FAKE_MENU === '1') { menuOn = true; sel = 0; drawMenu(); return }
+  finish(text)
+})
+function finish(text) {
+  // FAKE_TITLE: Claude Code names the chat after its first answer (an ai-title line).
+  if (process.env.FAKE_TITLE) line({ type: 'ai-title', aiTitle: process.env.FAKE_TITLE })
   line({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'echo: ' + text.slice(0, 60) }], usage: { input_tokens: 5, cache_read_input_tokens: 95 } } })
   line({ type: 'system', subtype: 'turn_duration', durationMs: 12 })
-  process.stdout.write('done'); prompt()
-})
+  process.stdout.write('\\x1b[2J\\x1b[Hdone'); prompt()
+}
+function drawMenu() {
+  const opts = ['Yes', "Yes, and don't ask again", 'No, and tell Claude what to do differently (esc)']
+  process.stdout.write('\\x1b[2J\\x1b[H Bash command\\r\\n   rm -rf tmp\\r\\n\\r\\n Do you want to proceed?\\r\\n' + opts.map((o, i) => (i === sel ? ' \\u276f ' : '   ') + (i + 1) + '. ' + o).join('\\r\\n') + '\\r\\n')
+}
 `
 
 let db: Store
@@ -125,6 +144,56 @@ describe('terminal chats', () => {
     const resumed = chat.resume('11111111-1111-4111-8111-111111111111', '/tmp', 'Old chat')
     const mode = (id: string): string => (db.prepare('SELECT mode FROM sessions WHERE id = ?').get(id) as { mode: string }).mode
     expect([mode(fresh), mode(asked), mode(resumed)]).toEqual(['acceptEdits', 'plan', 'acceptEdits'])
+  })
+
+  it("Claude's short title replaces the first-line stand-in, but never a title you chose", async () => {
+    process.env.FAKE_TITLE = 'Gift card refunds'
+    onTestFinished(() => { delete process.env.FAKE_TITLE })
+    const title = (id: string): string | null => (db.prepare('SELECT title FROM sessions WHERE id = ?').get(id) as { title: string | null }).title
+    const a = chat.create('/tmp')
+    hookRuns(a)
+    chat.send(a, 'please look at why refunds on gift cards fail for partial orders and fix it')
+    expect(title(a)).toBe('please look at why refunds on gift cards fail for partial or')
+    await until(() => title(a) === 'Gift card refunds')
+
+    const b2 = chat.create('/tmp')
+    hookRuns(b2)
+    chat.send(b2, 'second chat')
+    db.prepare('UPDATE sessions SET title = ? WHERE id = ?').run('My own name', b2) // a rename, as the sidebar does
+    await until(() => !chat.status(b2).busy)
+    expect(title(b2)).toBe('My own name')
+  })
+
+  it('a menu Claude Code shows in the terminal reaches the chat as waiting, not working, and can be answered from it', async () => {
+    process.env.FAKE_MENU = '1'
+    onTestFinished(() => { delete process.env.FAKE_MENU })
+    const id = chat.create('/tmp')
+    hookRuns(id)
+    chat.send(id, 'clean up')
+    await until(() => chat.status(id).menu !== null)
+    expect(chat.status(id).menu).toEqual({
+      question: 'Do you want to proceed?', detail: ['Bash command', 'rm -rf tmp'],
+      options: ['Yes', "Yes, and don't ask again", 'No, and tell Claude what to do differently (esc)'], selected: 0
+    })
+    expect(() => chat.choose(id, 'Another question?', 1)).toThrow('the terminal no longer shows that question')
+    chat.choose(id, 'Do you want to proceed?', 1)
+    await until(() => readFileSync(log, 'utf8').includes('{"chose":1}'))
+    await until(() => chat.status(id).menu === null && !chat.status(id).busy)
+  })
+
+  it('picking a mode presses ⇧Tab until the footer shows it; model and effort are kept on the session', async () => {
+    const id = chat.create('/tmp')
+    hookRuns(id)
+    chat.send(id, 'hi')
+    await until(() => !chat.status(id).busy)
+    const row = (): unknown => db.prepare('SELECT mode, model, effort FROM sessions WHERE id = ?').get(id)
+    await chat.setMode(id, 'plan')
+    expect((row() as { mode: string }).mode).toBe('plan')
+    // The fake has no Auto in its cycle, like a model without it: a clear error instead of pressing forever.
+    await expect(chat.setMode(id, 'auto')).rejects.toThrow('Claude Code did not switch to that mode')
+    chat.command(id, '/model sonnet')
+    chat.command(id, '/effort high')
+    expect(row()).toMatchObject({ model: 'sonnet', effort: 'high' })
   })
 
   it('a session started from a team setup records it', () => {

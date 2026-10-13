@@ -23,7 +23,7 @@ import { addCase, removeCase, setCase, type CaseStatus } from '../shared/testpla
 import { addComment, editComment, removeComment, sendComments } from '../shared/comments'
 import { editedFiles, findTranscript, listConversations } from './transcript'
 import { deleteWorkflow, getWorkflow, listWorkflows, saveWorkflow, teamLine, type WorkflowInput } from './workflows'
-import type { ChatImage, ChatManager } from './chat'
+import type { ChatImage, ChatManager, Mode } from './chat'
 import type { RouteChoice } from './context'
 import type { Store } from './store'
 import { detectAll } from './tasks'
@@ -418,6 +418,8 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   })
   ipcMain.handle('session:restore', (_e, id: string) => setRemoved(db, id, false))
   ipcMain.handle('chat:interrupt', (_e, session: string) => chat.interrupt(session))
+  ipcMain.handle('chat:setMode', (_e, session: string, mode: Mode) => chat.setMode(session, mode))
+  ipcMain.handle('chat:choose', (_e, session: string, question: string, option: number) => chat.choose(session, question, option))
   // Terminal chats: Shift+Tab cycles Claude Code's mode; model and effort are typed as /model and /effort.
   ipcMain.handle('chat:cycleMode', (_e, session: string) => chat.cycleMode(session))
   ipcMain.handle('chat:command', (_e, session: string, line: string) => chat.command(session, line))

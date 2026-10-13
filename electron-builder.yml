@@ -48,9 +48,17 @@ electronFuses:
 mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  # Keys added to Info.plist (a map: written as a list, they landed under "0", "1"… and macOS never read them).
   extendInfo:
-    - NSDocumentsFolderUsageDescription: Signoff AI opens the project folders you choose, which may be in Documents.
-    - NSDownloadsFolderUsageDescription: Signoff AI opens the project folders you choose, which may be in Downloads.
+    # Folder prompts: macOS names the app, but usually a Claude session running inside it is the one asking.
+    NSDocumentsFolderUsageDescription: A Claude session you started in Signoff AI is asking, not the app itself (it may also be a project you opened). Allow if you expect a session to work here; change it later in System Settings → Privacy & Security → Files and Folders.
+    NSDownloadsFolderUsageDescription: A Claude session you started in Signoff AI is asking, not the app itself (it may also be a project you opened). Allow if you expect a session to work here; change it later in System Settings → Privacy & Security → Files and Folders.
+    NSDesktopFolderUsageDescription: A Claude session you started in Signoff AI is asking, not the app itself (it may also be a project you opened). Allow if you expect a session to work here; change it later in System Settings → Privacy & Security → Files and Folders.
+    NSNetworkVolumesUsageDescription: A Claude session you started in Signoff AI is asking to use a network drive, not the app itself. Allow if you expect a session to work there.
+    NSRemovableVolumesUsageDescription: A Claude session you started in Signoff AI is asking to use a removable drive, not the app itself. Allow if you expect a session to work there.
+    # Voice input (🎤 in the chat): asked the first time you use it; recognition runs on the Mac only.
+    NSMicrophoneUsageDescription: Signoff AI listens only while you use voice input in the chat (🎤 or ⌥Space).
+    NSSpeechRecognitionUsageDescription: Signoff AI turns what you say into text for the chat, on this Mac only.
   notarize: false
   # Ad-hoc signature for the whole app (no Apple account needed): gives it a stable identity, so macOS remembers
   # privacy answers such as Documents access. A Developer ID replaces this before a wider release.
@@ -58,7 +66,8 @@ mac:
   # Hardened runtime: no library injection (DYLD_*) and no debugger attach. Entitlements keep what Electron needs.
   hardenedRuntime: true
   # Universal build: these per-architecture binaries are the same in both halves; each Mac loads the one for its CPU.
-  x64ArchFiles: 'Contents/Resources/app.asar.unpacked/node_modules/{better-sqlite3,node-pty}/prebuilds/**'
+  # The voice-input helper is already one binary for both CPUs (scripts/build-speech.mjs).
+  x64ArchFiles: 'Contents/Resources/app.asar.unpacked/{node_modules/{better-sqlite3,node-pty}/prebuilds/**,resources/speech/signoff-speech}'
   target:
     - dmg
     - zip
