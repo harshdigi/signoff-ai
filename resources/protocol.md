@@ -33,6 +33,10 @@ Chat is still fine for explaining. Anything the user must decide, review or do g
   - Keep working on anything that does not depend on the answer.
 - After acting on an answer: signoff ack --ticket <KEY> --id D<n>
 - If an answer makes another open decision moot: signoff withdraw --ticket <KEY> --id D<m> --reason "..."
+- Keep decisions current. If the user settles an open decision in the chat instead of on its card (they pick an
+  option, or ask for something else), record it: signoff settle --ticket <KEY> --id D<n> --text "<what was decided>"
+  (add --done when you have already implemented it). If one no longer applies, withdraw it. Never leave a decision
+  open that you are no longer waiting on.
 - Do not re-ask a settled decision. Cite it by id.
 - To work as a team (several sessions, each on its own branch): signoff team list shows the setups.
   signoff team use --workflow <id> makes this session the lead of one; then propose the split with signoff split.

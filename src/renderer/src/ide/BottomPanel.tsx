@@ -8,9 +8,10 @@ import type { Term } from './types'
 type Props = {
   terms: Term[]; active: string | null; setActive: (id: string) => void; close: (id: string) => void
   newShell?: () => void; newClaude?: () => void; hide?: () => void; title?: string; empty: string
+  actions?: React.ReactNode // extra icon buttons on the tab bar's right
 }
 
-export default function BottomPanel({ terms, active, setActive, close, newShell, newClaude, hide, title, empty }: Props): React.JSX.Element {
+export default function BottomPanel({ terms, active, setActive, close, newShell, newClaude, hide, title, empty, actions }: Props): React.JSX.Element {
   const current = terms.find((t) => t.id === active) ?? terms[terms.length - 1]
   return (
     <div className="bottom">
@@ -24,6 +25,7 @@ export default function BottomPanel({ terms, active, setActive, close, newShell,
         {newShell && <button onClick={newShell} title="New shell">＋ Shell</button>}
         {newClaude && <button onClick={newClaude} title="Interactive Claude Code in a terminal">＋ Claude</button>}
         <span className="grow" />
+        {actions}
         {hide && <button onClick={hide} title="Hide panel (⌘J)">⌄</button>}
       </div>
       <div className="bottom-body">

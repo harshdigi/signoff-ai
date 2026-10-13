@@ -5,7 +5,8 @@ import { Group, Panel, Separator } from 'react-resizable-panels'
 import { useBoard } from './board/useBoard'
 import ChatPanel, { type ChatHandle } from './chat/ChatPanel'
 import BottomPanel from './ide/BottomPanel'
-import Editor from './ide/Editor'
+import Editor, { FileDiffView } from './ide/Editor'
+import { ordered } from './ide/review-order'
 import { useChanges, useFolderData, useScoped, useWorkspace } from './ide/hooks'
 import Palette, { type Command } from './ide/Palette'
 import Settings from './ide/Settings'
@@ -23,6 +24,7 @@ import WorkflowsView from './ide/Workflows'
 import ResumePicker from './ide/Resume'
 import { RefsProvider, type Nav } from './board/Refs'
 import Toolbar from './ide/Toolbar'
+import { Icon } from './ide/icons'
 import { onYou } from './board/types'
 import { base, errText, itemKey, tabKey, type CatalogItem, type DiffMode, type EditorTab, type Pin, type Task, type Term, type Workflow, type ReviewView, type Scope } from './ide/types'
 import './ide/monaco'
@@ -51,7 +53,13 @@ export default function App(): React.JSX.Element {
   const [view, setView] = useState<View>('sessions')
   const [sidebar, setSidebar] = useState(true)
   const [tabs, setTabs] = useState<EditorTab[]>([{ kind: 'session' }, { kind: 'decisions' }])
-  const [active, setActive] = useState('session')
+  const [active, setActiveTab] = useState('session')
+  // The page under opened files (a session, or all decisions): closing the file shown goes back to it.
+  const [page, setPage] = useState<'session' | 'decisions'>('session')
+  const setActive = useCallback((k: string): void => {
+    if (k === 'session' || k === 'decisions') setPage(k)
+    setActiveTab(k)
+  }, [])
   const [chatId, setChatId] = useState<string | null>(null)
   const [sessionTab, setSessionTab] = useState<SessionTab>('chat')
   // Review (Files changed): the scope picked, over the selected session's repos (or the open folder's repo).
@@ -65,6 +73,14 @@ export default function App(): React.JSX.Element {
   const [activeTerm, setActiveTerm] = useState<string | null>(null)
   const [sessionTerm, setSessionTerm] = useState<string | null>(null)
   const [panel, setPanel] = useState(false)
+  // The diff open inside Files changed (null: the list of changed files).
+  const [fileDiff, setFileDiff] = useState<{ root: string; path: string; view: ReviewView } | null>(null)
+  // Full screen: macOS hides its window buttons, so the top bar needs no space for them.
+  const [fullScreen, setFullScreen] = useState(false)
+  useEffect(() => {
+    void window.api.window.isFullScreen().then(setFullScreen)
+    return window.api.window.onFullScreen(setFullScreen)
+  }, [])
   const [palette, setPalette] = useState(false)
   const [searchFocus, setSearchFocus] = useState(0)  // bumped to focus the Search tab's box (⌘K)
   const [resuming, setResuming] = useState(false)
@@ -166,7 +182,7 @@ export default function App(): React.JSX.Element {
   }
   const closeTab = (k: string): void => {
     setTabs((ts) => ts.filter((t) => tabKey(t) !== k))
-    if (active === k) setActive('session')
+    if (active === k) setActive(page)
   }
   const openSession = (id: string | null, tab: SessionTab = 'chat'): void => {
     setChatId(id)
@@ -207,6 +223,10 @@ export default function App(): React.JSX.Element {
       setTimeout(() => window.dispatchEvent(new CustomEvent('chat:goto', { detail: { session, anchor } })), 150)
     }
   }
+  // The selected session's Claude terminal, started if needed (the Terminals tab asks for it when it has none).
+  const startSessionTerminal = useCallback((): void => {
+    if (chatId) window.api.chat.terminal(chatId).then((id: string) => { setSessionTerm(id); setSessionTab('terminals') }, fail)
+  }, [chatId, fail])
   const showSessionTerminal = (id: string): void => {
     setSessionTerm(id)
     setSessionTab('terminals')
@@ -345,9 +365,9 @@ export default function App(): React.JSX.Element {
   return (
     <RefsProvider value={{ board, nav }}>
     <div className="ide">
-      <Toolbar ws={ws} tasks={tasks.tasks} catalog={catalog} trusted={trusted} pickFolder={pickFolder} openFolder={openFolder}
+      <Toolbar fullScreen={fullScreen} sessionName={sidebar ? null : current?.title || null} ws={ws} branch={mainSet?.branch ?? null} tasks={tasks.tasks} catalog={catalog} trusted={trusted} pickFolder={pickFolder} openFolder={openFolder}
         runTask={runTask} runSkill={runSkill} review={review} palette={() => setPalette(true)} search={() => openSearch()} startTicket={() => setStartingTicket(true)}
-        pinned={pinned} runPinned={runPinned} />
+        pinned={pinned} runPinned={runPinned} browseSkills={() => { setView('skills'); setSidebar(true) }} />
       {folder && !trusted && (
         <div className="trust">
           <b>Do you trust the files in {base(folder)}?</b> Claude and tasks run code from this folder, including its Claude Code hooks and MCP servers.
@@ -364,20 +384,22 @@ export default function App(): React.JSX.Element {
       )}
       <div className="ide-main">
         <nav className="activity">
-          {([['decisions', '◆', 'Decisions'], ['sessions', '❝', 'Sessions'], ['search', '⌕', 'Search: code, files, decisions, chats (⌘K)'], ['run', '▶', 'Run: servers, consoles, tests'], ['mcps', '⧉', 'MCPs: Slack, GitHub and other MCP servers'], ['workflows', '⇶', 'Workflows: team setups and routines'], ['skills', '✦', 'Skills & agents']] as const).map(([v, icon, title]) => (
+          {/* In the order you use them: your sessions, what waits on you, finding things, running things, then setup. */}
+          {([['sessions', 'chat', 'Sessions'], ['decisions', 'decisions', 'Decisions: what waits on you'], ['search', 'search', 'Search: code, files, decisions, chats (⌘K)'], ['run', 'play', 'Run: servers, consoles, tests'], ['workflows', 'team', 'Teams: team setups and routines'], ['skills', 'spark', 'Skills & agents'], ['mcps', 'tool', 'Tools (MCP servers): Slack, GitHub and others']] as const).map(([v, icon, title]) => (
             <button key={v} className={view === v && sidebar ? 'on' : ''} title={title} onClick={() => (view === v ? setSidebar(!sidebar) : (setView(v), setSidebar(true)))}>
-              {icon}{v === 'decisions' && waiting > 0 ? <span className="badge warn">{waiting}</span> : null}
+              <Icon name={icon} />{v === 'decisions' && waiting > 0 ? <span className="badge warn">{waiting}</span> : null}
             </button>
           ))}
           <span className="grow" />
-          <button title="Settings" onClick={() => setSettings(true)}>⚙</button>
+          <button title="Settings" onClick={() => setSettings(true)}><Icon name="gear" /></button>
         </nav>
         <Group orientation="horizontal" className="ide-panels">
           {sidebar && (
             <>
               <Panel id="side" defaultSize="18" minSize={180}>
                 <div className="sidebar">
-                  <div className="side-title">{({ decisions: 'DECISIONS', sessions: 'SESSIONS', search: 'SEARCH', run: 'RUN', mcps: 'MCPS', workflows: 'WORKFLOWS', skills: 'SKILLS & AGENTS' } as const)[view]}</div>
+                  {/* The other views draw their own title row, with their icon buttons (ide/SideHead). */}
+                  {(view === 'search' || view === 'run') && <div className="side-title">{view === 'search' ? 'SEARCH' : 'RUN'}</div>}
                   {!folder && view === 'sessions' ? (
                     <div className="side-body"><button className="primary wide" onClick={pickFolder}>Open Folder…</button></div>
                   ) : view === 'decisions' ? <DecisionsSideView board={board} openSession={(id) => openSession(id, 'decisions')} openAll={() => openTab({ kind: 'decisions' })} />
@@ -397,11 +419,12 @@ export default function App(): React.JSX.Element {
             <Group orientation="vertical">
               <Panel id="editor" minSize={120}>
                 {folder ? (
-                  <Editor tabs={tabs} active={active} setActive={setActive} close={closeTab} board={board} refresh={refresh} changes={changes} scoped={scoped} reloadScoped={reloadScoped} openTab={openTab} replaceTab={replaceTab} dark={dark} mode={diffMode} breakAt={breakAt} commentSession={reviewView.session ?? chatId}
+                  <Editor tabs={tabs} page={page} active={active} setActive={setActive} close={closeTab} board={board} refresh={refresh} changes={changes} scoped={scoped} reloadScoped={reloadScoped} openTab={openTab} replaceTab={replaceTab} dark={dark} mode={diffMode} breakAt={breakAt} commentSession={reviewView.session ?? chatId}
                     openChat={(id) => openSession(id)} ask={(t) => chat.current?.send(t)}
                     sessionTitle={current?.title || (chatId ? chatId.slice(0, 8) : 'New session')}
                     sessionPage={
                       <SessionPage ask={(t) => chat.current?.send(t)} session={current ?? null} workflow={workflows.find((w) => w.id === current?.workflow) ?? null} board={board} refresh={refresh} tab={sessionTab} setTab={setSessionTab} open={(id) => openSession(id)}
+                        startTerminal={startSessionTerminal}
                         terms={sessionTerms.map(nameTerm)} term={sessionTerm} setTerm={setSessionTerm} newShell={newSessionShell} closeTerm={closeTerm}
                         chat={
                           <ChatPanel ref={chat} board={board} refresh={refresh} folder={folder} trusted={trusted} session={chatId} setSession={setChatId} catalog={catalog}
@@ -410,9 +433,22 @@ export default function App(): React.JSX.Element {
                         files={
                           <div className="files-tab">
                             {changesError && <div className="err">{changesError}</div>}
-                            <ReviewList board={board} view={reviewView} setView={(v) => setScope({ scope: v.scope, commit: v.commit })} scoped={scoped} active={active} openTab={openTab} docs={docs} updateDocs={updateDocs} />
-                            <div className="side-group">Tests</div>
+                            {/* A file's diff opens right here, in Files changed; ← goes back to the list. */}
+                            {fileDiff ? (
+                              <div className="files-diff">
+                                <div className="files-back"><button className="link" onClick={() => setFileDiff(null)}>← All changed files</button></div>
+                                <FileDiffView key={`${fileDiff.root}::${fileDiff.path}`} set={scoped?.groups.find((g) => g.root === fileDiff.root) ?? null} path={fileDiff.path} view={fileDiff.view} mode={diffMode} dark={dark}
+                                  ask={(t) => chat.current?.send(t)} openTab={openTab} entries={ordered(scoped)} reload={reloadScoped} breakAt={breakAt} board={board} commentSession={reviewView.session ?? chatId}
+                                  openChat={(id) => openSession(id)} go={(e) => setFileDiff({ root: e.set.root, path: e.file.path, view: fileDiff.view })} />
+                              </div>
+                            ) : (
+                            <ReviewList board={board} view={reviewView} setView={(v) => setScope({ scope: v.scope, commit: v.commit })} scoped={scoped} active={active}
+                              openTab={(t) => (t.kind === 'diff' && t.view ? setFileDiff({ root: t.root, path: t.path, view: t.view }) : openTab(t))} docs={docs} updateDocs={updateDocs} />
+                            )}
+                            {!fileDiff && <details className="rv-kind rv-run">
+                            <summary>Run specs</summary>
                             <TestsView changes={scoped ? { git: true, groups: scoped.groups } : null} trusted={trusted} analyse={(t) => { openSession(chatId); chat.current?.send(t) }} showTerminal={(id, title) => addTerm({ id }, title)} />
+                            </details>}
                           </div>
                         } />
                     } />

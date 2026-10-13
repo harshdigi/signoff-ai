@@ -17,7 +17,7 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
-    "build": "npm run typecheck && electron-vite build && npm run build:cli",
+    "build": "npm run typecheck && electron-vite build && npm run build:cli && npm run build:speech",
     "postinstall": "electron-builder install-app-deps && chmod +x node_modules/node-pty/prebuilds/*/spawn-helper",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
@@ -27,6 +27,7 @@
     "build:linux": "npm run build && electron-builder --linux",
     "test": "npm run build:cli && vitest run",
     "build:cli": "node scripts/build-cli.mjs",
+    "build:speech": "node scripts/build-speech.mjs",
     "screenshots": "ELECTRON_RUN_AS_NODE=1 electron scripts/screenshots.mjs"
   },
   "dependencies": {

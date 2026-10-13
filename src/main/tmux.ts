@@ -54,7 +54,7 @@ export class Tmux {
   }
 
   // tmux key names: Enter, Escape, BTab (Shift+Tab), Down.
-  key(name: string, key: 'Enter' | 'Escape' | 'BTab' | 'Down'): void {
+  key(name: string, key: 'Enter' | 'Escape' | 'BTab' | 'Down' | 'Up'): void {
     this.run(['send-keys', '-t', `=${name}:`, key])
   }
 

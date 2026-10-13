@@ -13,6 +13,7 @@ import type { Store } from './store'
 import { SESSION_VARS, type TerminalManager } from './terminals'
 import type { Tmux } from './tmux'
 import { findTranscript, readNew, toChatLines, type ChatLine } from './transcript'
+import { keysToChoose, terminalMenu, type TerminalMenu } from './terminal-menu'
 
 // Chats are real Claude Code terminal sessions. Each chat runs the normal `claude` screen in a tmux session named
 // after the chat; the Terminals tab attaches to it, and so can any Terminal window (tmux.ts). The chat panel types
@@ -29,7 +30,8 @@ export type ChatEvent = { session: string; event: Record<string, unknown> }
 export type ChatImage = { mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string }
 const IMAGE_EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
-export type ChatStatus = { session: string; running: boolean; busy: boolean; terminal: string | null }
+// menu: a choice Claude Code shows in the terminal right now (terminal-menu.ts); while it is there Claude is not working.
+export type ChatStatus = { session: string; running: boolean; busy: boolean; terminal: string | null; menu: TerminalMenu | null }
 export type Handoff = { from: string; to: string; reason: 'auto' | 'manual' }
 type Deps = { settings: () => Settings; files: (cwd: string) => string[]; attachments: string; tmux: Tmux }
 
@@ -59,8 +61,9 @@ const SLOW_START_MS = 20_000 // still not ready after this long: tell the user t
 type Queued = { text: string; ids: string[] }
 // name: the tmux session; terminal: the app's attached view of it; owned: the app started it (it ends when the app quits).
 type Chat = {
-  name: string; owned: boolean; terminal: string; busy: boolean; transcript: string | null; offset: number
+  name: string; owned: boolean; terminal: string; busy: boolean; transcript: string | null; offset: number; menu: TerminalMenu | null
   lastOutput: number; modeReadAt: number; started: number; queue: Queued[]; trustNoted: boolean; slowNoted: boolean
+  stand_in: string | null // the first-line title, shown until Claude's own title arrives
 }
 
 // Whether a process still runs (signal 0 checks without touching it).
@@ -159,7 +162,7 @@ export class ChatManager {
 
   status(session: string): ChatStatus {
     const c = this.chats.get(session)
-    return { session, running: !!c, busy: !!c?.busy, terminal: c?.terminal ?? null }
+    return { session, running: !!c, busy: !!c?.busy, terminal: c?.terminal ?? null, menu: c?.menu ?? null }
   }
 
   // The chat's terminal, started if needed (to show it, or to type into it).
@@ -173,7 +176,11 @@ export class ChatManager {
     const message = [text.trim(), ...paths.map((p) => `[image: ${p}]`)].filter(Boolean).join('\n')
     const c = this.chats.get(session) ?? this.start(session)
     const s = this.db.prepare('SELECT title FROM sessions WHERE id = ?').get(session) as { title: string | null }
-    if (s.title === 'New chat' && text.trim()) b.touchSession(this.db, session, { title: text.trim().split('\n')[0].slice(0, 60) })
+    // Until Claude names the chat (ai-title, a short summary), its first line stands in; Claude's title then replaces it.
+    if (s.title === 'New chat' && text.trim()) {
+      c.stand_in = text.trim().split('\n')[0].slice(0, 60)
+      b.touchSession(this.db, session, { title: c.stand_in })
+    }
     c.queue.push({ text: message, ids: [] })
     c.busy = true
     this.emitStatus(session)
@@ -199,10 +206,26 @@ export class ChatManager {
     this.deps.tmux.key((this.chats.get(session) ?? this.start(session)).name, 'BTab')
   }
 
-  // Model and effort: Claude Code's own commands, typed in.
+  // Model and effort: Claude Code's own commands, typed in. The choice is kept on the session, so the composer shows it.
   command(session: string, line: string): void {
-    if (!/^\/(model|effort) [\w.[\]-]+$/.test(line)) throw new b.BoardError(`not a command the chat sends for you: ${line}`)
+    const m = /^\/(model|effort) ([\w.[\]-]+)$/.exec(line)
+    if (!m) throw new b.BoardError(`not a command the chat sends for you: ${line}`)
     this.send(session, line)
+    this.db.prepare(`UPDATE sessions SET ${m[1] === 'model' ? 'model' : 'effort'} = ? WHERE id = ?`).run(m[2], session)
+  }
+
+  // A mode picked from the composer: ⇧Tab in the terminal until Claude Code's footer shows it (at most once round).
+  // Not running yet: the mode is saved and the chat starts in it.
+  async setMode(session: string, mode: Mode): Promise<void> {
+    if (!(MODES as readonly string[]).includes(mode)) throw new b.BoardError(`not a mode: ${mode}`)
+    const c = this.chats.get(session)
+    if (!c) return void this.db.prepare('UPDATE sessions SET mode = ? WHERE id = ?').run(mode, session)
+    for (let i = 0; i <= MODES.length; i++) {
+      if (footerMode(this.deps.tmux.screen(c.name)) === mode) return void this.db.prepare('UPDATE sessions SET mode = ? WHERE id = ?').run(mode, session)
+      this.deps.tmux.key(c.name, 'BTab')
+      await new Promise((r) => setTimeout(r, 350))
+    }
+    throw new b.BoardError(`Claude Code did not switch to that mode; it may not be available for this model`)
   }
 
   // Continue in a fresh chat with a handoff note built from the board (IDE/D16 B).
@@ -284,7 +307,7 @@ export class ChatManager {
       })
     }
     this.db.prepare('UPDATE sessions SET tmux = ? WHERE id = ?').run(name, session)
-    const c: Chat = { name, owned: !live || live === session, terminal: '', busy: false, transcript: saved, offset: saved ? readNew(saved, 0).offset : 0, lastOutput: 0, modeReadAt: 0, started: Date.now(), queue: [], trustNoted: false, slowNoted: false }
+    const c: Chat = { name, owned: !live || live === session, terminal: '', busy: false, menu: null, transcript: saved, offset: saved ? readNew(saved, 0).offset : 0, lastOutput: 0, modeReadAt: 0, started: Date.now(), queue: [], trustNoted: false, slowNoted: false, stand_in: null }
     this.chats.set(session, c)
     this.attach(session, c)
     return c
@@ -416,12 +439,30 @@ export class ChatManager {
     }
     const mode = footerMode(screen)
     if (mode) this.db.prepare('UPDATE sessions SET mode = ? WHERE id = ? AND mode IS NOT ?').run(mode, session, mode)
+    const menu = terminalMenu(screen)
+    if (JSON.stringify(menu) !== JSON.stringify(c.menu)) {
+      c.menu = menu
+      this.emitStatus(session)
+    }
+  }
+
+  // Answer the menu Claude Code shows in the terminal, as if the arrow keys and Enter were pressed there.
+  // question: the one the user saw; if the terminal now shows another menu (or none), nothing is pressed.
+  choose(session: string, question: string, option: number): void {
+    const c = this.chats.get(session)
+    if (!c) throw new b.BoardError('this session is not running')
+    const menu = terminalMenu(this.deps.tmux.screen(c.name))
+    if (!menu || menu.question !== question) throw new b.BoardError('the terminal no longer shows that question; open the terminal to see what it asks now')
+    for (const key of keysToChoose(menu, option)) this.deps.tmux.key(c.name, key)
+    c.modeReadAt = 0 // read the screen again soon, so the card goes away
   }
 
   private onLine(session: string, c: Chat, line: ChatLine): void {
     if (line.type === 'title') {
       const s = this.db.prepare('SELECT title FROM sessions WHERE id = ?').get(session) as { title: string | null }
-      if (!s.title || s.title === 'New chat') b.touchSession(this.db, session, { title: line.title.slice(0, 80) })
+      // Only over a title nobody chose: empty, "New chat" or the first-line stand-in. A rename always stays.
+      if (!s.title || s.title === 'New chat' || s.title === c.stand_in) b.touchSession(this.db, session, { title: line.title.slice(0, 80) })
+      c.stand_in = null
       return
     }
     if (line.type === 'turn_end') {

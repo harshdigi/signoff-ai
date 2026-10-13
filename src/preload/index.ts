@@ -7,7 +7,8 @@ type DataEvent = { id: string; data: string }
 type ExitEvent = { id: string; exitCode: number }
 type ChatEvent = { session: string; event: Record<string, unknown> }
 type ReviewViewArg = { session: string | null; scope: 'ticket' | 'session' | 'today' | 'commit' | 'uncommitted'; commit?: string | null }
-type ChatStatus = { session: string; running: boolean; busy: boolean; terminal: string | null }
+type ChatStatus = { session: string; running: boolean; busy: boolean; terminal: string | null; menu: { question: string; detail: string[]; options: string[]; selected: number } | null }
+type SpeechEvent = { type: 'ready' | 'ended' } | { type: 'partial' | 'final'; text: string } | { type: 'error'; code: string; message: string }
 
 const subscribe = <T,>(channel: string, cb: (e: T) => void): (() => void) => {
   const handler = (_e: IpcRendererEvent, payload: T): void => cb(payload)
@@ -16,6 +17,10 @@ const subscribe = <T,>(channel: string, cb: (e: T) => void): (() => void) => {
 }
 
 const api = {
+  window: {
+    isFullScreen: (): Promise<boolean> => ipcRenderer.invoke('window:isFullScreen'),
+    onFullScreen: (cb: (on: boolean) => void) => subscribe<boolean>('window:fullscreen', cb)
+  },
   onDeepLink: (cb: (l: { action: 'run'; skill: string } | { action: 'ask'; text: string }) => void) => subscribe<{ action: 'run'; skill: string } | { action: 'ask'; text: string }>('deeplink', cb),
   board: {
     state: () => ipcRenderer.invoke('board:state'),
@@ -137,6 +142,13 @@ const api = {
     enable: () => ipcRenderer.invoke('integration:enable'),
     disable: () => ipcRenderer.invoke('integration:disable')
   },
+  // Voice input (main/speech.ts): start listens in the language from Settings; events stream partial and final text.
+  speech: {
+    start: () => ipcRenderer.invoke('speech:start'),
+    stop: () => ipcRenderer.invoke('speech:stop'),
+    languages: (): Promise<{ id: string; onDevice: boolean }[]> => ipcRenderer.invoke('speech:languages'),
+    onEvent: (cb: (e: SpeechEvent) => void) => subscribe<SpeechEvent>('speech:event', cb)
+  },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     save: (patch: Record<string, unknown>) => ipcRenderer.invoke('settings:save', patch)
@@ -153,6 +165,8 @@ const api = {
     files: (session: string | null): Promise<string[]> => ipcRenderer.invoke('chat:files', session),
     handoff: (session: string): Promise<string> => ipcRenderer.invoke('chat:handoff', session),
     interrupt: (session: string) => ipcRenderer.invoke('chat:interrupt', session),
+    setMode: (session: string, mode: string) => ipcRenderer.invoke('chat:setMode', session, mode),
+    choose: (session: string, question: string, option: number) => ipcRenderer.invoke('chat:choose', session, question, option),
     cycleMode: (session: string) => ipcRenderer.invoke('chat:cycleMode', session),
     command: (session: string, line: string) => ipcRenderer.invoke('chat:command', session, line),
     terminal: (session: string): Promise<string> => ipcRenderer.invoke('chat:terminal', session),

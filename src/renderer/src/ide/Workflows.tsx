@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { errText, type CatalogItem, type Role, type Workflow } from './types'
 import { flowSteps, recommend, sessionsLine, warnings, type Answers } from './workflow-guide'
+import { SideHead } from './SideHead'
+import { Chev } from './icons'
 
 // Workflows (IDE/D21): team setups to start a session with, and your routines (pinned skills).
 // Each setup explains itself: how it runs, what it is good and not good for, and what it costs in sessions.
@@ -32,20 +34,28 @@ export default function WorkflowsView({ workflows, reload, trusted, start, routi
     void window.api.settings.get().then((s: { maxChildren: number }) => setCap(s.maxChildren))
   }, [])
   const remove = (id: string): void => void window.api.workflows.remove(id).then(reload, (e: unknown) => setErr(errText(e)))
+  const [panel, setPanel] = useState<'how' | 'pick' | null>(null) // ⓘ how it works, ? which setup
+  const newSetup = (): void => setEditing({ id: '', name: '', description: '', team: [{ role: 'implementer', count: 1, does: '' }, { role: 'reviewer', count: 1, does: 'Reads each diff from the implementers and posts findings as a review. Never edits code.' }], goodFor: [], notFor: [] })
   if (editing) return <Editor w={editing} cap={cap} done={(saved) => { setEditing(null); if (saved) reload() }} />
   return (
     <div className="side-body">
-      <details className="wf-how">
-        <summary>How team setups work</summary>
-        <ol>{HOW.map((h) => <li key={h}>{h}</li>)}</ol>
-        <div className="meta">Every session uses its own tokens. Teams need a git repo on a branch: start a team from a session inside a repo.</div>
-      </details>
-      <Picker workflows={workflows} reveal={setOpen} />
+      <SideHead title="TEAMS" hint="Team setups: several sessions on one task, each on its own branch" actions={[
+        { icon: 'info', title: 'How team setups work', on: panel === 'how', onClick: () => setPanel(panel === 'how' ? null : 'how') },
+        { icon: 'help', title: 'Which setup should I use? Three questions', on: panel === 'pick', onClick: () => setPanel(panel === 'pick' ? null : 'pick') },
+        { icon: 'plus', title: 'New team setup', onClick: newSetup }
+      ]} />
+      {panel === 'how' && (
+        <div className="wf-how">
+          <ol>{HOW.map((h) => <li key={h}>{h}</li>)}</ol>
+          <div className="meta">Every session uses its own tokens. Teams need a git repo on a branch: start a team from a session inside a repo.</div>
+        </div>
+      )}
+      {panel === 'pick' && <Picker workflows={workflows} reveal={(id) => { setOpen(id); setPanel(null) }} />}
       <div className="side-group">Team setups</div>
       {workflows.map((w) => (
         <div key={w.id} className={'wf-card' + (open === w.id ? ' on' : '')}>
           <div className="side-item wf-row" onClick={() => setOpen(open === w.id ? null : w.id)} title="Show how it works and when to use it">
-            <span className="name">{open === w.id ? '▾' : '▸'} {w.name}</span><span className="dir">{w.line}</span>
+            <span className="name"><Chev open={open === w.id} /> {w.name}</span><span className="dir">{w.line}</span>
             <span className="row-acts" onClick={(e) => e.stopPropagation()}>
               <button className="row-act" disabled={!trusted} title={trusted ? 'Start a session with this team' : 'Trust the folder first'} onClick={() => start(w.id)}>▶</button>
               <button className="row-act" title={w.builtIn ? 'Copy and edit' : 'Edit'} onClick={() => setEditing({ id: w.builtIn ? `${w.id}-copy` : w.id, name: w.builtIn ? `${w.name} (copy)` : w.name, description: w.description, team: w.team, goodFor: w.goodFor, notFor: w.notFor })}>✎</button>
@@ -55,9 +65,6 @@ export default function WorkflowsView({ workflows, reload, trusted, start, routi
           {open === w.id && <Details w={w} cap={cap} />}
         </div>
       ))}
-      <div className="side-item" onClick={() => setEditing({ id: '', name: '', description: '', team: [{ role: 'implementer', count: 1, does: '' }, { role: 'reviewer', count: 1, does: 'Reads each diff from the implementers and posts findings as a review. Never edits code.' }], goodFor: [], notFor: [] })}>
-        <span className="st">＋</span><span className="name">New team setup</span>
-      </div>
       <div className="side-group">Routines</div>
       {routines.length === 0 && <div className="side-empty">Pin a skill in Skills (✦), e.g. a start-my-day skill, and it shows here.</div>}
       {routines.map((r) => (
@@ -110,8 +117,7 @@ function Picker({ workflows, reveal }: { workflows: Workflow[]; reveal: (id: str
   const pick = done ? recommend(a as Answers) : null
   const name = pick ? workflows.find((w) => w.id === pick.id)?.name ?? pick.id : ''
   return (
-    <details className="wf-pick">
-      <summary>Which setup should I use?</summary>
+    <div className="wf-pick">
       {ask('size', 'How big is the task?', [['small', 'Small'], ['feature', 'A feature'], ['large', 'Large']])}
       {ask('parts', 'Does it split into parts that do not touch the same files?', [['one', 'No, one piece'], ['independent', 'Yes']])}
       {ask('risk', 'How costly is a mistake?', [['low', 'Low'], ['high', 'High (money, auth, data)']])}
@@ -121,7 +127,7 @@ function Picker({ workflows, reveal }: { workflows: Workflow[]; reveal: (id: str
           <button className="link" onClick={() => reveal(pick.id)}>Show {name}</button>
         </div>
       )}
-    </details>
+    </div>
   )
 }
 

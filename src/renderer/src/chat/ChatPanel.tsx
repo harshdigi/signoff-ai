@@ -10,9 +10,12 @@ import { looksLikeRef } from '../ide/code-ref'
 import { time, type BoardState } from '../board/types'
 import { errText, type CatalogItem, type ChatStatus } from '../ide/types'
 import ApprovalCard from './ApprovalCard'
-import { latestTodos, toRows, toolSummary, waitingInTerminal, type ToolRow } from './transcript'
+import { foldTurns, latestTodos, stepsSummary, toRows, toolSummary, waitingInTerminal, type StepsRow, type ToolRow } from './transcript'
 import { MODES } from './modes'
+import { useVoice } from './use-voice'
+import { MicButton } from './MicButton'
 import { MdCode } from '../ide/CodeBlock'
+import { Chev } from '../ide/icons'
 
 // The right-hand chat (IDE/D9). Everything waiting on the user for this chat sits above the input:
 // permission prompts, Claude's questions, decisions, reviews and actions.
@@ -118,8 +121,6 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
 
   // Shared sessions (started here, or from Terminal through the wrapper) work the same: the chat types into them.
   const shared = (s: { via: string | null; tmux: string | null }): boolean => s.via === 'chat' || !!s.tmux
-  const chats = board.sessions.filter((s) => shared(s) && s.cwd === folder && !s.archived)
-  const terminals = board.sessions.filter((s) => !shared(s) && !s.archived && s.state !== 'done')
   const current = board.sessions.find((s) => s.id === session)
   // Picked session that runs in a terminal the app cannot reach: messages are queued on the board, not typed.
   const queued = !!current && !shared(current)
@@ -155,6 +156,8 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   }, [session, queued])
 
   const rows = useMemo(() => toRows(events as never[]), [events])
+  // One steps row per turn, under your message (all its tool calls); what Claude writes shows below as it comes.
+  const shown = useMemo(() => foldTurns(rows), [rows])
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight })
   }, [rows.length, live, sent.length])
@@ -197,6 +200,9 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
       setErr(errText(e))
     }
   }
+  // Voice input: hold 🎤 (slide up to lock) or hold ⌥Space. Words are added to the box live.
+  // Send or Enter while it listens stops the mic first, so the last words are sent too.
+  const voice = useVoice({ text: () => input, setText: setInput, send: (t) => void send(t), error: setErr })
   const sendTo = async (choice: Choice): Promise<void> => {
     if (!routing) return
     try {
@@ -259,6 +265,11 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
     }
   }
   const onKey = (e: React.KeyboardEvent): void => {
+    if (e.key === ' ' && e.altKey) {
+      e.preventDefault()
+      if (!e.repeat) voice.press()
+      return
+    }
     if (e.key === 'Tab' && e.shiftKey) {
       e.preventDefault()
       return cycleMode()
@@ -273,6 +284,8 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
     } else if (menu.length && (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey))) {
       e.preventDefault()
       pick(menu[Math.min(menuIndex, menu.length - 1)])
+    } else if (e.key === 'Enter' && !e.shiftKey && voice.stopAndSend()) {
+      e.preventDefault()
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       void send(input)
@@ -283,23 +296,31 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   const informed = board.decisions.filter((d) => d.session === session && d.level === 'inform' && d.status !== 'open').slice(-5).reverse()
   const decisions = board.decisions.filter((d) => d.session === session && d.status === 'open' && !d.later_at) // set aside: in Decisions → Later
   const reviews = board.reviews.filter((r) => r.session === session && r.status === 'open')
-  const busy = !!status?.busy
+  // A menu in the terminal means Claude is waiting for you, not working.
+  const termMenu = status?.menu ?? null
+  const busy = !!status?.busy && !termMenu
+  // The model of Claude's latest reply (opus, sonnet, haiku or fable), so the picker shows what is really answering.
+  const replyModel = useMemo(() => {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const m = (events[i] as { type?: string; message?: { model?: string } }).type === 'assistant' ? (events[i] as { message?: { model?: string } }).message?.model : undefined
+      const fam = m && /(opus|sonnet|haiku|fable)/.exec(m)?.[1]
+      if (fam) return fam
+    }
+    return null
+  }, [events])
+  const [choosing, setChoosing] = useState(false)
+  const choose = (i: number): void => {
+    if (!session || !termMenu) return
+    setChoosing(true)
+    window.api.chat.choose(session, termMenu.question, i).catch((e: unknown) => setErr(errText(e))).finally(() => setChoosing(false))
+  }
   const todos = useMemo(() => latestTodos(events as never[]), [events])
 
   const waiting = useMemo(() => (queued ? null : waitingInTerminal(events as never[])), [events, queued])
 
   return (
     <div className="chat">
-      <div className="chat-head">
-        <select value={session ?? ''} onChange={(e) => setSession(e.target.value || null)}>
-          <option value="">New chat</option>
-          {chats.length > 0 && <optgroup label="Chats">{chats.map((c) => <option key={c.id} value={c.id}>{c.title || c.id.slice(0, 8)}</option>)}</optgroup>}
-          {terminals.length > 0 && <optgroup label="Terminal sessions">{terminals.map((c) => <option key={c.id} value={c.id}>{c.title || c.ticket || c.id.slice(0, 8)}</option>)}</optgroup>}
-        </select>
-        <button title="New chat" onClick={() => setSession(null)}>＋</button>
-        {current && shared(current) && <button title="Open this chat's terminal: the same Claude Code session" onClick={showChatTerminal}>Terminal</button>}
-        {current && <HeadActions id={current.id} title={current.title || current.ticket || current.id.slice(0, 8)} removed={() => setSession(null)} />}
-      </div>
+      {/* No header row: pick, start, rename and remove sessions in the Sessions list; the terminal is in its Terminals tab. */}
       {current?.via === 'chat' && current.context_used ? <ContextMeter used={current.context_used} window={current.context_window} busy={busy} handoff={async () => {
         try {
           setSession(await window.api.chat.handoff(current.id))
@@ -329,8 +350,9 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
             <div className="bubble-meta">{m.by === 'typed' ? `Typed into its terminal ${time(m.created_at)}` : m.delivered_at ? `Delivered ${time(m.delivered_at)}` : `Queued ${time(m.created_at)}`}</div>
           </div>
         ))}
-        {rows.map((r, i) =>
-          r.kind === 'prompt' ? <div key={i} className="bubble you">{r.text}{r.images ? <div className="bubble-meta">{r.images} image{r.images > 1 ? 's' : ''} attached</div> : null}</div>
+        {shown.map((r, i) =>
+          r.kind === 'steps' ? <Steps key={i} r={r} live={busy && r.live} />
+          : r.kind === 'prompt' ? <div key={i} className="bubble you">{r.text}{r.images ? <div className="bubble-meta">{r.images} image{r.images > 1 ? 's' : ''} attached</div> : null}</div>
           : r.kind === 'text' ? <MessageText key={i} text={r.text} md={md} />
           : r.kind === 'tool' ? <ToolLine key={i} t={r} />
           : r.kind === 'handoff-note' ? <details key={i} className="handoff-note"><summary>Handoff note sent to Claude</summary><pre>{r.text}</pre></details>
@@ -353,7 +375,19 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
           {todos.map((t, i) => <div key={i} className={'todo ' + t.status}>{t.status === 'completed' ? '✓' : t.status === 'in_progress' ? '▸' : '○'} {t.status === 'in_progress' && t.activeForm ? t.activeForm : t.content}</div>)}
         </details>
       )}
-      {waiting && (
+      {termMenu && (
+        <div className="ccard warn in-terminal">
+          <div className="ccard-head"><b>Claude is waiting for you in the terminal</b></div>
+          {waiting && <div className="meta">{waiting.kind === 'plan' ? waiting.text.slice(0, 400) : waiting.text}</div>}
+          {termMenu.detail.length > 0 && <pre className="cmd">{termMenu.detail.join('\n')}</pre>}
+          <div className="term-q">{termMenu.question}</div>
+          <div className="term-options">
+            {termMenu.options.map((o, i) => <button key={i} disabled={choosing} className={i === termMenu.selected ? 'primary' : ''} onClick={() => choose(i)}>{o}</button>)}
+          </div>
+          <div className="bar"><button className="link" onClick={showChatTerminal}>Answer in terminal instead</button></div>
+        </div>
+      )}
+      {waiting && !termMenu && (
         <div className="ccard warn in-terminal">
           <div className="ccard-head"><b>{waiting.kind === 'plan' ? "Claude's plan is waiting for you in the terminal" : 'Claude is asking you in the terminal'}</b></div>
           <div className="meta">{waiting.kind === 'plan' ? waiting.text.slice(0, 400) : waiting.text}</div>
@@ -363,10 +397,10 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
       {(approvals.length > 0 || decisions.length > 0 || reviews.length > 0) && (
         <div className="chat-waiting">
           <button className="waiting-title" onClick={toggleWaiting} title={waitingFolded ? 'Show what is waiting' : 'Fold this away; the count stays'}>
-            {waitingFolded ? '▸' : '▾'} Waiting on you ({approvals.length + decisions.length + reviews.length})
+            <Chev open={!waitingFolded} /> Waiting on you ({approvals.length + decisions.length + reviews.length})
           </button>
           {!waitingFolded && <>
-            {approvals.map((a) => <ApprovalCard key={a.id} a={a} toTerminal={showChatTerminal} />)}
+            {approvals.map((a) => <ApprovalCard key={a.id} a={a} toTerminal={showChatTerminal} who={current?.title ?? null} folder={folder} />)}
             {decisions.map((d) => <DecisionCard key={d.id} d={d} b={board} refresh={refresh} />)}
             {reviews.map((r) => <ReviewCard key={r.id} r={r} b={board} refresh={refresh} />)}
           </>}
@@ -393,24 +427,28 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
           </div>
         )}
         <textarea ref={box} value={input} disabled={!queued && (!trusted || !folder)} onChange={(e) => { setInput(e.target.value); setMenuIndex(0) }} onKeyDown={onKey}
+          onKeyUp={(e) => { if (e.key === ' ' || e.key === 'Alt') voice.release() }}
           onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addImageFiles(e.clipboardData.files) } }}
           onDragOver={(e) => e.preventDefault()} onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); addImageFiles(e.dataTransfer.files) } }}
           placeholder={queued ? (term ? 'Type to this session (sent to its terminal)' : 'Message this session (queued until it checks the board)') : !folder ? 'Open a folder to start' : !trusted ? 'Trust this folder to chat' : busy ? 'Claude is working. You can queue a message. Esc stops.' : 'Ask Claude · / commands and skills · @ files · paste images · ⇧Tab mode'} />
         <div className="composer-bar">
-          {!queued && <><button className="mode-chip" disabled={!session} onClick={cycleMode} title="Click or ⇧Tab: Claude Code's next mode">
-            {MODES.find(([v]) => v === (current?.mode || 'default'))?.[1] ?? current?.mode} ⇧Tab
-          </button>
-          <select value="" disabled={!session} onChange={(e) => e.target.value && command(`/model ${e.target.value}`)} title="Model (sends /model)">
-            <option value="">Model…</option>
+          {/* What is set now: the mode from Claude Code's footer, the model of its latest reply, the effort last chosen here. */}
+          {!queued && <><select className="mode-pick" value={current?.mode || 'default'} disabled={!session} title="Mode (⇧Tab cycles it)"
+            onChange={(e) => session && void window.api.chat.setMode(session, e.target.value).catch((x: unknown) => setErr(errText(x)))}>
+            {MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <select value={replyModel ?? current?.model ?? ''} disabled={!session} onChange={(e) => e.target.value && command(`/model ${e.target.value}`)} title="Model (sends /model)">
+            {!(replyModel ?? current?.model) && <option value="">Default model</option>}
             {MODELS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
-          <select value="" disabled={!session} onChange={(e) => e.target.value && command(`/effort ${e.target.value}`)} title="Effort (sends /effort)">
-            <option value="">Effort…</option>
-            {EFFORTS.map((x) => <option key={x} value={x}>{x}</option>)}
+          <select value={current?.effort ?? ''} disabled={!session} onChange={(e) => e.target.value && command(`/effort ${e.target.value}`)} title="Effort (sends /effort)">
+            {!current?.effort && <option value="">Default effort</option>}
+            {EFFORTS.map((x) => <option key={x} value={x}>{x[0].toUpperCase() + x.slice(1)} effort</option>)}
           </select></>}
           <span className="grow" />
           {busy && <button onClick={() => session && window.api.chat.interrupt(session)}>Stop</button>}
-          <button className="primary" disabled={(!input.trim() && !images.length) || (!queued && !trusted)} onClick={() => send(input)}>{queued && !term ? 'Queue' : 'Send'}</button>
+          <MicButton voice={voice} disabled={!queued && (!trusted || !folder)} />
+          <button className="primary" disabled={(!input.trim() && !images.length && voice.state === 'off') || (!queued && !trusted)} onClick={() => { if (!voice.stopAndSend()) void send(input) }}>{queued && !term ? 'Queue' : 'Send'}</button>
         </div>
         {routing && (
           <div className="route-ask">
@@ -443,6 +481,27 @@ function ContextMeter({ used, window: win, busy, handoff }: { used: number; wind
   )
 }
 
+// A turn's tool calls as one line: how many of each, and while it runs, the one it is on. Expand to see each.
+function Steps({ r, live }: { r: StepsRow; live: boolean }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const last = r.steps[r.steps.length - 1]
+  const now = last ? `${last.name} ${toolSummary(last.name, last.input)}` : ''
+  return (
+    <div className={'steps' + (live ? ' live' : '')}>
+      <button className="steps-head" onClick={() => setOpen(!open)} title={open ? 'Hide the steps' : 'Show every step: commands, files read and edited, notes'}>
+        <Chev open={open} />
+        <span className="steps-sum">{stepsSummary(r.steps)}</span>
+        {live && <span className="steps-now">{now}</span>}
+      </button>
+      {open && (
+        <div className="steps-body">
+          {r.steps.map((s, i) => <ToolLine key={i} t={s} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ToolLine({ t }: { t: ToolRow }): React.JSX.Element {
   const state = t.result === undefined ? 'running' : t.isError ? 'failed' : 'done'
   return (
@@ -453,31 +512,3 @@ function ToolLine({ t }: { t: ToolRow }): React.JSX.Element {
   )
 }
 
-// Rename / remove the chat that is open, from its header.
-function HeadActions({ id, title, removed }: { id: string; title: string; removed: () => void }): React.JSX.Element {
-  const [mode, setMode] = useState<'idle' | 'rename' | 'confirm'>('idle')
-  const [name, setName] = useState(title)
-  const [err, setErr] = useState<string | null>(null)
-  if (mode === 'rename') return (
-    <span className="head-rename">
-      <input autoFocus value={name} onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') setMode('idle')
-          if (e.key === 'Enter') window.api.sessions.rename(id, name).then(() => { setMode('idle'); setErr(null) }, (x: unknown) => setErr(errText(x)))
-        }} />
-      {err && <span className="err">{err}</span>}
-    </span>
-  )
-  if (mode === 'confirm') return (
-    <>
-      <button className="danger" onClick={() => { void window.api.sessions.remove(id); setMode('idle'); removed() }}>Remove</button>
-      <button onClick={() => setMode('idle')}>Keep</button>
-    </>
-  )
-  return (
-    <>
-      <button title="Rename" onClick={() => { setName(title); setMode('rename') }}>✎</button>
-      <button title="Remove from the list (its decisions stay in history)" onClick={() => setMode('confirm')}>×</button>
-    </>
-  )
-}

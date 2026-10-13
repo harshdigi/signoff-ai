@@ -27,6 +27,7 @@ export default function TestsView({ changes, trusted, analyse, showTerminal }: P
   useEffect(() => {
     if (!current) return
     setInfo(null)
+    setErr(null)
     window.api.tests.info(current.root).then(setInfo, (e: unknown) => setErr(errText(e)))
   }, [current?.root, changedKey])
   useEffect(() => {
@@ -50,8 +51,11 @@ export default function TestsView({ changes, trusted, analyse, showTerminal }: P
           {groups.map((g) => <option key={g.root} value={g.root}>⎇ {g.branch ?? 'detached'} · {base(g.root)}</option>)}
         </select>
       )}
-      {err && <div className="err">{err}</div>}
-      {!info ? <div className="side-empty">Finding specs…</div> : !info.framework ? (
+      {/* Tests run only in repos inside the open folder; a session can also have changed a repo outside it. */}
+      {err && (err.startsWith('not a worktree of this folder')
+        ? <div className="side-empty">Tests run only for repos inside the open folder. {base(current?.root ?? '')} is outside it.</div>
+        : <div className="err">{err}</div>)}
+      {err && !info ? null : !info ? <div className="side-empty">Finding specs…</div> : !info.framework ? (
         <div className="side-empty">No RSpec, Vitest or Jest setup found in this worktree.</div>
       ) : (
         <>

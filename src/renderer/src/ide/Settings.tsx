@@ -6,7 +6,32 @@ import { MODES, type Mode } from '../chat/modes'
 import { CodePre } from './CodeBlock'
 
 // Settings dialog. Values apply to sessions started after saving (the system prompt is set at start).
-type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode }
+type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode; tidyDecisions: boolean; speechLocale: string; speechAutoSend: boolean }
+
+// Voice input (🎤 in the chat): the language, and whether it sends when you stop. Only languages this Mac can
+// recognise offline can be picked; the others need their model downloaded in System Settings first.
+function VoiceInput({ s, setS }: { s: S; setS: (s: S) => void }): React.JSX.Element {
+  const [langs, setLangs] = useState<{ id: string; onDevice: boolean }[] | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  useEffect(() => {
+    window.api.speech.languages().then(setLangs, (e: unknown) => setErr(errText(e)))
+  }, [])
+  const name = (id: string): string => new Intl.DisplayNames(undefined, { type: 'language' }).of(id.replace('_', '-')) ?? id
+  return (
+    <div className="field">
+      <div className="label">Voice input</div>
+      <label className="inline">Language{' '}
+        <select value={s.speechLocale} onChange={(e) => setS({ ...s, speechLocale: e.target.value })}>
+          <option value="">The Mac&apos;s language</option>
+          {(langs ?? []).map((l) => <option key={l.id} value={l.id} disabled={!l.onDevice}>{name(l.id)} ({l.id}){l.onDevice ? '' : ': download first'}</option>)}
+        </select>
+      </label>
+      <label className="inline"><input type="checkbox" checked={s.speechAutoSend} onChange={(e) => setS({ ...s, speechAutoSend: e.target.checked })} /> Send the message when I stop talking</label>
+      <div className="meta">Hold 🎤 in the chat (slide up to lock) or hold ⌥Space. Recognition runs on this Mac only; audio is never sent anywhere. More languages: System Settings → Keyboard → Dictation.</div>
+      {err && <div className="err">{err}</div>}
+    </div>
+  )
+}
 
 export default function Settings({ close, catalog, openShortcuts }: { close: () => void; catalog: CatalogItem[]; openShortcuts: () => void }): React.JSX.Element {
   const [s, setS] = useState<S | null>(null)
@@ -73,6 +98,12 @@ export default function Settings({ close, catalog, openShortcuts }: { close: () 
                 {MODES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
               </select>
               <div className="meta">New, resumed and team chats start in this mode. To change it for one chat, press ⇧Tab in that chat.</div>
+            </div>
+            <VoiceInput s={s} setS={setS} />
+            <div className="field">
+              <div className="label">Decisions the chat settled</div>
+              <label className="inline"><input type="checkbox" checked={s.tidyDecisions} onChange={(e) => setS({ ...s, tidyDecisions: e.target.checked })} /> Tidy them up: when a turn ends, ask the session once to close decisions you settled in the chat instead of on the card</label>
+              <div className="meta">Costs one short extra turn when there are any. Off: sessions still close them when they notice, without being asked.</div>
             </div>
             <div className="field">
               <div className="label">Team sessions</div>

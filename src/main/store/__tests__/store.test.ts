@@ -148,7 +148,7 @@ describe('copy before an upgrade', () => {
     const path = join(dir, 'board.db')
     const db = openStore(path)
     db.prepare("INSERT INTO sessions (id, state, started_at, updated_at) VALUES ('s1', 'working', 't', 't')").run()
-    db.exec('ALTER TABLE decisions DROP COLUMN later_at')
+    db.exec('ALTER TABLE sessions DROP COLUMN effort') // the newest migration's column (v20)
     db.pragma(`user_version = ${SCHEMA_VERSION - 1}`)
     db.close()
     return path

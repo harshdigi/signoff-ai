@@ -40,6 +40,13 @@ describe('your own skills', () => {
     expect(saveSettings(db, { defaultMode: 'auto' }).defaultMode).toBe('auto')
     expect(() => saveSettings(db, { defaultMode: 'bypassPermissions' as never })).toThrow('bad default mode bypassPermissions')
   })
+
+  it('voice input defaults to the Mac language without auto-send; a language must look like one', () => {
+    const db = openStore(join(mkdtempSync(join(tmpdir(), 'voice-')), 'board.db'))
+    expect(getSettings(db)).toMatchObject({ speechLocale: '', speechAutoSend: false })
+    expect(saveSettings(db, { speechLocale: 'hi-IN-translit', speechAutoSend: true })).toMatchObject({ speechLocale: 'hi-IN-translit', speechAutoSend: true })
+    expect(() => saveSettings(db, { speechLocale: 'en IN; rm -rf' })).toThrow('bad voice input language en IN; rm -rf')
+  })
 })
 
 describe('Siri and Shortcuts', () => {

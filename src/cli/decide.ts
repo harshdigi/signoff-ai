@@ -20,6 +20,7 @@ import { addCase, cases, planOf, setCase, type CaseStatus } from '../shared/test
 import { openComments, replyComment } from '../shared/comments'
 import type { TaskGroup } from '../main/tasks'
 import { runAsk } from './ask'
+import { askToSettle, lastPromptAt, settle, staleDecisions } from '../shared/stale'
 import { getApproval, leaveToTerminal, requestApproval } from '../shared/approvals'
 
 // signoff (old name: decide, still works): how Claude sessions talk to Signoff AI.
@@ -37,6 +38,7 @@ const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_COD
   answer    --ticket K --id Dn --text T
   ack       --ticket K --id Dn [--id ...]
   reply     --ticket K --id Dn --text T | --text-file FILE   (a file keeps line breaks: points, paragraphs)
+  settle    --ticket K --id Dn --text T [--done]   the chat decided it (an option, or something else); --done: already implemented
   withdraw  --ticket K --id Dn --reason R
   propose   --ticket K --title T --patch FILE [--summary S | --summary-file FILE] [--file NAME]
   review    --id R-n
@@ -181,8 +183,14 @@ function hook(db: Store, event: string | undefined, terminal = false): number {
     // Claude Code runs Stop hooks again after a block; without this guard the session could never stop.
     if (input.stop_hook_active) return 0
     const msgs = b.popMessages(db, input.session_id, 'stop')
-    if (msgs.length)
+    if (msgs.length) {
       console.log(JSON.stringify({ decision: 'block', reason: 'Messages from the decision board (sent by the user):\n\n' + msgs.map((m) => m.text).join('\n') }))
+      return 0
+    }
+    // Decisions the chat moved past (you kept talking instead of answering the card): ask once to settle or close them.
+    const transcript = input.transcript_path && existsSync(input.transcript_path) ? readFileSync(input.transcript_path, 'utf8') : ''
+    const stale = getSettings(db).tidyDecisions ? staleDecisions(db, input.session_id, lastPromptAt(transcript)) : []
+    if (stale.length) console.log(JSON.stringify({ decision: 'block', reason: askToSettle(db, stale) }))
     return 0
   }
   throw new Usage('hook is session-start, permission or stop')
@@ -238,7 +246,7 @@ function main(argv: string[]): number {
       option: { type: 'string', multiple: true }, recommend: { type: 'string' }, evidence: { type: 'string', multiple: true },
       ref: { type: 'string', multiple: true }, action: { type: 'string' }, command: { type: 'string' }, force: { type: 'boolean' },
       review: { type: 'string' }, timeout: { type: 'string' }, interval: { type: 'string' }, open: { type: 'boolean' },
-      text: { type: 'string' }, 'text-file': { type: 'string' }, reason: { type: 'string' }, patch: { type: 'string' }, summary: { type: 'string' },
+      text: { type: 'string' }, 'text-file': { type: 'string' }, done: { type: 'boolean' }, reason: { type: 'string' }, patch: { type: 'string' }, summary: { type: 'string' },
       'summary-file': { type: 'string' }, file: { type: 'string' }, change: { type: 'string' }, level: { type: 'string' },
       decision: { type: 'string', multiple: true }, jira: { type: 'string' }, idx: { type: 'string' }, status: { type: 'string' }, limit: { type: 'string' },
       skill: { type: 'string' }, folder: { type: 'string' }, model: { type: 'string' }, piece: { type: 'string', multiple: true }, role: { type: 'string', multiple: true }, name: { type: 'string' }, workflow: { type: 'string' }, 'good-for': { type: 'string', multiple: true }, 'not-for': { type: 'string', multiple: true }, of: { type: 'string' }, label: { type: 'string' }, group: { type: 'string' }, steps: { type: 'string' }, expected: { type: 'string' },
@@ -374,6 +382,10 @@ function main(argv: string[]): number {
       return 0
     case 'reply':
       for (const id of ids()) b.addToThread(db, id, sid(), text())
+      console.log('ok')
+      return 0
+    case 'settle':
+      for (const id of ids()) settle(db, id, sid(), text(), !!o.done)
       console.log('ok')
       return 0
     case 'withdraw':
