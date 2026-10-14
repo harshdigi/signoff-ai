@@ -158,12 +158,60 @@ describe('reviews', () => {
 
   it('submit needs every file settled unless accept-all', () => {
     const r = b.addReview(db, { ticket: 'ABC-1', session: 's', title: 'PR 1', patch: PATCH })
-    expect(r).toEqual({ id: 'R-1', changes: [{ id: 'C1', file: 'db/migrate/x_add_vat.rb' }, { id: 'C2', file: 'packs/billing/app/models/invoice.rb' }] })
+    expect(r).toEqual({ id: 'R-1', changes: [{ id: 'C1', file: 'db/migrate/x_add_vat.rb' }, { id: 'C2', file: 'packs/billing/app/models/invoice.rb' }], replaced: [], kept: [] })
     b.setVerdict(db, 'R-1', 'C1', 'reject', 'use a generator')
     expect(() => b.submitReview(db, 'R-1')).toThrow(/still pending: C2/)
     expect(() => b.setVerdict(db, 'R-1', 'C2', 'question', ' ')).toThrow('write the question')
     expect(b.submitReview(db, 'R-1', { acceptRest: true })).toBe('changes_requested')
     expect(() => b.setVerdict(db, 'R-1', 'C2', 'accept')).toThrow('R-1 is already changes_requested')
+  })
+
+  it('a new review replaces the open one for the same session and ticket, keeping accepted unchanged files', () => {
+    b.addReview(db, { ticket: 'ABC-1', session: 's', title: 'PR 1', patch: PATCH })
+    b.setVerdict(db, 'R-1', 'C1', 'accept')
+    b.setVerdict(db, 'R-1', 'C2', 'accept')
+    const changed = PATCH.replace('customer_vat :string', 'customer_vat :text')
+    const r2 = b.addReview(db, { ticket: 'abc-1', session: 's', title: 'PR 1 v2', patch: changed })
+    expect(r2).toEqual({ id: 'R-2', changes: [{ id: 'C1', file: 'db/migrate/x_add_vat.rb' }, { id: 'C2', file: 'packs/billing/app/models/invoice.rb' }], replaced: ['R-1'], kept: ['C1'] })
+    const rows = db.prepare('SELECT id, status, note FROM reviews ORDER BY rowid').all()
+    expect(rows).toEqual([{ id: 'R-1', status: 'replaced', note: 'Replaced by R-2' }, { id: 'R-2', status: 'open', note: null }])
+    expect(db.prepare("SELECT change_id, verdict FROM review_changes WHERE review_id = 'R-2' ORDER BY change_id").all())
+      .toEqual([{ change_id: 'C1', verdict: 'accept' }, { change_id: 'C2', verdict: 'pending' }])
+    expect(db.prepare("SELECT who, text FROM review_thread WHERE review_id = 'R-2'").all())
+      .toEqual([{ who: 'board', text: 'You accepted this in R-1; the diff is unchanged.' }])
+    // Another ticket, or another session, is left alone.
+    expect(b.addReview(db, { ticket: 'XYZ-9', session: 's', title: 'other', patch: PATCH }).replaced).toEqual([])
+  })
+
+  it('dismiss closes an open review and tells its session', () => {
+    b.addReview(db, { ticket: 'ABC-1', session: 's', title: 'PR 1', patch: PATCH })
+    expect(b.dismissReview(db, 'R-1')).toBe('s')
+    expect(db.prepare("SELECT status, note FROM reviews WHERE id = 'R-1'").get()).toEqual({ status: 'dismissed', note: 'Dismissed on the board' })
+    expect(b.popMessages(db, 's').map((m) => m.text)).toEqual(['The user dismissed R-1 ("PR 1"). Do not apply it; stop waiting for it.'])
+    expect(() => b.dismissReview(db, 'R-1')).toThrow('R-1 is already dismissed')
+  })
+
+  it('the session that posted a review can withdraw it; others cannot', () => {
+    b.addReview(db, { ticket: 'ABC-1', session: 's', title: 'PR 1', patch: PATCH })
+    expect(() => b.withdrawReview(db, 'R-1', 's', ' ')).toThrow('say why it is withdrawn')
+    expect(() => b.withdrawReview(db, 'R-1', 'other', 'stale')).toThrow('R-1 was posted by another session; the user can Dismiss it on the board')
+    b.withdrawReview(db, 'R-1', 's', 'replaced by R-9')
+    expect(db.prepare("SELECT status, note FROM reviews WHERE id = 'R-1'").get()).toEqual({ status: 'dismissed', note: 'Withdrawn by its session: replaced by R-9' })
+    expect(() => b.withdrawReview(db, 'R-1', 's', 'again')).toThrow('R-1 is already dismissed')
+  })
+
+  it('a question on a file and the submitted result reach the session', () => {
+    b.addReview(db, { ticket: 'ABC-1', session: 's', title: 'PR 1', patch: PATCH })
+    expect(b.setVerdict(db, 'R-1', 'C1', 'accept')).toBeNull()
+    expect(b.popMessages(db, 's')).toEqual([])
+    expect(b.setVerdict(db, 'R-1', 'C2', 'question', 'why a new column?')).toBe('s')
+    expect(b.popMessages(db, 's').map((m) => m.text)).toEqual([
+      'The user asks about R-1 C2 (packs/billing/app/models/invoice.rb, in "PR 1"): why a new column?\nAnswer in the file\'s thread as short points, one per line ("- ..."), written to a file: signoff review-reply --id R-1 --change C2 --text-file <file>. Do not apply the file until the review is submitted.'
+    ])
+    expect(b.submitReview(db, 'R-1')).toBe('changes_requested')
+    expect(b.popMessages(db, 's').map((m) => m.text)).toEqual([
+      'The user submitted R-1 ("PR 1"): changes requested. See it with: signoff review --id R-1\nApply only the accepted files; rework the others from their comments and propose again.'
+    ])
   })
 })
 

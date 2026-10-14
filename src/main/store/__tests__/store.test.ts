@@ -54,6 +54,24 @@ describe('openStore', () => {
     expect(db.prepare('SELECT COUNT(*) AS n FROM approvals').get()).toEqual({ n: 0 })
   })
 
+  it('v21 rebuilds reviews with its files and threads, keeping rows and links', () => {
+    const path = join(tmp(), 'board.db')
+    const db = openStore(path)
+    db.prepare("INSERT INTO sessions (id, state, started_at, updated_at) VALUES ('s1', 'working', 't', 't')").run()
+    db.prepare("INSERT INTO reviews (id, ticket, session_id, title, status, created_at, updated_at) VALUES ('R-1', 'K-1', 's1', 'x', 'open', 't', 't')").run()
+    db.prepare("INSERT INTO review_changes (review_id, change_id, file, diff, verdict) VALUES ('R-1', 'C1', 'a.rb', '+a', 'accept')").run()
+    db.prepare("INSERT INTO review_thread (review_id, change_id, who, text, at) VALUES ('R-1', 'C1', 'you', 'ok', 't')").run()
+    db.pragma('user_version = 20')
+    db.close()
+    const up = openStore(path)
+    expect(up.prepare('SELECT (SELECT count(*) FROM reviews) r, (SELECT count(*) FROM review_changes) c, (SELECT count(*) FROM review_thread) t').get()).toEqual({ r: 1, c: 1, t: 1 })
+    up.prepare("UPDATE reviews SET status = 'replaced' WHERE id = 'R-1'").run()
+    expect(() => up.prepare("INSERT INTO review_changes (review_id, change_id, file, diff, verdict) VALUES ('R-9', 'C1', 'b.rb', '+b', 'pending')").run()).toThrow(/FOREIGN KEY/)
+    // The search index trigger is recreated: a new review is indexed.
+    up.prepare("INSERT INTO reviews (id, ticket, session_id, title, status, created_at, updated_at) VALUES ('R-2', 'K-1', 's1', 'y', 'open', 't', 't')").run()
+    expect(up.prepare("SELECT count(*) n FROM memory WHERE kind = 'review'").get()).toEqual({ n: 2 })
+  })
+
   it('rejects a state the board does not allow', () => {
     const db = openStore(join(tmp(), 'board.db'))
     expect(() => db.prepare("INSERT INTO sessions (id, state, started_at, updated_at) VALUES ('x', 'stuck', ?, ?)").run(T, T)).toThrow(/CHECK/)

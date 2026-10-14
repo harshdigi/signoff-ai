@@ -70,6 +70,8 @@ Every decision has a level: signoff post ... --level ask|inform|auto (ask when l
   signoff propose --ticket <KEY> --title "..." --patch <file> [--summary-file <file>]
 - Wait in the background: signoff wait --review R-<n>
 - Apply only the files the user accepted. Rework rejected files from their comments and propose again.
+- A new propose on the same ticket replaces your older open review (files with an unchanged diff stay accepted): wait on the new one.
+- A review of yours that no longer applies: signoff withdraw --review R-<n> --reason "..."
 - Answer a question on a file with: signoff review-reply --id R-<n> --change C<k> --text "..."
 - Reading files, searching and running tests need no review.
 

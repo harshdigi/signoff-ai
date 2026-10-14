@@ -23,7 +23,7 @@ export interface Decision {
 export interface Change { id: string; file: string; diff: string | null; lines: number; verdict: 'pending' | 'accept' | 'reject' | 'question'; comment: string | null; thread: ThreadEntry[] }
 export interface Review {
   id: string; ticket: string; session: string | null; title: string; summary: string | null
-  status: 'open' | 'accepted' | 'changes_requested'; note: string | null; created_at: string; submitted_at: string | null; updated_at: string
+  status: 'open' | 'accepted' | 'changes_requested' | 'replaced' | 'dismissed'; note: string | null; created_at: string; submitted_at: string | null; updated_at: string
   changes: Change[]
 }
 export interface Session {

@@ -14,7 +14,7 @@ describe('board state', () => {
     touchSession(db, 's1', {})
     const patch = 'diff --git a/x.rb b/x.rb\n--- a/x.rb\n+++ b/x.rb\n@@ -1 +1 @@\n-a\n+b\n'
     const open = addReview(db, { ticket: 'KA-1', session: 's1', title: 'open one', patch })
-    const done = addReview(db, { ticket: 'KA-1', session: 's1', title: 'done one', patch })
+    const done = addReview(db, { ticket: 'KA-2', session: 's1', title: 'done one', patch })
     setVerdict(db, done.id, 'C1', 'accept')
     submitReview(db, done.id)
     const reviews = readBoard(db).reviews

@@ -354,22 +354,65 @@ const nextId = (db: Store, table: 'reviews' | 'backlog' | 'runs', prefix: string
   return `${prefix}-${1 + Math.max(0, ...rows.map((r) => Number(r.id.split('-')[1]) || 0))}`
 }
 
-export function addReview(db: Store, p: { ticket: string; session: string; title: string; summary?: string; patch: string; defaultFile?: string }): { id: string; changes: { id: string; file: string }[] } {
+// A new review replaces the session's older open reviews for the same ticket (SIGNOFF-10/D2): they are closed as
+// "replaced", and a file whose diff is unchanged from one you accepted there stays accepted (SIGNOFF-10/D1).
+export function addReview(db: Store, p: { ticket: string; session: string; title: string; summary?: string; patch: string; defaultFile?: string }):
+  { id: string; changes: { id: string; file: string }[]; replaced: string[]; kept: string[] } {
   const parts = splitPatch(p.patch, p.defaultFile)
   need(parts.length, 'the patch is empty')
   return db.transaction(() => {
     const id = nextId(db, 'reviews', 'R')
     const t = now()
-    touchSession(db, p.session, { ticket: p.ticket.toUpperCase() })
+    const ticket = p.ticket.toUpperCase()
+    touchSession(db, p.session, { ticket })
+    const replaced = (db.prepare("SELECT id FROM reviews WHERE session_id = ? AND ticket = ? AND status = 'open' ORDER BY rowid").all(p.session, ticket) as { id: string }[]).map((r) => r.id)
+    const accepted = replaced.length
+      ? db.prepare(`SELECT review_id, file, diff FROM review_changes WHERE verdict = 'accept' AND review_id IN (${replaced.map(() => '?').join(', ')})`).all(...replaced) as { review_id: string; file: string; diff: string }[]
+      : []
+    for (const r of replaced) db.prepare("UPDATE reviews SET status = 'replaced', note = ?, updated_at = ? WHERE id = ?").run(`Replaced by ${id}`, t, r)
     db.prepare(`INSERT INTO reviews (id, ticket, session_id, title, summary, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'open', ?, ?)`)
-      .run(id, p.ticket.toUpperCase(), p.session, p.title.trim(), (p.summary ?? '').trim(), t, t)
-    const ins = db.prepare(`INSERT INTO review_changes (review_id, change_id, file, diff, verdict) VALUES (?, ?, ?, ?, 'pending')`)
+      .run(id, ticket, p.session, p.title.trim(), (p.summary ?? '').trim(), t, t)
+    const ins = db.prepare(`INSERT INTO review_changes (review_id, change_id, file, diff, verdict) VALUES (?, ?, ?, ?, ?)`)
+    const kept: string[] = []
     const changes = parts.map((c, i) => {
-      ins.run(id, `C${i + 1}`, c.file, c.diff)
-      return { id: `C${i + 1}`, file: c.file }
+      const cid = `C${i + 1}`
+      const same = accepted.find((a) => a.file === c.file && a.diff === c.diff)
+      ins.run(id, cid, c.file, c.diff, same ? 'accept' : 'pending')
+      if (same) {
+        kept.push(cid)
+        db.prepare('INSERT INTO review_thread (review_id, change_id, who, text, verdict, at) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(id, cid, 'board', `You accepted this in ${same.review_id}; the diff is unchanged.`, 'accept', t)
+      }
+      return { id: cid, file: c.file }
     })
-    return { id, changes }
+    return { id, changes, replaced, kept }
   })()
+}
+
+// You close an open review without submitting it (stale or unwanted). Its session is told not to apply it.
+// Returns the session to wake.
+export function dismissReview(db: Store, rid: string): string | null {
+  need(reviewStatus(db, rid) === 'open', `${rid} is already ${reviewStatus(db, rid)}`)
+  return db.transaction(() => {
+    const rv = db.prepare('SELECT session_id, title FROM reviews WHERE id = ?').get(rid) as { session_id: string | null; title: string }
+    closeReview(db, rid, 'Dismissed on the board')
+    if (!rv.session_id || !db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(rv.session_id)) return null
+    queueMessage(db, rv.session_id, `The user dismissed ${rid} ("${rv.title}"). Do not apply it; stop waiting for it.`, 'board')
+    return rv.session_id
+  })()
+}
+
+// The session that posted a review closes it because it no longer applies (replaced some other way, or dropped).
+export function withdrawReview(db: Store, rid: string, session: string, reason: string): void {
+  need(reason.trim(), 'say why it is withdrawn')
+  need(reviewStatus(db, rid) === 'open', `${rid} is already ${reviewStatus(db, rid)}`)
+  const rv = db.prepare('SELECT session_id FROM reviews WHERE id = ?').get(rid) as { session_id: string | null }
+  need(rv.session_id === session, `${rid} was posted by another session; the user can Dismiss it on the board`)
+  closeReview(db, rid, `Withdrawn by its session: ${reason.trim()}`)
+}
+
+const closeReview = (db: Store, rid: string, note: string): void => {
+  db.prepare("UPDATE reviews SET status = 'dismissed', note = ?, updated_at = ? WHERE id = ?").run(note, now(), rid)
 }
 
 const reviewStatus = (db: Store, id: string): string => {
@@ -378,16 +421,24 @@ const reviewStatus = (db: Store, id: string): string => {
   return r!.status
 }
 
-export function setVerdict(db: Store, rid: string, cid: string, verdict: Verdict, comment?: string | null): void {
+// A question on a file is also sent to the review's session, which answers in the file's thread (signoff review-reply).
+// Returns the session to wake when a message was queued for it.
+export function setVerdict(db: Store, rid: string, cid: string, verdict: Verdict, comment?: string | null): string | null {
   need(reviewStatus(db, rid) === 'open', `${rid} is already ${reviewStatus(db, rid)}`)
   need(VERDICTS.includes(verdict), `bad verdict ${verdict}`)
   need(verdict !== 'question' || (comment || '').trim(), 'write the question')
   const c = (comment || '').trim() || null
-  db.transaction(() => {
+  const rv = db.prepare('SELECT session_id, title FROM reviews WHERE id = ?').get(rid) as { session_id: string | null; title: string }
+  need(verdict !== 'question' || (rv.session_id && db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(rv.session_id)), `${rid} has no session to answer it`)
+  return db.transaction(() => {
     const r = db.prepare('UPDATE review_changes SET verdict = ?, comment = ? WHERE review_id = ? AND change_id = ?').run(verdict, c, rid, cid)
     need(r.changes === 1, `no change ${cid} in ${rid}`)
     if (c) db.prepare('INSERT INTO review_thread (review_id, change_id, who, text, verdict, at) VALUES (?, ?, ?, ?, ?, ?)').run(rid, cid, 'you', c, verdict, now())
     db.prepare('UPDATE reviews SET updated_at = ? WHERE id = ?').run(now(), rid)
+    if (verdict !== 'question') return null
+    const f = db.prepare('SELECT file FROM review_changes WHERE review_id = ? AND change_id = ?').get(rid, cid) as { file: string }
+    queueMessage(db, rv.session_id!, `The user asks about ${rid} ${cid} (${f.file}, in "${rv.title}"): ${c}\nAnswer in the file's thread as short points, one per line ("- ..."), written to a file: signoff review-reply --id ${rid} --change ${cid} --text-file <file>. Do not apply the file until the review is submitted.`, 'board')
+    return rv.session_id
   })()
 }
 
@@ -401,6 +452,10 @@ export function submitReview(db: Store, rid: string, opts: { acceptRest?: boolea
     const status = v.every((x) => x.verdict === 'accept') ? 'accepted' : 'changes_requested'
     db.prepare('UPDATE reviews SET status = ?, note = ?, submitted_at = ?, updated_at = ? WHERE id = ?')
       .run(status, (opts.note || '').trim() || null, now(), now(), rid)
+    // Also told to the session, so it arrives even when no `signoff wait --review` is running.
+    const rv = db.prepare('SELECT session_id, title FROM reviews WHERE id = ?').get(rid) as { session_id: string | null; title: string }
+    if (rv.session_id && db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(rv.session_id))
+      queueMessage(db, rv.session_id, `The user submitted ${rid} ("${rv.title}"): ${status === 'accepted' ? 'all files accepted' : 'changes requested'}. See it with: signoff review --id ${rid}\nApply only the accepted files; rework the others from their comments and propose again.`, 'board')
     return status
   })()
 }

@@ -39,7 +39,7 @@ const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_COD
   ack       --ticket K --id Dn [--id ...]
   reply     --ticket K --id Dn --text T | --text-file FILE   (a file keeps line breaks: points, paragraphs)
   settle    --ticket K --id Dn --text T [--done]   the chat decided it (an option, or something else); --done: already implemented
-  withdraw  --ticket K --id Dn --reason R
+  withdraw  --ticket K --id Dn --reason R | --review R-n --reason R   (a review you posted that no longer applies)
   propose   --ticket K --title T --patch FILE [--summary S | --summary-file FILE] [--file NAME]
   review    --id R-n
   review-reply --id R-n --change Cn --text T | --text-file FILE
@@ -389,14 +389,16 @@ function main(argv: string[]): number {
       console.log('ok')
       return 0
     case 'withdraw':
-      for (const id of ids()) b.withdraw(db, id, sid(), req('reason'))
+      if (o.review) b.withdrawReview(db, o.review, sid(), req('reason'))
+      else for (const id of ids()) b.withdraw(db, id, sid(), req('reason'))
       console.log('ok')
       return 0
     case 'propose': {
       const summary = o['summary-file'] ? readFileSync(o['summary-file'], 'utf8') : o.summary || ''
       const r = b.addReview(db, { ticket: req('ticket'), session: sid(), title: req('title'), summary, patch: readFileSync(req('patch'), 'utf8'), defaultFile: o.file })
       console.log(r.id)
-      for (const c of r.changes) console.log(`  ${c.id} ${c.file}`)
+      for (const c of r.changes) console.log(`  ${c.id} ${c.file}` + (r.kept.includes(c.id) ? ' (accepted already: same diff as before)' : ''))
+      if (r.replaced.length) console.log(`replaces ${r.replaced.join(', ')} (closed; wait on ${r.id} instead)`)
       return 0
     }
     case 'review': {

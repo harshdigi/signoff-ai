@@ -40,6 +40,7 @@ const api = {
     typed: (session: string, text: string) => ipcRenderer.invoke('board:typed', session, text),
     verdict: (rid: string, cid: string, verdict: string, comment?: string) => ipcRenderer.invoke('board:verdict', rid, cid, verdict, comment),
     submit: (rid: string, acceptRest: boolean, note?: string) => ipcRenderer.invoke('board:submit', rid, acceptRest, note),
+    dismissReview: (rid: string) => ipcRenderer.invoke('board:dismissReview', rid),
     onChanged: (cb: () => void) => subscribe<void>('board:changed', () => cb())
   },
   workspace: {

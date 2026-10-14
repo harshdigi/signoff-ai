@@ -234,7 +234,7 @@ export function ReviewCard({ r, b, refresh }: { r: Review; b: BoardState; refres
       </div>
       {r.summary && <div className="card-summary"><Rich text={r.summary} session={r.session} /></div>}
       {r.changes.map((c) => <ReviewFile key={c.id} r={r} c={c} b={b} run={run} />)}
-      {r.note && <div className="msg">Your note: {r.note}</div>}
+      {r.note && <div className="msg">{r.status === 'replaced' || r.status === 'dismissed' ? r.note : `Your note: ${r.note}`}</div>}
       {open && (
         <>
           {noting && <textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="A note to the session about the whole review (optional)" />}
@@ -243,6 +243,7 @@ export function ReviewCard({ r, b, refresh }: { r: Review; b: BoardState; refres
             <button onClick={() => run(() => window.api.board.submit(r.id, true, note))}>{done ? `Accept the ${left} left & submit` : 'Accept all'}</button>
             <span className="grow" />
             {!noting && <button className="sm" onClick={() => setNoting(true)}>+ Note for the session</button>}
+            <button className="sm" title="Close this review without submitting it; the session is told not to apply it" onClick={() => run(() => window.api.board.dismissReview(r.id))}>Dismiss</button>
           </div>
         </>
       )}
