@@ -106,8 +106,13 @@ through the `signoff` command (decisions, reviews, test plans, team splits), whi
 
 ## Install (macOS)
 
-1. Download `signoff-ai-<version>.dmg` from [Releases](https://github.com/harshdigi/signoff-ai/releases) and drag
-   **Signoff AI** into Applications.
+1. Download the latest version from [Releases](https://github.com/harshdigi/signoff-ai/releases), or from a terminal:
+
+   ```bash
+   curl -LO https://github.com/harshdigi/signoff-ai/releases/latest/download/signoff-ai.dmg
+   ```
+
+   Open the `.dmg` and drag **Signoff AI** into Applications.
 2. First launch only: macOS blocks apps that are not notarized yet. Open it, click **Done**, then
    **System Settings → Privacy & Security → Open Anyway**.
 3. The Setup screen checks Claude Code, sign-in, git and tmux and installs what is missing.
