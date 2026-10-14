@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.0.3 (14 October 2026, IST)
+
+### New
+- **Review questions reach Claude:** a question you ask on a review file, and the result when you submit, now go
+  to the session that posted the review and wake it.
+- **One open review per change:** when Claude proposes again on the same ticket, its older open review closes as
+  "replaced". Files whose diff is unchanged from one you accepted stay accepted.
+- **Dismiss** on open review cards closes a review without submitting it. Sessions can withdraw their own stale
+  review with `signoff withdraw --review R-n --reason "..."`.
+
+### Fixed
+- Top-bar menus (Run, Review, Skills, Folder) no longer close when you move the mouse onto them. The ⋯ menu on
+  decision cards now closes on a click outside or Escape.
+- Permission prompts that can no longer be answered from the app (older than the 10-minute hook timeout) drop out
+  of the Decisions badge and the session counts.
+- `signoff withdraw --ticket K --id R-n` closes the review R-n instead of failing with "no decision".
+
+### Upgrading from 1.0.2
+- Quit the app, replace it in Applications, open it. Your data is kept. See [INSTALL.md](INSTALL.md#updating).
+- The board's review tables are rebuilt to allow the new "replaced" and "dismissed" states (board format v21). A
+  copy of the board is saved first; nothing is removed.
+- Sessions started before the update learn the new review commands once they restart.
+
 ## 1.0.2 (14 October 2026, IST)
 
 ### New
