@@ -378,16 +378,24 @@ const reviewStatus = (db: Store, id: string): string => {
   return r!.status
 }
 
-export function setVerdict(db: Store, rid: string, cid: string, verdict: Verdict, comment?: string | null): void {
+// A question on a file is also sent to the review's session, which answers in the file's thread (signoff review-reply).
+// Returns the session to wake when a message was queued for it.
+export function setVerdict(db: Store, rid: string, cid: string, verdict: Verdict, comment?: string | null): string | null {
   need(reviewStatus(db, rid) === 'open', `${rid} is already ${reviewStatus(db, rid)}`)
   need(VERDICTS.includes(verdict), `bad verdict ${verdict}`)
   need(verdict !== 'question' || (comment || '').trim(), 'write the question')
   const c = (comment || '').trim() || null
-  db.transaction(() => {
+  const rv = db.prepare('SELECT session_id, title FROM reviews WHERE id = ?').get(rid) as { session_id: string | null; title: string }
+  need(verdict !== 'question' || (rv.session_id && db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(rv.session_id)), `${rid} has no session to answer it`)
+  return db.transaction(() => {
     const r = db.prepare('UPDATE review_changes SET verdict = ?, comment = ? WHERE review_id = ? AND change_id = ?').run(verdict, c, rid, cid)
     need(r.changes === 1, `no change ${cid} in ${rid}`)
     if (c) db.prepare('INSERT INTO review_thread (review_id, change_id, who, text, verdict, at) VALUES (?, ?, ?, ?, ?, ?)').run(rid, cid, 'you', c, verdict, now())
     db.prepare('UPDATE reviews SET updated_at = ? WHERE id = ?').run(now(), rid)
+    if (verdict !== 'question') return null
+    const f = db.prepare('SELECT file FROM review_changes WHERE review_id = ? AND change_id = ?').get(rid, cid) as { file: string }
+    queueMessage(db, rv.session_id!, `The user asks about ${rid} ${cid} (${f.file}, in "${rv.title}"): ${c}\nAnswer in the file's thread as short points, one per line ("- ..."), written to a file: signoff review-reply --id ${rid} --change ${cid} --text-file <file>. Do not apply the file until the review is submitted.`, 'board')
+    return rv.session_id
   })()
 }
 
@@ -401,6 +409,10 @@ export function submitReview(db: Store, rid: string, opts: { acceptRest?: boolea
     const status = v.every((x) => x.verdict === 'accept') ? 'accepted' : 'changes_requested'
     db.prepare('UPDATE reviews SET status = ?, note = ?, submitted_at = ?, updated_at = ? WHERE id = ?')
       .run(status, (opts.note || '').trim() || null, now(), now(), rid)
+    // Also told to the session, so it arrives even when no `signoff wait --review` is running.
+    const rv = db.prepare('SELECT session_id, title FROM reviews WHERE id = ?').get(rid) as { session_id: string | null; title: string }
+    if (rv.session_id && db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(rv.session_id))
+      queueMessage(db, rv.session_id, `The user submitted ${rid} ("${rv.title}"): ${status === 'accepted' ? 'all files accepted' : 'changes requested'}. See it with: signoff review --id ${rid}\nApply only the accepted files; rework the others from their comments and propose again.`, 'board')
     return status
   })()
 }

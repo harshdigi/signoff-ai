@@ -40,8 +40,12 @@ export function registerBoardIpc(db: Store, window: () => BrowserWindow | null, 
   ipcMain.handle('board:reopen', (_e, id: string) => b.reopen(db, id))
   ipcMain.handle('board:message', (_e, session: string, text: string) => b.queueMessage(db, session, text, 'board'))
   ipcMain.handle('board:typed', (_e, session: string, text: string) => b.logTyped(db, session, text))
-  ipcMain.handle('board:verdict', (_e, rid: string, cid: string, verdict: b.Verdict, comment?: string) => b.setVerdict(db, rid, cid, verdict, comment))
-  ipcMain.handle('board:submit', (_e, rid: string, acceptRest: boolean, note?: string) => b.submitReview(db, rid, { acceptRest, note }))
+  ipcMain.handle('board:verdict', (_e, rid: string, cid: string, verdict: b.Verdict, comment?: string) => tryWake(b.setVerdict(db, rid, cid, verdict, comment)))
+  ipcMain.handle('board:submit', (_e, rid: string, acceptRest: boolean, note?: string) => {
+    const status = b.submitReview(db, rid, { acceptRest, note })
+    tryWake((db.prepare('SELECT session_id FROM reviews WHERE id = ?').get(rid) as { session_id: string | null }).session_id)
+    return status
+  })
 
   // Tell the window when the board changed, once a second at most:
   // - data_version moves when another connection commits (decide, a session, the MCP server);

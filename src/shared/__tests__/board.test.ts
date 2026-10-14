@@ -165,6 +165,20 @@ describe('reviews', () => {
     expect(b.submitReview(db, 'R-1', { acceptRest: true })).toBe('changes_requested')
     expect(() => b.setVerdict(db, 'R-1', 'C2', 'accept')).toThrow('R-1 is already changes_requested')
   })
+
+  it('a question on a file and the submitted result reach the session', () => {
+    b.addReview(db, { ticket: 'ABC-1', session: 's', title: 'PR 1', patch: PATCH })
+    expect(b.setVerdict(db, 'R-1', 'C1', 'accept')).toBeNull()
+    expect(b.popMessages(db, 's')).toEqual([])
+    expect(b.setVerdict(db, 'R-1', 'C2', 'question', 'why a new column?')).toBe('s')
+    expect(b.popMessages(db, 's').map((m) => m.text)).toEqual([
+      'The user asks about R-1 C2 (packs/billing/app/models/invoice.rb, in "PR 1"): why a new column?\nAnswer in the file\'s thread as short points, one per line ("- ..."), written to a file: signoff review-reply --id R-1 --change C2 --text-file <file>. Do not apply the file until the review is submitted.'
+    ])
+    expect(b.submitReview(db, 'R-1')).toBe('changes_requested')
+    expect(b.popMessages(db, 's').map((m) => m.text)).toEqual([
+      'The user submitted R-1 ("PR 1"): changes requested. See it with: signoff review --id R-1\nApply only the accepted files; rework the others from their comments and propose again.'
+    ])
+  })
 })
 
 describe('decision levels', () => {
