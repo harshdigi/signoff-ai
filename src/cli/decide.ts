@@ -388,11 +388,16 @@ function main(argv: string[]): number {
       for (const id of ids()) settle(db, id, sid(), text(), !!o.done)
       console.log('ok')
       return 0
-    case 'withdraw':
-      if (o.review) b.withdrawReview(db, o.review, sid(), req('reason'))
-      else for (const id of ids()) b.withdraw(db, id, sid(), req('reason'))
+    case 'withdraw': {
+      // A review id passed as --id (R-n) is withdrawn as a review: the decision syntax is the easy one to reach for.
+      const isReview = (i: string): boolean => /^R-\d+$/i.test(i)
+      for (const r of [...(o.review ? [o.review] : []), ...(o.id ?? []).filter(isReview)]) b.withdrawReview(db, r.toUpperCase(), sid(), req('reason'))
+      const decisions = (o.id ?? []).filter((i) => !isReview(i))
+      if (decisions.length && !o.ticket) throw new Usage('--id needs --ticket')
+      for (const i of decisions) b.withdraw(db, b.decisionId(o.ticket!, i), sid(), req('reason'))
       console.log('ok')
       return 0
+    }
     case 'propose': {
       const summary = o['summary-file'] ? readFileSync(o['summary-file'], 'utf8') : o.summary || ''
       const r = b.addReview(db, { ticket: req('ticket'), session: sid(), title: req('title'), summary, patch: readFileSync(req('patch'), 'utf8'), defaultFile: o.file })

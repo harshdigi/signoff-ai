@@ -1,6 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import type { Approval } from '../shared/approvals'
+import { expireStaleApprovals, type Approval } from '../shared/approvals'
 import { isOutward, serviceOf } from '../shared/outward'
 import type { Subtask, Ticket } from '../shared/tickets'
 import type { Store } from './store'
@@ -71,6 +71,7 @@ export function readBoard(db: Store): BoardState {
         thread: (rThreads.get(`${r.id}/${c.change_id}`) || []).map(({ who, text, verdict, at }) => ({ who, text, verdict, at }) as ThreadEntry)
       }))
     }))
+    expireStaleApprovals(db)
     const approvals = (db.prepare("SELECT * FROM approvals WHERE status = 'pending' ORDER BY created_at, rowid").all() as Approval[])
       .map((a) => ({ ...a, outward: isOutward(a.tool_name, JSON.parse(a.input)), service: serviceOf(a.tool_name) }))
     const messages = db.prepare('SELECT id, session_id AS session, text, by, created_at, delivered_at, via, decision_id, submitted_at, failed FROM messages ORDER BY created_at, rowid').all() as Message[]
