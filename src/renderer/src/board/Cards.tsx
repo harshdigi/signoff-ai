@@ -10,6 +10,7 @@ import { SetupPreview } from '../ide/Workflows'
 import type { Workflow } from '../ide/types'
 import { ago, forLater, forProduct, label, time, type BoardState, type Change, type Decision, type Review, type ThreadEntry } from './types'
 import { CodeDiff, CodeLine, CodePre } from '../ide/CodeBlock'
+import { Menu } from '../ide/Menu'
 import { useColoredLines } from '../ide/use-colored-lines'
 import { languageForPath } from '../ide/languages'
 import { Chev } from '../ide/icons'
@@ -57,7 +58,7 @@ function Evidence({ d, item, show }: { d: Decision; item: string; show: boolean 
 
 export function DecisionCard({ d, b, refresh, onRun, startOpen }: { d: Decision; b: BoardState; refresh: () => void; onRun?: (d: Decision) => void; startOpen?: boolean }): React.JSX.Element {
   const [text, setText] = useState('')
-  const [panel, setPanel] = useState<'other' | 'ask' | 'product' | 'more' | null>(null)
+  const [panel, setPanel] = useState<'other' | 'ask' | 'product' | null>(null)
   const [ask, setAsk] = useState('')
   const [productNote, setProductNote] = useState('')
   const [allContext, setAllContext] = useState(false)
@@ -200,18 +201,15 @@ export function DecisionCard({ d, b, refresh, onRun, startOpen }: { d: Decision;
           {plain && <button onClick={() => setPanel(panel === 'other' ? null : 'other')}>{d.options.length ? 'Something else…' : 'Answer…'}</button>}
           <button onClick={() => setPanel(panel === 'ask' ? null : 'ask')}>💬 Ask</button>
           <span className="grow" />
-          <span className="more-wrap">
-            <button className="sm" title="Later · Open for product · Dismiss" onClick={() => setPanel(panel === 'more' ? null : 'more')}>⋯</button>
-            {panel === 'more' && (
-              <div className="dropdown right">
-                {forLater(d)
-                  ? <div onClick={() => run(() => window.api.board.bringBack(d.id))}>Bring back <span className="meta">to Waiting on you</span></div>
-                  : !forProduct(d) && <div onClick={() => run(() => window.api.board.setAside(d.id))}>Later <span className="meta">not now; answer it from Decisions</span></div>}
-                {plain && !forProduct(d) && <div onClick={() => setPanel('product')}>Open for product…</div>}
-                <div onClick={() => run(() => window.api.board.withdraw(d.id, 'made moot by another answer'))}>Dismiss <span className="meta">you can reopen it from the history</span></div>
-              </div>
-            )}
-          </span>
+          <Menu className="more-wrap" align="right" trigger={({ toggle }) => (
+            <button className="sm" title="Later · Open for product · Dismiss" onClick={toggle}>⋯</button>
+          )}>
+            {forLater(d)
+              ? <div onClick={() => run(() => window.api.board.bringBack(d.id))}>Bring back <span className="meta">to Waiting on you</span></div>
+              : !forProduct(d) && <div onClick={() => run(() => window.api.board.setAside(d.id))}>Later <span className="meta">not now; answer it from Decisions</span></div>}
+            {plain && !forProduct(d) && <div onClick={() => setPanel('product')}>Open for product…</div>}
+            <div onClick={() => run(() => window.api.board.withdraw(d.id, 'made moot by another answer'))}>Dismiss <span className="meta">you can reopen it from the history</span></div>
+          </Menu>
         </div>
       )}
       {err && <div className="err">{err}</div>}
