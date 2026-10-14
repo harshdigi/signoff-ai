@@ -101,15 +101,19 @@ const PERMISSION_WAIT_MS = Number(process.env.DECISION_IDE_PERMISSION_WAIT_MS ||
 const ISSUE_KEY = /(?:^|\/)([a-z][a-z0-9]{1,9}-\d+)/i
 
 // Registers session s for the current folder. Shared by `register` and the SessionStart hook.
-function register(db: Store, s: string, o: { ticket?: string; title?: string; description?: string }): Record<string, unknown> {
-  const branch = run('git', ['branch', '--show-current'])
+// The session's folder comes from Claude Code (the SessionStart hook passes it as `where`). A later `signoff register`
+// keeps the recorded folder: it may run from wherever a command cd'd to, and moving the session would hide it from the
+// Sessions list of its folder.
+function register(db: Store, s: string, o: { ticket?: string; title?: string; description?: string }, where?: string): Record<string, unknown> {
+  const prev = db.prepare('SELECT state, cwd FROM sessions WHERE id = ?').get(s) as { state: string; cwd: string | null } | undefined
+  const cwd = where || prev?.cwd || process.cwd()
+  const branch = run('git', ['-C', cwd, 'branch', '--show-current'])
   const ticket = o.ticket?.toUpperCase() || ISSUE_KEY.exec(branch)?.[1].toUpperCase()
-  const prev = db.prepare('SELECT state FROM sessions WHERE id = ?').get(s) as { state: string } | undefined
   // The Claude process here belongs to the env session: never attach its pid/tty to another session id.
   const env = process.env.CLAUDE_CODE_SESSION_ID
   const pid = !env || env === s ? claudePid() : null
   b.touchSession(db, s, {
-    cwd: process.cwd(), branch: branch || undefined, ticket, title: o.title, description: o.description,
+    cwd, branch: branch || undefined, ticket, title: o.title, description: o.description,
     tty: ttyOf(pid), pid: pid ? Number(pid) : undefined, archived: false,
     state: !prev || ['starting', 'done'].includes(prev.state) ? 'working' : undefined
   })
@@ -145,7 +149,7 @@ function hook(db: Store, event: string | undefined, terminal = false): number {
   if (!input.session_id) throw new Usage('hook input has no session_id')
   if (event === 'session-start') {
     if (input.cwd) process.chdir(input.cwd)
-    const ticket = register(db, input.session_id, {}).ticket as string | null
+    const ticket = register(db, input.session_id, {}, process.cwd()).ticket as string | null
     // Where Claude Code saves this conversation: the app's chat panel shows the session from it.
     if (input.transcript_path) db.prepare('UPDATE sessions SET transcript = ? WHERE id = ?').run(input.transcript_path, input.session_id)
     // The shared tmux session it runs in (set by the app, or by the `claude` wrapper in your shell), so both can use it.
