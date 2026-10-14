@@ -395,11 +395,24 @@ export function dismissReview(db: Store, rid: string): string | null {
   need(reviewStatus(db, rid) === 'open', `${rid} is already ${reviewStatus(db, rid)}`)
   return db.transaction(() => {
     const rv = db.prepare('SELECT session_id, title FROM reviews WHERE id = ?').get(rid) as { session_id: string | null; title: string }
-    db.prepare("UPDATE reviews SET status = 'dismissed', note = ?, updated_at = ? WHERE id = ?").run('Dismissed on the board', now(), rid)
+    closeReview(db, rid, 'Dismissed on the board')
     if (!rv.session_id || !db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(rv.session_id)) return null
     queueMessage(db, rv.session_id, `The user dismissed ${rid} ("${rv.title}"). Do not apply it; stop waiting for it.`, 'board')
     return rv.session_id
   })()
+}
+
+// The session that posted a review closes it because it no longer applies (replaced some other way, or dropped).
+export function withdrawReview(db: Store, rid: string, session: string, reason: string): void {
+  need(reason.trim(), 'say why it is withdrawn')
+  need(reviewStatus(db, rid) === 'open', `${rid} is already ${reviewStatus(db, rid)}`)
+  const rv = db.prepare('SELECT session_id FROM reviews WHERE id = ?').get(rid) as { session_id: string | null }
+  need(rv.session_id === session, `${rid} was posted by another session; the user can Dismiss it on the board`)
+  closeReview(db, rid, `Withdrawn by its session: ${reason.trim()}`)
+}
+
+const closeReview = (db: Store, rid: string, note: string): void => {
+  db.prepare("UPDATE reviews SET status = 'dismissed', note = ?, updated_at = ? WHERE id = ?").run(note, now(), rid)
 }
 
 const reviewStatus = (db: Store, id: string): string => {

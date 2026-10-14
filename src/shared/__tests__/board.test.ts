@@ -191,6 +191,15 @@ describe('reviews', () => {
     expect(() => b.dismissReview(db, 'R-1')).toThrow('R-1 is already dismissed')
   })
 
+  it('the session that posted a review can withdraw it; others cannot', () => {
+    b.addReview(db, { ticket: 'ABC-1', session: 's', title: 'PR 1', patch: PATCH })
+    expect(() => b.withdrawReview(db, 'R-1', 's', ' ')).toThrow('say why it is withdrawn')
+    expect(() => b.withdrawReview(db, 'R-1', 'other', 'stale')).toThrow('R-1 was posted by another session; the user can Dismiss it on the board')
+    b.withdrawReview(db, 'R-1', 's', 'replaced by R-9')
+    expect(db.prepare("SELECT status, note FROM reviews WHERE id = 'R-1'").get()).toEqual({ status: 'dismissed', note: 'Withdrawn by its session: replaced by R-9' })
+    expect(() => b.withdrawReview(db, 'R-1', 's', 'again')).toThrow('R-1 is already dismissed')
+  })
+
   it('a question on a file and the submitted result reach the session', () => {
     b.addReview(db, { ticket: 'ABC-1', session: 's', title: 'PR 1', patch: PATCH })
     expect(b.setVerdict(db, 'R-1', 'C1', 'accept')).toBeNull()
