@@ -1,6 +1,6 @@
 {
   "name": "signoff-ai",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Signoff AI: Claude builds, you sign off. A desktop layer over your own Claude Code",
   "author": "Harsh Ahuja (harshdigi) (https://github.com/harshdigi)",
   "homepage": "https://github.com/harshdigi/signoff-ai",
