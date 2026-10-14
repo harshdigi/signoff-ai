@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { readBoard } from '../board-state'
 import { openStore } from '../store'
 import { addReview, setVerdict, submitReview, touchSession } from '../../shared/board'
+import { getApproval, requestApproval } from '../../shared/approvals'
 
 describe('board state', () => {
   it('sends diffs only for open reviews; closed ones carry their size, so the board stays small', () => {
@@ -21,5 +22,15 @@ describe('board state', () => {
     const change = (id: string): { diff: string | null; lines: number } => reviews.find((r) => r.id === id)!.changes[0]
     expect(change(open.id).diff).toContain('+b')
     expect(change(done.id)).toMatchObject({ diff: null, lines: change(open.id).lines })
+  })
+
+  it('a permission prompt past the hook timeout drops out: it goes to the terminal', () => {
+    const db = openStore(join(mkdtempSync(join(tmpdir(), 'bs-')), 'b.db'))
+    touchSession(db, 's1', {})
+    const old = requestApproval(db, 's1', 'Bash', { command: 'ls' })
+    db.prepare('UPDATE approvals SET created_at = ? WHERE id = ?').run(new Date(Date.now() - 601_000).toISOString(), old.id)
+    const fresh = requestApproval(db, 's1', 'Bash', { command: 'pwd' })
+    expect(readBoard(db).approvals.map((a) => a.id)).toEqual([fresh.id])
+    expect(getApproval(db, old.id).status).toBe('terminal')
   })
 })

@@ -109,6 +109,13 @@ describe('decide CLI', () => {
     expect(decide(['review', '--id', 'R-1']).out).toBe('R-1 [open] PR 1\n  C1 a.rb: pending\n  C2 b.rb: pending')
   })
 
+  it('withdraw takes a review id in the decision syntax too', () => {
+    writeFileSync(join(dir, 'p.diff'), '# a.rb  (new)\n+x\n')
+    decide([...S, 'propose', '--ticket', 'ABC-1', '--title', 'PR 1', '--patch', 'p.diff'])
+    expect(decide([...S, 'withdraw', '--ticket', 'ABC-1', '--id', 'R-1', '--reason', 'replaced by R-2']).out).toBe('ok')
+    expect(decide(['review', '--id', 'R-1']).out).toBe('R-1 [dismissed] PR 1\n  overall note: Withdrawn by its session: replaced by R-2\n  C1 a.rb: pending')
+  })
+
   it('register for another session never takes this process tty or pid', () => {
     const out = JSON.parse(decide(['--session', 'someone-else', 'register']).out)
     expect([out.tty, out.pid]).toEqual([null, null])

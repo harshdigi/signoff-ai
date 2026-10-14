@@ -64,5 +64,16 @@ export function leaveToTerminal(db: Store, id: string): Approval {
   return getApproval(db, id)
 }
 
+// The permission hook gives up after 600 s (hooks.json) and Claude Code then asks in the terminal. A prompt still
+// pending after that lost its hook (the app quit, the session ended) and cannot be answered here any more.
+export const PERMISSION_HOOK_MS = 600_000
+
+// Prompts nobody can answer from the app any more go to the terminal, so they stop counting as waiting on you.
+export function expireStaleApprovals(db: Store, at = Date.now()): number {
+  const stale = pendingApprovals(db).filter((a) => at - Date.parse(a.created_at) > PERMISSION_HOOK_MS)
+  for (const a of stale) leaveToTerminal(db, a.id)
+  return stale.length
+}
+
 export const pendingApprovals = (db: Store): Approval[] =>
   db.prepare("SELECT * FROM approvals WHERE status = 'pending' ORDER BY created_at, rowid").all() as Approval[]
