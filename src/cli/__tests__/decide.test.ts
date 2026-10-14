@@ -116,6 +116,17 @@ describe('decide CLI', () => {
     expect(decide(['review', '--id', 'R-1']).out).toBe('R-1 [dismissed] PR 1\n  overall note: Withdrawn by its session: replaced by R-2\n  C1 a.rb: pending')
   })
 
+  it('register keeps the folder the session was recorded in, wherever the command runs', () => {
+    decide([...S, 'register'])
+    const elsewhere = mkdtempSync(join(tmpdir(), 'elsewhere-'))
+    const r = spawnSync('node', [CLI, ...S, 'register', '--ticket', 'ABC-9'], {
+      encoding: 'utf8', cwd: elsewhere,
+      env: { PATH: process.env.PATH!, DECISION_IDE_DB: join(dir, 'board.db'), CLAUDE_CODE_SESSION_ID: 'test-runner' }
+    })
+    const out = JSON.parse(r.stdout)
+    expect([realpathSync(out.cwd), out.ticket]).toEqual([realpathSync(dir), 'ABC-9'])
+  })
+
   it('register for another session never takes this process tty or pid', () => {
     const out = JSON.parse(decide(['--session', 'someone-else', 'register']).out)
     expect([out.tty, out.pid]).toEqual([null, null])
