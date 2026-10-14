@@ -354,21 +354,51 @@ const nextId = (db: Store, table: 'reviews' | 'backlog' | 'runs', prefix: string
   return `${prefix}-${1 + Math.max(0, ...rows.map((r) => Number(r.id.split('-')[1]) || 0))}`
 }
 
-export function addReview(db: Store, p: { ticket: string; session: string; title: string; summary?: string; patch: string; defaultFile?: string }): { id: string; changes: { id: string; file: string }[] } {
+// A new review replaces the session's older open reviews for the same ticket (SIGNOFF-10/D2): they are closed as
+// "replaced", and a file whose diff is unchanged from one you accepted there stays accepted (SIGNOFF-10/D1).
+export function addReview(db: Store, p: { ticket: string; session: string; title: string; summary?: string; patch: string; defaultFile?: string }):
+  { id: string; changes: { id: string; file: string }[]; replaced: string[]; kept: string[] } {
   const parts = splitPatch(p.patch, p.defaultFile)
   need(parts.length, 'the patch is empty')
   return db.transaction(() => {
     const id = nextId(db, 'reviews', 'R')
     const t = now()
-    touchSession(db, p.session, { ticket: p.ticket.toUpperCase() })
+    const ticket = p.ticket.toUpperCase()
+    touchSession(db, p.session, { ticket })
+    const replaced = (db.prepare("SELECT id FROM reviews WHERE session_id = ? AND ticket = ? AND status = 'open' ORDER BY rowid").all(p.session, ticket) as { id: string }[]).map((r) => r.id)
+    const accepted = replaced.length
+      ? db.prepare(`SELECT review_id, file, diff FROM review_changes WHERE verdict = 'accept' AND review_id IN (${replaced.map(() => '?').join(', ')})`).all(...replaced) as { review_id: string; file: string; diff: string }[]
+      : []
+    for (const r of replaced) db.prepare("UPDATE reviews SET status = 'replaced', note = ?, updated_at = ? WHERE id = ?").run(`Replaced by ${id}`, t, r)
     db.prepare(`INSERT INTO reviews (id, ticket, session_id, title, summary, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'open', ?, ?)`)
-      .run(id, p.ticket.toUpperCase(), p.session, p.title.trim(), (p.summary ?? '').trim(), t, t)
-    const ins = db.prepare(`INSERT INTO review_changes (review_id, change_id, file, diff, verdict) VALUES (?, ?, ?, ?, 'pending')`)
+      .run(id, ticket, p.session, p.title.trim(), (p.summary ?? '').trim(), t, t)
+    const ins = db.prepare(`INSERT INTO review_changes (review_id, change_id, file, diff, verdict) VALUES (?, ?, ?, ?, ?)`)
+    const kept: string[] = []
     const changes = parts.map((c, i) => {
-      ins.run(id, `C${i + 1}`, c.file, c.diff)
-      return { id: `C${i + 1}`, file: c.file }
+      const cid = `C${i + 1}`
+      const same = accepted.find((a) => a.file === c.file && a.diff === c.diff)
+      ins.run(id, cid, c.file, c.diff, same ? 'accept' : 'pending')
+      if (same) {
+        kept.push(cid)
+        db.prepare('INSERT INTO review_thread (review_id, change_id, who, text, verdict, at) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(id, cid, 'board', `You accepted this in ${same.review_id}; the diff is unchanged.`, 'accept', t)
+      }
+      return { id: cid, file: c.file }
     })
-    return { id, changes }
+    return { id, changes, replaced, kept }
+  })()
+}
+
+// You close an open review without submitting it (stale or unwanted). Its session is told not to apply it.
+// Returns the session to wake.
+export function dismissReview(db: Store, rid: string): string | null {
+  need(reviewStatus(db, rid) === 'open', `${rid} is already ${reviewStatus(db, rid)}`)
+  return db.transaction(() => {
+    const rv = db.prepare('SELECT session_id, title FROM reviews WHERE id = ?').get(rid) as { session_id: string | null; title: string }
+    db.prepare("UPDATE reviews SET status = 'dismissed', note = ?, updated_at = ? WHERE id = ?").run('Dismissed on the board', now(), rid)
+    if (!rv.session_id || !db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(rv.session_id)) return null
+    queueMessage(db, rv.session_id, `The user dismissed ${rid} ("${rv.title}"). Do not apply it; stop waiting for it.`, 'board')
+    return rv.session_id
   })()
 }
 

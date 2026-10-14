@@ -396,7 +396,8 @@ function main(argv: string[]): number {
       const summary = o['summary-file'] ? readFileSync(o['summary-file'], 'utf8') : o.summary || ''
       const r = b.addReview(db, { ticket: req('ticket'), session: sid(), title: req('title'), summary, patch: readFileSync(req('patch'), 'utf8'), defaultFile: o.file })
       console.log(r.id)
-      for (const c of r.changes) console.log(`  ${c.id} ${c.file}`)
+      for (const c of r.changes) console.log(`  ${c.id} ${c.file}` + (r.kept.includes(c.id) ? ' (accepted already: same diff as before)' : ''))
+      if (r.replaced.length) console.log(`replaces ${r.replaced.join(', ')} (closed; wait on ${r.id} instead)`)
       return 0
     }
     case 'review': {
