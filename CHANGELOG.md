@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.4 (15 October 2026, IST)
+
+### Fixed
+- A session no longer disappears from the Sessions list when `signoff register` runs from another folder: register
+  keeps the folder the session was recorded in.
+
+### Upgrading from 1.0.3
+- Quit the app, replace it in Applications, open it. Your data is kept; the board format does not change.
+
 ## 1.0.3 (14 October 2026, IST)
 
 ### New
