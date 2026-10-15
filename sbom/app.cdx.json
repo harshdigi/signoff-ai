@@ -19,11 +19,11 @@
       }
     ],
     "component": {
-      "bom-ref": "signoff-ai@1.0.3",
+      "bom-ref": "signoff-ai@1.0.4",
       "type": "application",
       "name": "signoff-ai",
-      "version": "1.0.3",
-      "description": "Signoff AI desktop app for macOS (universal), as shipped in signoff-ai-1.0.3.dmg",
+      "version": "1.0.4",
+      "description": "Signoff AI desktop app for macOS (universal), as shipped in signoff-ai-1.0.4.dmg",
       "author": "Harsh Ahuja",
       "licenses": [
         {
@@ -3352,7 +3352,7 @@
   ],
   "dependencies": [
     {
-      "ref": "signoff-ai@1.0.3",
+      "ref": "signoff-ai@1.0.4",
       "dependsOn": [
         "@electron-toolkit/preload@3.0.2",
         "@electron-toolkit/utils@4.0.0",

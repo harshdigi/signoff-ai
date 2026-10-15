@@ -19,14 +19,14 @@
       }
     ],
     "component": {
-      "bom-ref": "signoff-ai@1.0.3",
+      "bom-ref": "signoff-ai@1.0.4",
       "type": "application",
       "name": "signoff-ai",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "scope": "required",
       "author": "Harsh Ahuja",
       "description": "Signoff AI: Claude builds, you sign off. A desktop layer over your own Claude Code",
-      "purl": "pkg:npm/signoff-ai@1.0.3",
+      "purl": "pkg:npm/signoff-ai@1.0.4",
       "properties": [],
       "externalReferences": [],
       "licenses": [
@@ -28846,7 +28846,7 @@
   ],
   "dependencies": [
     {
-      "ref": "signoff-ai@1.0.3",
+      "ref": "signoff-ai@1.0.4",
       "dependsOn": [
         "@electron-toolkit/preload@3.0.2",
         "@electron-toolkit/utils@4.0.0",
