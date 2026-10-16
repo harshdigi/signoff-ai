@@ -5,6 +5,7 @@ import { forLater, forProduct, waitingOn, type BoardState } from '../board/types
 import { base, errText, itemKey, type CatalogItem, type EditorTab, type Pin } from './types'
 import { SideHead } from './SideHead'
 import { Chev } from './icons'
+import { Menu } from './Menu'
 
 export type View = 'decisions' | 'sessions' | 'search' | 'run' | 'mcps' | 'workflows' | 'skills'
 
@@ -89,6 +90,10 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
   // A session whose parent is gone or removed shows at the top level.
   const roots = here.filter((s) => !s.parent_id || !ids.has(s.parent_id))
   const byId = new Map(here.map((s) => [s.id, s]))
+  // Where a session can move: any other session here that is not under it (that would loop).
+  const under = (id: string): Set<string> => { const out = new Set<string>(); const walk = (p: string): void => kids(p).forEach((c) => { out.add(c.id); walk(c.id) }); walk(id); return out }
+  const parentsFor = (id: string): typeof here => { const no = under(id); return here.filter((x) => x.id !== id && !no.has(x.id)) }
+  const nameOf = (x: (typeof here)[number]): string => x.title || x.ticket || x.id.slice(0, 8)
   // Tickets from Start ticket show on their plan session: key, and subtasks done of all (click: the ticket's page).
   const tickets = board.tickets.filter((t) => t.folder === folder)
   const plans = new Map(tickets.filter((t) => t.plan_session).map((t) => [t.plan_session!, { key: t.key, done: t.subtasks.filter((x) => x.status === 'done').length, total: t.subtasks.length }]))
@@ -103,7 +108,8 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
             ? <button className="row-act fold" title={shut ? `Show ${children.length}` : 'Collapse'} onClick={fold}><Chev open={!shut} /></button>
             : grouped ? <span className="fold-gap" /> : null /* same slot on every row, so names line up */}
           <SessionRow s={s} label={s.title || s.ticket || s.id.slice(0, 8)} where={place(s.cwd)} active={current === s.id} count={open(s.id)} onOpen={() => openSession(s.id)} onRemove={() => removeIt(s.id)}
-            plan={plans.get(s.id)} openTicket={(key) => openTab({ kind: 'ticket', id: key })} showKey={!grouped || byId.get(s.parent_id ?? '')?.ticket !== s.ticket} />
+            plan={plans.get(s.id)} openTicket={(key) => openTab({ kind: 'ticket', id: key })} showKey={!grouped || byId.get(s.parent_id ?? '')?.ticket !== s.ticket}
+            moveTo={{ options: parentsFor(s.id).map((x) => ({ id: x.id, name: nameOf(x) })), nested: !!s.parent_id, move: (p) => void window.api.sessions.setParent(s.id, p) }} />
           {shut && <span className="count" title="Sessions under this one">{children.length}</span>}
         </div>
         {!shut && children.map((c) => tree(c, depth + 1))}
@@ -144,10 +150,11 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
 
 // One row: click to open; ✎ renames in place (Enter saves, Esc cancels); × asks once, then removes.
 // plan: this session plans a ticket (Start ticket): its subtasks' progress, and a link to the ticket's page.
-export function SessionRow({ s, label, where, active, count, onOpen, onRemove, plan, openTicket, showKey = true }: {
+export function SessionRow({ s, label, where, active, count, onOpen, onRemove, plan, openTicket, showKey = true, moveTo }: {
   s: BoardState['sessions'][number]; label: string; where: string | null; active: boolean; count: number; onOpen: () => void; onRemove: () => void
   plan?: { key: string; done: number; total: number }; openTicket?: (key: string) => void
   showKey?: boolean // false under a parent on the same ticket: the key is already shown there
+  moveTo?: { options: { id: string; name: string }[]; nested: boolean; move: (parent: string | null) => void } // "Move under…"
 }): React.JSX.Element {
   // The issue key (from Start ticket, its branch, or a ticket link in its first message), the folder, the team role.
   const meta = [showKey && s.ticket && !label.startsWith(s.ticket) ? s.ticket : null, where, s.role && s.role !== label ? s.role : null].filter((x): x is string => !!x)
@@ -183,6 +190,13 @@ export function SessionRow({ s, label, where, active, count, onOpen, onRemove, p
       ) : (
         <span className="row-acts" onClick={(e) => e.stopPropagation()}>
           <button className="row-act" title="Rename" onClick={() => { setName(label); setEditing(true) }}>✎</button>
+          {moveTo && (moveTo.options.length > 0 || moveTo.nested) && (
+            <Menu className="more-wrap" align="right" trigger={({ toggle }) => <button className="row-act" title="Move under another session" onClick={toggle}>⤷</button>}>
+              <div className="dd-head">Move under…</div>
+              {moveTo.options.map((o) => <div key={o.id} onClick={() => moveTo.move(o.id)}>{o.name}</div>)}
+              {moveTo.nested && <div onClick={() => moveTo.move(null)}>Move to top level</div>}
+            </Menu>
+          )}
           <button className="row-act" title="Remove from the list (its decisions stay in history)" onClick={() => setConfirm(true)}>×</button>
         </span>
       )}

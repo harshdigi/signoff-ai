@@ -27,7 +27,7 @@ import { getApproval, leaveToTerminal, requestApproval } from '../shared/approva
 // The store path comes from DECISION_IDE_DB, else the app's data folder (macOS path; other OSes in Phase 4).
 
 const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_CODE_SESSION_ID; decide is the same command)
-  register  [--ticket K] [--title T] [--description D]
+  register  [--ticket K] [--title T] [--description D]   [--parent SESSION-ID: nest under that session; its first 8+ characters are enough]
   status    [--state starting|working|waiting|done] [--note N] [--description D]
   post      --ticket K --id Dn --question Q [--context C]... [--option "Label :: what happens"]... [--recommend "Label :: why"]
             [--evidence "file:line :: what it shows"]... [--if-wrong W] [--ref K/Dn]... [--draft T | --draft-file FILE]
@@ -245,7 +245,7 @@ function main(argv: string[]): number {
   const { values: o, positionals } = parseArgs({
     args: rest, allowPositionals: cmd === 'recall' || cmd === 'ask' || cmd === 'docs', strict: true,
     options: {
-      session: { type: 'string' }, ticket: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' },
+      session: { type: 'string' }, ticket: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' }, parent: { type: 'string' },
       state: { type: 'string' }, note: { type: 'string' }, id: { type: 'string', multiple: true }, question: { type: 'string' },
       option: { type: 'string', multiple: true }, recommend: { type: 'string' }, evidence: { type: 'string', multiple: true },
       ref: { type: 'string', multiple: true }, action: { type: 'string' }, command: { type: 'string' }, force: { type: 'boolean' },
@@ -278,7 +278,10 @@ function main(argv: string[]): number {
 
   switch (cmd) {
     case 'register':
-      console.log(JSON.stringify(register(db, sid(), o)))
+      // --parent: nest this session under another one (its id, or the first characters of it).
+      register(db, sid(), o)
+      if (o.parent) b.setParent(db, sid(), b.sessionByPrefix(db, o.parent))
+      console.log(JSON.stringify(db.prepare('SELECT * FROM sessions WHERE id = ?').get(sid())))
       return 0
     case 'status': {
       b.touchSession(db, sid(), { state: o.state as b.SessionState | undefined, note: o.note, description: o.description })
