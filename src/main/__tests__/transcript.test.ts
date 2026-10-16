@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, realpathSync, utimesSync, write
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
-import { findTranscript, listConversations, readNew, shellDirs, toChatLines } from '../transcript'
+import { editedFiles, findTranscript, listConversations, readNew, shellDirs, toChatLines } from '../transcript'
 import { toRows, waitingInTerminal } from '../../renderer/src/chat/transcript'
 
 const T = '2026-10-07T10:00:00.000Z'
@@ -92,5 +92,18 @@ describe('shellDirs', () => {
       { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/elsewhere/a.rb' } }] } }
     ].map((l) => JSON.stringify(l)).join('\n') + '\n')
     expect(shellDirs(f, '/home/me')).toEqual(['/work/checkout-kan-1', '/work/other repo', '/home/me/wt/kan-1'])
+  })
+})
+
+describe('editedFiles', () => {
+  it('reads on from where it stopped, and starts over when the file is replaced', () => {
+    const f = join(mkdtempSync(join(tmpdir(), 'ef-')), 't.jsonl')
+    const edit = (file_path: string): string => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path } }] } }) + '\n'
+    writeFileSync(f, edit('/r/a.rb'))
+    expect(editedFiles(f)).toEqual(['/r/a.rb'])
+    appendFileSync(f, edit('/r/b.rb'))
+    expect(editedFiles(f)).toEqual(['/r/a.rb', '/r/b.rb'])
+    writeFileSync(f, edit('/r/c.rb'))
+    expect(editedFiles(f)).toEqual(['/r/c.rb'])
   })
 })

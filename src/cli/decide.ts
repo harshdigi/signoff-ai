@@ -20,7 +20,7 @@ import { addCase, cases, planOf, setCase, type CaseStatus } from '../shared/test
 import { openComments, replyComment } from '../shared/comments'
 import type { TaskGroup } from '../main/tasks'
 import { runAsk } from './ask'
-import { askToSettle, lastPromptAt, settle, staleDecisions } from '../shared/stale'
+import { askToSettle, lastPromptAtFile, settle, staleDecisions } from '../shared/stale'
 import { getApproval, leaveToTerminal, requestApproval } from '../shared/approvals'
 
 // signoff (old name: decide, still works): how Claude sessions talk to Signoff AI.
@@ -192,8 +192,7 @@ function hook(db: Store, event: string | undefined, terminal = false): number {
       return 0
     }
     // Decisions the chat moved past (you kept talking instead of answering the card): ask once to settle or close them.
-    const transcript = input.transcript_path && existsSync(input.transcript_path) ? readFileSync(input.transcript_path, 'utf8') : ''
-    const stale = getSettings(db).tidyDecisions ? staleDecisions(db, input.session_id, lastPromptAt(transcript)) : []
+    const stale = getSettings(db).tidyDecisions ? staleDecisions(db, input.session_id, input.transcript_path ? lastPromptAtFile(input.transcript_path) : null) : []
     if (stale.length) console.log(JSON.stringify({ decision: 'block', reason: askToSettle(db, stale) }))
     return 0
   }
