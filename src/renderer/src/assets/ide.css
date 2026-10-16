@@ -523,6 +523,7 @@ button.ref { all: unset; cursor: pointer; color: var(--accent, #3b82f6); text-de
 .ask-status .ask-answer { margin-top: 6px; max-height: 320px; overflow-y: auto; }
 .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--line); border-top-color: var(--accent, #3b82f6); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -1px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.head-act.spin .icon { animation: spin .8s linear infinite; }
 
 /* Specs in the Test plan (ide/Specs.tsx) */
 .specs { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 10px; }

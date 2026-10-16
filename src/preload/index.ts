@@ -110,8 +110,7 @@ const api = {
     openConnectors: () => ipcRenderer.invoke('integrations:openConnectors')
   },
   tools: {
-    connected: () => ipcRenderer.invoke('tools:connected'),
-    checkServers: () => ipcRenderer.invoke('tools:checkServers')
+    status: () => ipcRenderer.invoke('tools:status')
   },
   catalog: {
     list: () => ipcRenderer.invoke('catalog:list'),

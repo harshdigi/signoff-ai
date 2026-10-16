@@ -11,7 +11,7 @@ type Field = { key: string; label: string; secret?: boolean }
 type Entry = { id: string; name: string; description: string; transport: string; url?: string; command?: string[]; fields: Field[]; oauth: boolean }
 type Configured = { name: string; scope: string; transport: string; target: string }
 type Data = { catalog: Entry[]; connectors: { id: string; name: string }[]; connectorsUrl: string; scopes: string[]; configured: Configured[] }
-type Status = { servers: { name: string; status: string }[] } | null
+type Status = { servers: { name: string; status: string }[]; at: string } | null
 
 const SCOPE_HELP: Record<string, string> = { user: 'You, in every project', local: 'You, in this folder only', project: 'Everyone on this repo (.mcp.json)' }
 
@@ -23,10 +23,16 @@ export default function IntegrationsView({ showTerminal, trusted }: { showTermin
   const [running, setRunning] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<string | null>(null) // Remove asks for a second click
   const [adding, setAdding] = useState(false) // ＋ at the top opens the ways to add a tool
+  const [checking, setChecking] = useState(false)
   const load = useCallback(() => {
     window.api.integrations.list().then(setData, (e: unknown) => setErr(errText(e)))
-    window.api.tools.connected().then(setStatus)
   }, [])
+  // Live check, only on refresh: it starts every configured server (SIGNOFF-17/D1).
+  const check = (): void => {
+    setChecking(true)
+    setErr(null)
+    window.api.tools.status().then(setStatus, (e: unknown) => setErr(errText(e))).finally(() => setChecking(false))
+  }
   useEffect(load, [load])
   // Reload after the terminal running a connect / sign-in / remove finishes.
   useEffect(() => window.api.terminal.onExit((e) => { if (e.id === running) { setRunning(null); load() } }), [running, load])
@@ -41,7 +47,9 @@ export default function IntegrationsView({ showTerminal, trusted }: { showTermin
   const cloud = (status?.servers ?? []).filter((s) => s.name.startsWith('claude.ai')).sort((a, b) => rank(a.status) - rank(b.status) || a.name.localeCompare(b.name))
   return (
     <div className="side-body">
-      <SideHead title="TOOLS" hint="MCP servers: tools Claude can use, such as Slack, GitHub or a database" actions={[adding
+      <SideHead title="TOOLS" hint={'MCP servers: tools Claude can use, such as Slack, GitHub or a database' + (status ? ` · checked ${new Date(status.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '')} actions={[
+        { icon: 'refresh', title: checking ? 'Checking each server…' : status ? `Check again (last checked ${new Date(status.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})` : 'Check which servers are connected (starts each one briefly)', onClick: check, disabled: checking, spin: checking },
+        adding
         ? { icon: 'close', title: 'Close', onClick: () => { setAdding(false); setOpen(null) } }
         : { icon: 'plus', title: 'Add a tool: a popular one or your own MCP server', onClick: () => { setAdding(true); setOpen(null) } }]} />
       {err && <div className="err">{err}</div>}
@@ -68,7 +76,7 @@ export default function IntegrationsView({ showTerminal, trusted }: { showTermin
       {data.configured.length === 0 && <div className="side-empty">No MCP servers yet. Add one with ＋.</div>}
       {data.configured.map((c) => (
         <div key={c.scope + c.name} className="integ-row">
-          <div className="side-item"><span className={'state-dot ' + dot(statusOf(c.name))} /><span className="name">{c.name}</span><span className="dir">{c.scope} · {statusOf(c.name) ?? 'not started yet'}</span>
+          <div className="side-item"><span className={'state-dot ' + dot(statusOf(c.name))} /><span className="name">{c.name}</span><span className="dir">{c.scope} · {statusOf(c.name) ?? (checking ? 'checking…' : status ? 'not listed' : 'not checked yet')}</span>
             {confirm !== c.scope + c.name && (
               <span className="row-acts on" onClick={(e) => e.stopPropagation()}>
                 {c.transport !== 'stdio' && <button className="row-act" disabled={!!running} title={`Sign in to ${c.name}`} onClick={() => run(window.api.integrations.login(c.name))}><Icon name="signin" /></button>}
@@ -91,7 +99,7 @@ export default function IntegrationsView({ showTerminal, trusted }: { showTermin
         <summary className="side-group fold-head">claude.ai connectors ({cloud.filter((s) => s.status === 'connected').length} connected of {cloud.length})
           <button className="row-act" title="Open claude.ai connectors (in your browser)" onClick={(e) => { e.preventDefault(); window.api.integrations.openConnectors() }}><Icon name="external" /></button>
         </summary>
-        <div className="side-empty">Slack, Gmail, Google Calendar and others connect on claude.ai and then show up in every chat by themselves. On Team and Enterprise plans an admin adds them.</div>
+        <div className="side-empty">Slack, Gmail, Google Calendar and others connect on claude.ai and then show up in every chat by themselves. On Team and Enterprise plans an admin adds them.{!status && ' Press refresh above to see which are connected.'}</div>
         {cloud.map((s) => (
           <div key={s.name} className="side-item"><span className={'state-dot ' + dot(s.status)} /><span className="name">{s.name.replace(/^claude\.ai /, '')}</span><span className="dir">{s.status === 'needs-auth' ? 'not signed in' : s.status}</span></div>
         ))}
