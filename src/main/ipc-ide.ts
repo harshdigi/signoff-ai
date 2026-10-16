@@ -20,7 +20,7 @@ import { resetStore } from './store'
 import { evidenceSnippet } from './evidence'
 import { addCase, removeCase, setCase, type CaseStatus } from '../shared/testplan'
 import { addComment, editComment, removeComment, sendComments } from '../shared/comments'
-import { editedFiles, findTranscript, listConversations } from './transcript'
+import { editedFiles, findTranscript, listConversations, shellDirs } from './transcript'
 import { deleteWorkflow, getWorkflow, listWorkflows, saveWorkflow, teamLine, type WorkflowInput } from './workflows'
 import type { ChatImage, ChatManager, Mode } from './chat'
 import type { RouteChoice } from './context'
@@ -38,7 +38,7 @@ import { adoptTeam } from '../shared/team'
 import { updateSubtask, type SubtaskState } from '../shared/tickets'
 import { detectFramework, listSpecs, relatedSpecs, type TestRunner } from './testing'
 import { inUserShell, type TerminalManager } from './terminals'
-import { getWorkspace, isTrusted, openFolder, review, setFileDiff, setTrust, tryGit, type ChangeSet, type DiffMode } from './workspace'
+import { getWorkspace, isTrusted, openFolder, review, rootsOf, setFileDiff, setTrust, tryGit, type ChangeSet, type DiffMode } from './workspace'
 import { markReviewed, scoped, SCOPES as REVIEW_SCOPES, type Scope as ReviewScope, type Scoped } from './scopes'
 import { sendTo } from './window-send'
 import { openExternalSafely } from './security'
@@ -106,7 +106,8 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
     // The session's own repo or worktree; "whole" when it is a worktree made for this session (team member, subtask).
     const root = s?.cwd && existsSync(s.cwd) ? await tryGit(s.cwd, ['rev-parse', '--show-toplevel']) : null
     const own = root ? { root, whole: !!s?.base_branch || root.includes('/.claude/worktrees/') } : null
-    return scoped(db, { folder: folder(), sessionFiles: files.length ? files : null, scope: v.scope, commit: v.commit, sessionBase, own })
+    const shellRoots = path ? await rootsOf(shellDirs(path)) : []
+    return scoped(db, { folder: folder(), sessionFiles: files.length ? files : null, scope: v.scope, commit: v.commit, sessionBase, own, shellRoots })
   }
   ipcMain.handle('ws:scoped', (_e, v: View) => scopedFor(v))
   // A changed file's set: from the review view it was opened in, else from the folder's worktrees.

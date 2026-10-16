@@ -129,14 +129,44 @@ export function listConversations(folder: string, home = homedir(), limit = 50):
 // Files a session edited or wrote (Edit, Write, MultiEdit, NotebookEdit), in the order first touched. Absolute paths.
 // - Files changed only through shell commands (sed, mv, generators) are not seen here.
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
-export function editedFiles(path: string): string[] {
-  const files = new Set<string>()
-  for (const e of readNew(path, 0).lines) {
+
+// Folders a session worked in through the shell: `cd /x`, `git -C /x`, `git worktree add … /x`. Changes made there by
+// commands (patch, git apply, cp) never show as Edit or Write, so Files changed would miss that repo (SIGNOFF-19/D1).
+// Only commands that change files count (patch, git apply/commit/add, cp, mv, rm, sed -i, tee, a > redirect), so a
+// repo the session only looked into is left out. Only absolute or ~ paths; a variable or glob is skipped.
+const WRITES = /\b(git\s+(apply|commit|add|am|cherry-pick|mv|rm|restore|stash\s+pop|worktree\s+add)|patch|cp|mv|rm|tee)\b|\bsed\s+-i|[^>&2]>{1,2}\s*[^&\s]/
+
+// What Files changed needs from a transcript, kept per file and read on from where the last read stopped. Transcripts
+// grow past 100 MB, Files changed asks every 5 s, and a full read blocks the app for over a second each time.
+type Facts = { offset: number; edited: Set<string>; dirs: Set<string> }
+const facts = new Map<string, Facts>()
+function factsOf(path: string): Facts {
+  let f = facts.get(path)
+  const size = existsSync(path) ? statSync(path).size : 0
+  if (!f || size < f.offset) f = { offset: 0, edited: new Set(), dirs: new Set() } // new, or replaced: read from the start
+  const r = readNew(path, f.offset)
+  for (const e of r.lines) {
     if (e.type !== 'assistant' || !Array.isArray(e.message?.content)) continue
-    for (const b of e.message!.content as { type: string; name?: string; input?: { file_path?: string; notebook_path?: string } }[]) {
-      const f = b.type === 'tool_use' && b.name && EDIT_TOOLS.has(b.name) ? b.input?.file_path ?? b.input?.notebook_path : undefined
-      if (f) files.add(f)
+    for (const b of e.message!.content as { type: string; name?: string; input?: { file_path?: string; notebook_path?: string; command?: string } }[]) {
+      if (b.type !== 'tool_use' || !b.name) continue
+      const file = EDIT_TOOLS.has(b.name) ? b.input?.file_path ?? b.input?.notebook_path : undefined
+      if (file) f.edited.add(file)
+      const cmd = b.name === 'Bash' ? b.input?.command : undefined
+      if (!cmd || !WRITES.test(cmd)) continue
+      const take = (raw: string): void => {
+        const p = raw.replace(/^['"]|['"]$/g, '')
+        if (!/[$*?`]/.test(p) && (p.startsWith('/') || p.startsWith('~/'))) f!.dirs.add(p)
+      }
+      for (const m of cmd.matchAll(/(?:^|[\s;&|(])cd\s+("[^"]+"|'[^']+'|[^\s;&|)]+)/g)) take(m[1])
+      for (const m of cmd.matchAll(/\bgit\s+-C\s+("[^"]+"|'[^']+'|[^\s;&|)]+)/g)) take(m[1])
+      for (const m of cmd.matchAll(/\bgit\s+worktree\s+add\s+([^;&|\n]+)/g)) m[1].split(/\s+/).forEach(take)
     }
   }
-  return [...files]
+  f.offset = r.offset
+  facts.set(path, f)
+  return f
 }
+
+export const editedFiles = (path: string): string[] => [...factsOf(path).edited]
+export const shellDirs = (path: string, home = homedir()): string[] =>
+  [...factsOf(path).dirs].map((p) => (p.startsWith('~/') ? join(home, p.slice(2)) : p))

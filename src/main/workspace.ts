@@ -207,6 +207,17 @@ export async function reposOf(files: string[]): Promise<{ byRoot: Map<string, Se
 }
 
 
+// The repos these folders sit in (folders that no longer exist, or are not in a repo, are skipped).
+export async function rootsOf(dirs: string[]): Promise<string[]> {
+  const roots = new Set<string>()
+  for (const d of dirs) {
+    if (!existsSync(d)) continue
+    const root = await tryGit(d, ['rev-parse', '--show-toplevel'])
+    if (root) roots.add(root)
+  }
+  return [...roots]
+}
+
 // The diff for one file of a change set: the set's ref (merge-base or HEAD) against the file on disk.
 export function setFileDiff(set: ChangeSet, change: Change): FileDiff {
   const res: FileDiff = { path: change.path, original: '', modified: '', binary: false, tooLarge: false }

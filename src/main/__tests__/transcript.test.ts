@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, realpathSync, utimesSync, write
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
-import { findTranscript, listConversations, readNew, toChatLines } from '../transcript'
+import { editedFiles, findTranscript, listConversations, readNew, shellDirs, toChatLines } from '../transcript'
 import { toRows, waitingInTerminal } from '../../renderer/src/chat/transcript'
 
 const T = '2026-10-07T10:00:00.000Z'
@@ -76,5 +76,34 @@ describe("reading Claude Code's transcript", () => {
     put('b', [{ type: 'user', uuid: 'u', timestamp: T, message: { content: 'x' } }, { type: 'ai-title', aiTitle: 'Payments refactor' }], 2000)
     put('c', [{ type: 'file-history-snapshot' }], 3000)
     expect(listConversations(folder, home).map((c) => [c.id, c.title])).toEqual([['b', 'Payments refactor'], ['a', 'fix the login bug']])
+  })
+})
+
+describe('shellDirs', () => {
+  it('finds folders a session changed through cd, git -C and git worktree add; reads alone do not count', () => {
+    const f = join(mkdtempSync(join(tmpdir(), 'sd-')), 't.jsonl')
+    const bash = (command: string): unknown => ({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command } }] } })
+    writeFileSync(f, [
+      bash('cd /work/checkout-kan-1 && patch -p1 < x.diff'),
+      bash('git -C "/work/other repo" apply p.diff; git commit -m x'),
+      bash('git worktree add -b KAN-1 ~/wt/kan-1 origin/main'),
+      bash('cd $HOME/x && patch -p1 < y.diff; cd relative/dir && git apply z.diff'),
+      bash('cd /only/read && git log --oneline -5 && cat a.rb 2>&1'),
+      { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/elsewhere/a.rb' } }] } }
+    ].map((l) => JSON.stringify(l)).join('\n') + '\n')
+    expect(shellDirs(f, '/home/me')).toEqual(['/work/checkout-kan-1', '/work/other repo', '/home/me/wt/kan-1'])
+  })
+})
+
+describe('editedFiles', () => {
+  it('reads on from where it stopped, and starts over when the file is replaced', () => {
+    const f = join(mkdtempSync(join(tmpdir(), 'ef-')), 't.jsonl')
+    const edit = (file_path: string): string => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path } }] } }) + '\n'
+    writeFileSync(f, edit('/r/a.rb'))
+    expect(editedFiles(f)).toEqual(['/r/a.rb'])
+    appendFileSync(f, edit('/r/b.rb'))
+    expect(editedFiles(f)).toEqual(['/r/a.rb', '/r/b.rb'])
+    writeFileSync(f, edit('/r/c.rb'))
+    expect(editedFiles(f)).toEqual(['/r/c.rb'])
   })
 })

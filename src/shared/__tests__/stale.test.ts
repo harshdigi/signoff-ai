@@ -1,12 +1,12 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import { mkdtempSync } from 'fs'
+import { mkdtempSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { openStore, type Store } from '../../main/store'
 import * as b from '../board'
-import { ASKED_NOTE, askToSettle, lastPromptAt, settle, staleDecisions } from '../stale'
+import { ASKED_NOTE, askToSettle, lastPromptAt, lastPromptAtFile, settle, staleDecisions } from '../stale'
 
 let db: Store
 beforeEach(() => {
@@ -60,5 +60,16 @@ describe('decisions the chat moved past', () => {
     settle(db, 'ABC-1/D2', 's', '7', false)
     expect(db.prepare("SELECT status, answer, answered_by FROM decisions WHERE id = 'ABC-1/D2'").get()).toEqual({ status: 'answered', answer: '7', answered_by: 'chat' })
     expect((db.prepare("SELECT text FROM decision_thread WHERE decision_id = 'ABC-1/D2' ORDER BY id").all() as { text: string }[]).map((t) => t.text)).toEqual(['Settled in the chat: 6', 'Changed in the chat: 6 → 7'])
+  })
+})
+
+describe('lastPromptAtFile', () => {
+  it('finds the last prompt from the end of a large transcript, past a cut-off first line', () => {
+    const f = join(mkdtempSync(join(tmpdir(), 'lp-')), 't.jsonl')
+    const prompt = JSON.stringify({ type: 'user', timestamp: '2026-10-16T09:00:00Z', message: { content: 'hello' } })
+    const filler = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'x'.repeat(4000) }] } })
+    writeFileSync(f, prompt + '\n' + Array(700).fill(filler).join('\n') + '\n') // about 2.8 MB: needs the doubling
+    expect(lastPromptAtFile(f)).toBe('2026-10-16T09:00:00Z')
+    expect(lastPromptAtFile(join(tmpdir(), 'no-such-transcript.jsonl'))).toBeNull()
   })
 })
