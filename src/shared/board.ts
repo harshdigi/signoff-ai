@@ -48,6 +48,28 @@ export function touchSession(db: Store, id: string, fields: SessionFields): void
 }
 
 // The user's own name for a session or chat.
+// Nests a session under another one (or back at the top level with null), as the Sessions list shows it.
+// The parent must exist and must not sit under this session, or the list would loop.
+export function setParent(db: Store, id: string, parent: string | null): void {
+  need(db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(id), `no session ${id}`)
+  if (parent) {
+    need(parent !== id, 'a session cannot be its own parent')
+    need(db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(parent), `no session ${parent}`)
+    for (let p: string | null = parent; p; p = (db.prepare('SELECT parent_id FROM sessions WHERE id = ?').get(p) as { parent_id: string | null } | undefined)?.parent_id ?? null)
+      need(p !== id, `${parent.slice(0, 8)} is already under this session`)
+  }
+  db.prepare('UPDATE sessions SET parent_id = ?, updated_at = ? WHERE id = ?').run(parent, now(), id)
+}
+
+// A session id from its first characters (as the app shows them), when exactly one session starts with them.
+export function sessionByPrefix(db: Store, prefix: string): string {
+  const p = prefix.trim()
+  need(p.length >= 6, 'give at least the first 6 characters of the session id')
+  const rows = db.prepare("SELECT id FROM sessions WHERE id LIKE ? || '%'").all(p) as { id: string }[]
+  need(rows.length === 1, rows.length ? `${p} matches ${rows.length} sessions; give more of the id` : `no session starts with ${p}`)
+  return rows[0].id
+}
+
 export function renameSession(db: Store, id: string, title: string): void {
   need(db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(id), `no session ${id}`)
   const t = title.trim()

@@ -293,3 +293,25 @@ describe('rename and remove sessions', () => {
   })
 })
 
+describe('session parents', () => {
+  it('nests a session under another, refuses loops, and moves it back to the top', () => {
+    for (const id of ['lead-0001', 'step-0002', 'deep-0003']) b.touchSession(db, id, {})
+    b.setParent(db, 'step-0002', 'lead-0001')
+    b.setParent(db, 'deep-0003', 'step-0002')
+    const parent = (id: string): unknown => (db.prepare('SELECT parent_id FROM sessions WHERE id = ?').get(id) as { parent_id: string | null }).parent_id
+    expect([parent('step-0002'), parent('deep-0003')]).toEqual(['lead-0001', 'step-0002'])
+    expect(() => b.setParent(db, 'lead-0001', 'deep-0003')).toThrow('deep-000 is already under this session')
+    expect(() => b.setParent(db, 'lead-0001', 'lead-0001')).toThrow('a session cannot be its own parent')
+    expect(() => b.setParent(db, 'lead-0001', 'nobody')).toThrow('no session nobody')
+    b.setParent(db, 'step-0002', null)
+    expect(parent('step-0002')).toBeNull()
+  })
+
+  it('finds a session by the first characters of its id', () => {
+    for (const id of ['abcdef-1111', 'abcdef-2222', 'zzzzzz-9999']) b.touchSession(db, id, {})
+    expect(b.sessionByPrefix(db, 'zzzzzz')).toBe('zzzzzz-9999')
+    expect(() => b.sessionByPrefix(db, 'abcdef')).toThrow('abcdef matches 2 sessions; give more of the id')
+    expect(() => b.sessionByPrefix(db, 'abc')).toThrow('give at least the first 6 characters of the session id')
+    expect(() => b.sessionByPrefix(db, 'qqqqqq')).toThrow('no session starts with qqqqqq')
+  })
+})

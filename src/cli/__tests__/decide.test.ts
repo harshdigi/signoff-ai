@@ -127,6 +127,12 @@ describe('decide CLI', () => {
     expect([realpathSync(out.cwd), out.ticket]).toEqual([realpathSync(dir), 'ABC-9'])
   })
 
+  it('register --parent nests this session under another one, by the start of its id', () => {
+    decide(['--session', 'lead-session-1', 'register'])
+    const out = JSON.parse(decide([...S, 'register', '--parent', 'lead-sess']).out)
+    expect(out.parent_id).toBe('lead-session-1')
+  })
+
   it('register for another session never takes this process tty or pid', () => {
     const out = JSON.parse(decide(['--session', 'someone-else', 'register']).out)
     expect([out.tty, out.pid]).toEqual([null, null])

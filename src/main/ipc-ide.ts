@@ -7,7 +7,7 @@ import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import { answerApproval, leaveToTerminal, type Answer } from '../shared/approvals'
-import { renameSession, setRemoved } from '../shared/board'
+import { renameSession, setParent, setRemoved } from '../shared/board'
 import { readCatalog } from './catalog'
 import { search } from '../shared/memory'
 import { isOutward, serviceOf } from '../shared/outward'
@@ -412,6 +412,7 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   ipcMain.handle('chat:handoff', (_e, session: string) => chat.handoff(session, 'manual'))
   // Rename / remove / restore a chat or session. Removing a chat also stops its Claude process.
   ipcMain.handle('session:rename', (_e, id: string, title: string) => renameSession(db, id, title))
+  ipcMain.handle('session:setParent', (_e, id: string, parent: string | null) => setParent(db, id, parent))
   ipcMain.handle('session:remove', (_e, id: string) => {
     chat.stop(id)
     setRemoved(db, id, true)
