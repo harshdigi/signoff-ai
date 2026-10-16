@@ -110,7 +110,7 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
           <SessionRow s={s} label={s.title || s.ticket || s.id.slice(0, 8)} where={place(s.cwd)} active={current === s.id} count={open(s.id)} onOpen={() => openSession(s.id)} onRemove={() => removeIt(s.id)}
             plan={plans.get(s.id)} openTicket={(key) => openTab({ kind: 'ticket', id: key })} showKey={!grouped || byId.get(s.parent_id ?? '')?.ticket !== s.ticket}
             moveTo={{ options: parentsFor(s.id).map((x) => ({ id: x.id, name: nameOf(x) })), nested: !!s.parent_id, move: (p) => void window.api.sessions.setParent(s.id, p) }} />
-          {shut && <span className="count" title="Sessions under this one">{children.length}</span>}
+          {shut && <span className="kids" title={`${children.length} session${children.length === 1 ? '' : 's'} under this one (folded)`}>{children.length}</span>}
         </div>
         {!shut && children.map((c) => tree(c, depth + 1))}
       </Fragment>

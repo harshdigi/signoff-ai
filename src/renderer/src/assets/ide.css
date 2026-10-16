@@ -112,6 +112,8 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .st.deleted, .st.conflict { color: #d14d41; }
 .st.pending { color: var(--accent); }
 .count { margin-left: auto; font-size: 10px; padding: 0 5px; border-radius: 7px; background: var(--warn); color: #fff; }
+/* Sessions folded under a row: a plain grey count, so orange (.count) only ever means "waiting on you". */
+.kids { font-size: 10px; padding: 0 5px; border-radius: 7px; background: var(--line); color: var(--quiet); align-self: center; }
 
 /* editor */
 .editor { height: 100%; display: flex; flex-direction: column; background: var(--bg); }
