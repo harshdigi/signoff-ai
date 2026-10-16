@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.5 (16 October 2026, IST)
+
+### New
+- **Tools: live check.** A refresh button next to ＋ checks every MCP server with `claude mcp list` and shows when it
+  was checked. Rows say "not checked yet" until then, instead of an old saved status.
+- **Nest a session under another.** ⤷ "Move under…" on a session row, or `signoff register --parent <id>` from a
+  session. "Move to top level" undoes it.
+
+### Better
+- **Files changed** also lists repos a session changed through shell commands (patch, git apply, cp, git commit),
+  not only files changed with Claude's Edit and Write tools.
+- **Faster with very long chats.** Files changed no longer re-reads the whole transcript every few seconds, and the
+  end of each Claude turn no longer reads it whole. On a 113 MB transcript this removed a freeze of about a second.
+
+### Fixed
+- A folded session row's child count is now a grey badge; orange means only "waiting on you".
+
+### Upgrading from 1.0.4
+- Quit the app, replace it in Applications, open it. Your data is kept; the board format does not change.
+
 ## 1.0.4 (15 October 2026, IST)
 
 ### Fixed
