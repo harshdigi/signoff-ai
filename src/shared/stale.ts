@@ -1,10 +1,32 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
+import { closeSync, existsSync, fstatSync, openSync, readSync } from 'fs'
 import type { Store } from '../main/store'
 import { addToThread, answer, ack } from './board'
 
 // Decisions the chat has moved past: you kept talking in the chat (or typing in the terminal) instead of answering
 // the card, so the decision may already be settled there, or no longer matter.
+
+// The same, read from the end of the transcript file: the last prompt is near the end, and reading a 100 MB transcript
+// whole made every end of turn wait over a second. Reads 1 MB, then twice as much, until a prompt or the start.
+export function lastPromptAtFile(path: string): string | null {
+  if (!existsSync(path)) return null
+  const fd = openSync(path, 'r')
+  try {
+    const size = fstatSync(fd).size
+    for (let n = 1 << 20; ; n *= 2) {
+      const len = Math.min(n, size)
+      const buf = Buffer.alloc(len)
+      readSync(fd, buf, 0, len, size - len)
+      let text = buf.toString('utf8')
+      if (len < size) text = text.slice(text.indexOf('\n') + 1) // the first line is cut off: drop it
+      const at = lastPromptAt(text)
+      if (at || len === size) return at
+    }
+  } finally {
+    closeSync(fd)
+  }
+}
 
 // When you last wrote to Claude, from its transcript (JSON lines): the newest user message that is your text,
 // not a tool result or Claude Code's own meta line. Null when there is none.

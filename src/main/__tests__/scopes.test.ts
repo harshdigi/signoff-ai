@@ -31,6 +31,12 @@ const files = async (db: ReturnType<typeof openStore>, repo: string, scope: Scop
   (await scoped(db, { folder: repo, sessionFiles: [join(repo, 'new.rb'), join(repo, 'wip.rb')], scope, commit, sessionBase: () => 'main' })).groups.flatMap((g) => g.files.map((f) => f.path))
 
 describe('review scopes', () => {
+  it('a repo changed only through shell commands shows its whole branch in the session scope', async () => {
+    const { repo, db } = setup()
+    const r = await scoped(db, { folder: repo, sessionFiles: null, scope: 'session', sessionBase: () => 'main', shellRoots: [realpathSync(repo)] })
+    expect(r.groups.flatMap((g) => g.files.map((f) => f.path))).toEqual(['new.rb', 'old.rb', 'wip.rb'])
+  })
+
   it('ticket: the whole branch; session: only its files; today: since yesterday; uncommitted: not committed; commit: one commit', async () => {
     const { repo, db } = setup()
     expect(await files(db, repo, 'ticket')).toEqual(['new.rb', 'old.rb', 'wip.rb'])

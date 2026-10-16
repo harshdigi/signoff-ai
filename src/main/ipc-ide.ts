@@ -7,10 +7,9 @@ import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import { answerApproval, leaveToTerminal, type Answer } from '../shared/approvals'
-import { renameSession, setRemoved } from '../shared/board'
+import { renameSession, setParent, setRemoved } from '../shared/board'
 import { readCatalog } from './catalog'
 import { search } from '../shared/memory'
-import { isOutward, serviceOf } from '../shared/outward'
 import { getSettings, saveSettings, type Settings } from './settings'
 import { skillDirs } from './skilldirs'
 import { createSkill, type NewSkill } from './skillwriter'
@@ -21,7 +20,7 @@ import { resetStore } from './store'
 import { evidenceSnippet } from './evidence'
 import { addCase, removeCase, setCase, type CaseStatus } from '../shared/testplan'
 import { addComment, editComment, removeComment, sendComments } from '../shared/comments'
-import { editedFiles, findTranscript, listConversations } from './transcript'
+import { editedFiles, findTranscript, listConversations, shellDirs } from './transcript'
 import { deleteWorkflow, getWorkflow, listWorkflows, saveWorkflow, teamLine, type WorkflowInput } from './workflows'
 import type { ChatImage, ChatManager, Mode } from './chat'
 import type { RouteChoice } from './context'
@@ -30,7 +29,7 @@ import { detectAll } from './tasks'
 import { customRuns, removeRun } from './runs'
 import { impact } from './impact'
 import { checkSetup, gitInstall, installCommand, tmuxInstall } from './setup'
-import { addArgs, CATALOG, configured, CONNECTORS, CONNECTORS_URL, SCOPES, specFor, type AddSpec, type Scope } from './integrations'
+import { addArgs, CATALOG, configured, CONNECTORS, CONNECTORS_URL, parseMcpList, SCOPES, specFor, type AddSpec, type Scope } from './integrations'
 import { anchorsFor, anchorStatus, findFlowDocs, generatePrompt, indexDocs, readDoc, reposNear, touchedDocs, verifyDocs } from './flows'
 import { allowedRoots, findFiles, grep, readCode, resolveRef, type CodeQuery } from './code-search'
 import type { Pipeline } from './pipeline'
@@ -39,7 +38,7 @@ import { adoptTeam } from '../shared/team'
 import { updateSubtask, type SubtaskState } from '../shared/tickets'
 import { detectFramework, listSpecs, relatedSpecs, type TestRunner } from './testing'
 import { inUserShell, type TerminalManager } from './terminals'
-import { getWorkspace, isTrusted, openFolder, review, setFileDiff, setTrust, tryGit, type ChangeSet, type DiffMode } from './workspace'
+import { getWorkspace, isTrusted, openFolder, review, rootsOf, setFileDiff, setTrust, tryGit, type ChangeSet, type DiffMode } from './workspace'
 import { markReviewed, scoped, SCOPES as REVIEW_SCOPES, type Scope as ReviewScope, type Scoped } from './scopes'
 import { sendTo } from './window-send'
 import { openExternalSafely } from './security'
@@ -107,7 +106,8 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
     // The session's own repo or worktree; "whole" when it is a worktree made for this session (team member, subtask).
     const root = s?.cwd && existsSync(s.cwd) ? await tryGit(s.cwd, ['rev-parse', '--show-toplevel']) : null
     const own = root ? { root, whole: !!s?.base_branch || root.includes('/.claude/worktrees/') } : null
-    return scoped(db, { folder: folder(), sessionFiles: files.length ? files : null, scope: v.scope, commit: v.commit, sessionBase, own })
+    const shellRoots = path ? await rootsOf(shellDirs(path)) : []
+    return scoped(db, { folder: folder(), sessionFiles: files.length ? files : null, scope: v.scope, commit: v.commit, sessionBase, own, shellRoots })
   }
   ipcMain.handle('ws:scoped', (_e, v: View) => scopedFor(v))
   // A changed file's set: from the review view it was opened in, else from the folder's worktrees.
@@ -301,17 +301,15 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
     if (!g.command) { openExternalSafely(g.url); return null }
     return { ...terms.spawn(inUserShell(g.command)), title: 'Install git' }
   })
-  // Connected tools (IDE/D16 I): what the newest chat's Claude Code reported at start (system/init).
-  ipcMain.handle('tools:connected', () => {
-    const row = db.prepare(`SELECT e.event FROM chat_events e JOIN sessions s ON s.id = e.session_id
-      WHERE json_extract(e.event, '$.type') = 'system' AND json_extract(e.event, '$.subtype') = 'init' ORDER BY e.created_at DESC, e.rowid DESC LIMIT 1`).get() as { event: string } | undefined
-    if (!row) return null
-    const init = JSON.parse(row.event) as { mcp_servers?: { name: string; status: string }[]; tools?: string[] }
-    return {
-      servers: init.mcp_servers ?? [],
-      tools: (init.tools ?? []).filter((t) => t.startsWith('mcp__') && !t.startsWith('mcp__decide__')).map((t) => ({ name: t, service: serviceOf(t), outward: isOutward(t) }))
-    }
-  })
+  // Connected tools: checked live, only when you press refresh in the Tools view (SIGNOFF-17/D1). `claude mcp list` starts
+  // every configured server to check it, so it never runs by itself. Run in the open folder: local and project servers
+  // belong to it.
+  ipcMain.handle('tools:status', () => new Promise((resolve, reject) => {
+    execFile('claude', ['mcp', 'list'], { cwd: getWorkspace(db).current ?? homedir(), timeout: 90_000 }, (err, out) => {
+      if (err && !out) return reject(new Error(`could not check the MCP servers: ${err.message}`))
+      resolve({ servers: parseMcpList(out), at: new Date().toISOString() })
+    })
+  }))
   // Integrations: connect through Claude Code's own `claude mcp` commands, in a visible terminal in the open folder
   // (local and project scope belong to that folder).
   ipcMain.handle('integrations:list', () => ({
@@ -339,7 +337,6 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
     return { ...terms.spawn({ command: 'claude', args: ['mcp', 'remove', name, '--scope', scope], cwd: inFolder(scope) }), title: `Remove ${name}` }
   })
   ipcMain.handle('integrations:openConnectors', () => openExternalSafely(CONNECTORS_URL))
-  ipcMain.handle('tools:checkServers', () => ({ ...terms.spawn({ command: 'claude', args: ['mcp', 'list'] }), title: 'MCP servers' }))
   ipcMain.handle('catalog:list', () => readCatalog(getWorkspace(db).current, undefined, nearby()))
   ipcMain.handle('catalog:create', (_e, s: NewSkill) => createSkill({ ...s, folder: getWorkspace(db).current }))
   // Siri & Shortcuts: the exact commands for this install (paths differ between dev and the packaged app).
@@ -412,6 +409,7 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   ipcMain.handle('chat:handoff', (_e, session: string) => chat.handoff(session, 'manual'))
   // Rename / remove / restore a chat or session. Removing a chat also stops its Claude process.
   ipcMain.handle('session:rename', (_e, id: string, title: string) => renameSession(db, id, title))
+  ipcMain.handle('session:setParent', (_e, id: string, parent: string | null) => setParent(db, id, parent))
   ipcMain.handle('session:remove', (_e, id: string) => {
     chat.stop(id)
     setRemoved(db, id, true)

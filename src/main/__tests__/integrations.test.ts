@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
-import { addArgs, CATALOG, configured, mask, specFor } from '../integrations'
+import { addArgs, CATALOG, configured, mask, parseMcpList, specFor } from '../integrations'
 
 const entry = (id: string): (typeof CATALOG)[number] => CATALOG.find((c) => c.id === id)!
 
@@ -51,5 +51,27 @@ describe('integrations', () => {
     ])
     expect(JSON.stringify(rows)).not.toMatch(/ghp_secret|pw@|PW/)
     expect(configured(null, mkdtempSync(join(tmpdir(), 'empty-')))).toEqual([])
+  })
+})
+
+describe('parseMcpList', () => {
+  it('reads each server and its live state from `claude mcp list`', () => {
+    const out = [
+      'Checking MCP server health...',
+      '',
+      'postman: https://mcp.postman.com/mcp (HTTP) - ✓ Connected',
+      'funes: /usr/local/bin/funes serve - ✗ Failed to connect',
+      'claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication',
+      'claude.ai Slack: https://mcp.slack.com/mcp - ✓ Connected'
+    ].join('\n')
+    expect(parseMcpList(out)).toEqual([
+      { name: 'postman', status: 'connected' },
+      { name: 'funes', status: 'failed' },
+      { name: 'claude.ai Gmail', status: 'needs-auth' },
+      { name: 'claude.ai Slack', status: 'connected' }
+    ])
+  })
+  it('ignores lines that are not a server', () => {
+    expect(parseMcpList('No MCP servers configured. Use `claude mcp add` to add a server.\n')).toEqual([])
   })
 })

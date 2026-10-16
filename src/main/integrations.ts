@@ -129,3 +129,17 @@ export function configured(folder: string | null, home = homedir()): Configured[
     ...rows(user.mcpServers, 'user')
   ]
 }
+
+// Each server's state from `claude mcp list`, which checks every server live. A line looks like
+// "postman: https://… (HTTP) - ✓ Connected"; the name ends at the first ": " (URLs have "://", not ": ").
+export type ServerStatus = { name: string; status: 'connected' | 'needs-auth' | 'failed' | string }
+export function parseMcpList(out: string): ServerStatus[] {
+  return out.split('\n').flatMap((line) => {
+    const name = line.indexOf(': ')
+    const state = line.lastIndexOf(' - ')
+    if (name <= 0 || state < name) return []
+    const raw = line.slice(state + 3).trim()
+    const status = /auth/i.test(raw) ? 'needs-auth' : /fail|error/i.test(raw) ? 'failed' : /connected/i.test(raw) ? 'connected' : raw.replace(/^[^\w]+/, '').toLowerCase()
+    return [{ name: line.slice(0, name).trim(), status }]
+  })
+}

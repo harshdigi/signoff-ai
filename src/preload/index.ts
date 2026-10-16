@@ -70,6 +70,7 @@ const api = {
   },
   sessions: {
     rename: (id: string, title: string) => ipcRenderer.invoke('session:rename', id, title),
+    setParent: (id: string, parent: string | null) => ipcRenderer.invoke('session:setParent', id, parent),
     remove: (id: string) => ipcRenderer.invoke('session:remove', id),
     restore: (id: string) => ipcRenderer.invoke('session:restore', id)
   },
@@ -110,8 +111,7 @@ const api = {
     openConnectors: () => ipcRenderer.invoke('integrations:openConnectors')
   },
   tools: {
-    connected: () => ipcRenderer.invoke('tools:connected'),
-    checkServers: () => ipcRenderer.invoke('tools:checkServers')
+    status: () => ipcRenderer.invoke('tools:status')
   },
   catalog: {
     list: () => ipcRenderer.invoke('catalog:list'),
