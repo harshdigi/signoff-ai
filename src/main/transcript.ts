@@ -140,3 +140,28 @@ export function editedFiles(path: string): string[] {
   }
   return [...files]
 }
+
+// Folders a session worked in through the shell: `cd /x`, `git -C /x`, `git worktree add … /x`. Changes made there by
+// commands (patch, git apply, cp) never show as Edit or Write, so Files changed would miss that repo (SIGNOFF-19/D1).
+// Only commands that change files count (patch, git apply/commit/add, cp, mv, rm, sed -i, tee, a > redirect), so a
+// repo the session only looked into is left out. Only absolute or ~ paths; a variable or glob is skipped.
+const WRITES = /\b(git\s+(apply|commit|add|am|cherry-pick|mv|rm|restore|stash\s+pop|worktree\s+add)|patch|cp|mv|rm|tee)\b|\bsed\s+-i|[^>&2]>{1,2}\s*[^&\s]/
+export function shellDirs(path: string, home = homedir()): string[] {
+  const dirs = new Set<string>()
+  const take = (raw: string): void => {
+    const p = raw.replace(/^['"]|['"]$/g, '')
+    if (/[$*?`]/.test(p) || !(p.startsWith('/') || p.startsWith('~/'))) return
+    dirs.add(p.startsWith('~/') ? join(home, p.slice(2)) : p)
+  }
+  for (const e of readNew(path, 0).lines) {
+    if (e.type !== 'assistant' || !Array.isArray(e.message?.content)) continue
+    for (const b of e.message!.content as { type: string; name?: string; input?: { command?: string } }[]) {
+      const cmd = b.type === 'tool_use' && b.name === 'Bash' ? b.input?.command : undefined
+      if (!cmd || !WRITES.test(cmd)) continue
+      for (const m of cmd.matchAll(/(?:^|[\s;&|(])cd\s+("[^"]+"|'[^']+'|[^\s;&|)]+)/g)) take(m[1])
+      for (const m of cmd.matchAll(/\bgit\s+-C\s+("[^"]+"|'[^']+'|[^\s;&|)]+)/g)) take(m[1])
+      for (const m of cmd.matchAll(/\bgit\s+worktree\s+add\s+([^;&|\n]+)/g)) m[1].split(/\s+/).forEach(take)
+    }
+  }
+  return [...dirs]
+}

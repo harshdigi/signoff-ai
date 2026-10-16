@@ -60,10 +60,14 @@ async function withReviewed(db: Store, set: ChangeSet): Promise<ScopedSet> {
 // own: the repo or worktree the session runs in, and whether that worktree is the session's alone (a team member or
 // subtask session). Its repo is always looked at, even when the transcript shows no edits (changes made through Bash
 // or scripts leave no Edit call); in its own worktree, everything on the branch is the session's work.
-export async function scoped(db: Store, o: { folder: string; sessionFiles: string[] | null; scope: Scope; commit?: string | null; sessionBase: (root: string) => string | null; own?: { root: string; whole: boolean } | null }): Promise<Scoped> {
+// shellRoots: repos the session changed through shell commands (SIGNOFF-19/D1); their whole branch counts as its work,
+// since which files the commands touched is not known.
+export async function scoped(db: Store, o: { folder: string; sessionFiles: string[] | null; scope: Scope; commit?: string | null; sessionBase: (root: string) => string | null; own?: { root: string; whole: boolean } | null; shellRoots?: string[] }): Promise<Scoped> {
   const { byRoot, outside } = o.sessionFiles ? await reposOf(o.sessionFiles) : { byRoot: new Map<string, Set<string>>(), outside: [] }
   if (o.own && !byRoot.has(o.own.root)) byRoot.set(o.own.root, new Set())
-  if (!o.sessionFiles && !o.own) {
+  const shell = new Set(o.shellRoots ?? [])
+  for (const r of shell) if (!byRoot.has(r)) byRoot.set(r, new Set())
+  if (!o.sessionFiles && !o.own && !shell.size) {
     const main = (await listWorktrees(o.folder))[0]
     if (main) byRoot.set(main.path, new Set())
   }
@@ -82,7 +86,7 @@ export async function scoped(db: Store, o: { folder: string; sessionFiles: strin
     if (o.scope === 'ticket') set = await onBranch()
     else if (o.scope === 'session') {
       const all = await onBranch()
-      set = o.own?.whole && root === o.own.root ? all : { ...all, files: all.files.filter((f) => rels.has(f.path)) }
+      set = (o.own?.whole && root === o.own.root) || (shell.has(root) && !rels.size) ? all : { ...all, files: all.files.filter((f) => rels.has(f.path)) }
     } else if (o.scope === 'uncommitted') set = await changeSetAt(root, branch, 'HEAD')
     else if (o.scope === 'today') {
       // This branch's own work since today began: from its last commit made before midnight, or (no such commit)
