@@ -428,12 +428,12 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
             ))}
           </div>
         )}
-        {autoLine && <div className="autonomy-line" title="Change it from the settings icon on the session tab bar">{autoLine}</div>}
         <textarea ref={box} value={input} disabled={!queued && (!trusted || !folder)} onChange={(e) => { setInput(e.target.value); setMenuIndex(0) }} onKeyDown={onKey}
           onKeyUp={(e) => { if (e.key === ' ' || e.key === 'Alt') voice.release() }}
           onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addImageFiles(e.clipboardData.files) } }}
           onDragOver={(e) => e.preventDefault()} onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); addImageFiles(e.dataTransfer.files) } }}
           placeholder={queued ? (term ? 'Type to this session (sent to its terminal)' : 'Message this session (queued until it checks the board)') : !folder ? 'Open a folder to start' : !trusted ? 'Trust this folder to chat' : busy ? 'Claude is working. You can queue a message. Esc stops.' : 'Ask Claude · / commands and skills · @ files · paste images · ⇧Tab mode'} />
+        {autoLine && <div className="autonomy-line" title="Change it from the settings icon on the session tab bar">{autoLine}</div>}
         <div className="composer-bar">
           {/* What is set now: the mode from Claude Code's footer, the model of its latest reply, the effort last chosen here. */}
           {!queued && <><select className="mode-pick" value={current?.mode || 'default'} disabled={!session} title="Mode (⇧Tab cycles it)"

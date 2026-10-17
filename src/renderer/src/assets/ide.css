@@ -186,7 +186,7 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .autonomy-panel { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 40; width: 360px; max-height: 60vh; overflow-y: auto; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px #0003; }
 .autonomy-panel.down { bottom: auto; top: calc(100% + 6px); left: auto; right: 0; }
 .autonomy-panel .auto-paused { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; padding: 6px 8px; border-radius: 6px; background: var(--warn-tint); color: var(--ink); font-size: 12px; }
-.autonomy-line { font-size: 11px; color: var(--quiet); margin: 0 2px 4px; }
+.autonomy-line { font-size: 11px; color: var(--quiet); margin: 4px 2px 0; text-align: right; }
 .autonomy-panel .auto-title { display: flex; gap: 8px; align-items: baseline; margin-bottom: 8px; }
 .autonomy .icon-btn .icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; vertical-align: -2px; }
 .autonomy-editor .auto-modes { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
