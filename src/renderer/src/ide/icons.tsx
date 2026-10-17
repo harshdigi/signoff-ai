@@ -27,6 +27,7 @@ const PATHS = {
   signin: <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M9.5 16.5L14 12l-4.5-4.5M14 12H4" />,
   external: <path d="M14 5h5v5M19 5l-8 8M17 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h4" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,
+  lock: <><rect x="6" y="11" width="12" height="9" rx="2" /><path d="M9 11V8a3 3 0 0 1 6 0v3" /></>,
   mic: <><rect x="9" y="3.5" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5" /></>,
   stop: <rect x="7" y="7" width="10" height="10" rx="1.5" />
 } as const

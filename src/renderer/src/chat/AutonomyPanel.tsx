@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { errText } from '../ide/types'
+import { Icon } from '../ide/icons'
 
 // Autonomy (SIGNOFF-24, step 5): what Claude may settle on your behalf in this session. Modes are presets that tick
 // the boxes; a changed box makes it Custom. The locked list always asks and cannot be ticked. A change is told to the
@@ -44,21 +45,34 @@ export default function AutonomyPanel({ session }: { session: string | null }): 
             {Object.entries(info.modes).map(([k, m]) => <button key={k} className={'sm' + (a.mode === k ? ' primary' : '')} onClick={() => set({ mode: k })}>{m.label}</button>)}
             {a.mode === 'custom' && <span className="meta">Custom</span>}
           </div>
-          <label className="inline auto-plan"><input type="checkbox" checked={a.plan} onChange={(e) => set({ items: a.items, plan: e.target.checked })} /> Approve a plan before Claude runs on its own</label>
+          <Row label="Approve a plan before Claude runs on its own" left="Yes" right="No" on={a.plan} pick={(v) => set({ items: a.items, plan: v })} />
           {info.phases.map((p) => (
             <div key={p.id} className="auto-phase">
               <div className="side-group">{p.label}</div>
-              {p.items.map((i) => <label key={i.id} className="inline"><input type="checkbox" checked={a.items.includes(i.id)} onChange={() => toggle(i.id)} /> {i.label}</label>)}
+              {p.items.map((i) => <Row key={i.id} label={i.label} left="Claude" right="Ask me" on={a.items.includes(i.id)} pick={(v) => { if (v !== a.items.includes(i.id)) toggle(i.id) }} />)}
             </div>
           ))}
           <div className="auto-phase locked">
             <div className="side-group">Always asks you</div>
-            {info.locked.map((i) => <label key={i.id} className="inline"><input type="checkbox" checked={false} disabled /> {i.label}</label>)}
+            {info.locked.map((i) => <div key={i.id} className="auto-row"><span>{i.label}</span><span className="auto-lock"><Icon name="lock" />Always asks you</span></div>)}
           </div>
           <p className="meta">Everything Claude decides alone is still recorded on the board, marked as decided by Claude.</p>
           {err && <div className="err">{err}</div>}
         </div>
       )}
     </span>
+  )
+}
+
+// One row: what it is, and a two-way switch saying who decides (SIGNOFF-24/D8). The lit side is the current choice.
+function Row({ label, left, right, on, pick }: { label: string; left: string; right: string; on: boolean; pick: (v: boolean) => void }): React.JSX.Element {
+  return (
+    <div className="auto-row">
+      <span>{label}</span>
+      <span className="auto-switch" role="radiogroup" aria-label={label}>
+        <button role="radio" aria-checked={on} className={on ? 'lit claude' : ''} onClick={() => pick(true)}>{left}</button>
+        <button role="radio" aria-checked={!on} className={!on ? 'lit ask' : ''} onClick={() => pick(false)}>{right}</button>
+      </span>
+    </div>
   )
 }

@@ -186,8 +186,14 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .autonomy-panel { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 40; width: 360px; max-height: 60vh; overflow-y: auto; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px #0003; }
 .autonomy-panel .auto-modes { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .autonomy-panel .auto-phase { margin-top: 8px; }
-.autonomy-panel label.inline { display: flex; gap: 6px; align-items: baseline; padding: 2px 0; }
-.autonomy-panel .locked label { color: var(--quiet); }
+.autonomy-panel .auto-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 3px 0; }
+.autonomy-panel .auto-switch { display: inline-flex; flex: none; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.autonomy-panel .auto-switch button { border: 0; border-radius: 0; padding: 2px 8px; font-size: 11px; background: none; color: var(--quiet); }
+.autonomy-panel .auto-switch button.lit.claude { background: var(--ok); color: #fff; }
+.autonomy-panel .auto-switch button.lit.ask { background: var(--line); color: var(--ink); }
+.autonomy-panel .locked .auto-row { color: var(--quiet); }
+.autonomy-panel .auto-lock { display: inline-flex; gap: 4px; align-items: center; flex: none; font-size: 11px; }
+.autonomy-panel .auto-lock .icon { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 .mic-wrap { position: relative; display: inline-flex; }
 .mic { min-width: 34px; touch-action: none; user-select: none; display: inline-flex; align-items: center; justify-content: center; }
 .mic .icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
