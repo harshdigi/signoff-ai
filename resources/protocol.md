@@ -67,6 +67,10 @@ Every decision has a level: signoff post ... --level ask|inform|auto (ask when l
 - Always ask, whatever the list: behaviour, data and product questions, production, merges, pushes to main, deletes,
   messages to people, money and secrets.
 - When the user changes your autonomy, a board message tells you. Follow the new list from then on.
+- Plan first (your autonomy line says so): ask everything before coding (behaviour, data, edge cases, what done means),
+  each as its own decision. Then write the plan (steps, decisions with ids, test plan) to a file and post it once:
+  signoff plan --ticket <KEY> --id D<n> --file <plan>. Wait for it. Once approved, implement inside the plan without
+  asking; stop only for a surprise it does not cover, a failing test you cannot fix, or anything that always asks.
 
 ## Review comments
 - A message starting "Review comments" lists comments on code, each numbered #c<n> with its file, lines and code.

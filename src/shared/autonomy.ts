@@ -47,44 +47,51 @@ export const LOCKED: Item[] = [
 ]
 export const ITEMS = PHASES.flatMap((p) => p.items.map((i) => i.id))
 
+// plan: nothing is settled by Claude until you approve its plan (Plan first, then run; step 4). It is its own switch,
+// so it stays on when you change a box.
 export const MODES = {
-  ask: { label: 'Ask as you go', items: [] as string[] },
-  planFirst: { label: 'Plan first, then run', items: [...PHASES[1].items.map((i) => i.id), 'ship.commit', 'ship.branch'] },
-  full: { label: 'Full auto', items: ITEMS }
+  ask: { label: 'Ask as you go', items: [] as string[], plan: false },
+  planFirst: { label: 'Plan first, then run', items: [...PHASES[1].items.map((i) => i.id), 'ship.commit', 'ship.branch'], plan: true },
+  full: { label: 'Full auto', items: ITEMS, plan: false }
 } as const
 export type Mode = keyof typeof MODES | 'custom'
-export type Autonomy = { mode: Mode; items: string[] }
-export const ASK: Autonomy = { mode: 'ask', items: [] }
+export type Autonomy = { mode: Mode; items: string[]; plan: boolean }
+export const ASK: Autonomy = { mode: 'ask', items: [], plan: false }
+export const PLAN_ITEM = 'plan' // marks the plan's approval card; never settled by Claude
 
-// The preset these boxes match, else custom.
-export function modeOf(items: string[]): Mode {
+// The preset these boxes (and the plan switch) match, else custom.
+export function modeOf(items: string[], plan = false): Mode {
   const s = [...new Set(items)].sort().join(',')
-  for (const [k, v] of Object.entries(MODES)) if ([...v.items].sort().join(',') === s) return k as Mode
+  for (const [k, v] of Object.entries(MODES)) if (v.plan === plan && [...v.items].sort().join(',') === s) return k as Mode
   return 'custom'
 }
 
 // Checks a choice and settles its mode: known items only, never a locked one. A mode alone means its preset.
-export function normalize(a: { mode?: string; items?: string[] }): Autonomy {
+export function normalize(a: { mode?: string; items?: string[]; plan?: boolean }): Autonomy {
   if (a.items === undefined) {
     if (!a.mode || !(a.mode in MODES)) throw new BoardError(`unknown autonomy mode ${a.mode}`)
-    return { mode: a.mode as Mode, items: [...MODES[a.mode as keyof typeof MODES].items] }
+    const m = MODES[a.mode as keyof typeof MODES]
+    return { mode: a.mode as Mode, items: [...m.items], plan: m.plan }
   }
   const locked = a.items.filter((i) => i.startsWith('lock.'))
   if (locked.length) throw new BoardError(`always asks, cannot be handed to Claude: ${locked.join(', ')}`)
   const unknown = a.items.filter((i) => !ITEMS.includes(i))
   if (unknown.length) throw new BoardError(`unknown autonomy item: ${unknown.join(', ')}`)
   const items = ITEMS.filter((i) => a.items!.includes(i))
-  return { mode: modeOf(items), items }
+  const plan = a.plan ?? false
+  return { mode: modeOf(items, plan), items, plan }
 }
 
 // A session's autonomy: its own choice, else the default from Settings (passed in), else ask everything.
 export function getAutonomy(db: Store, session: string, fallback: Autonomy = ASK): Autonomy {
   const r = db.prepare('SELECT autonomy FROM sessions WHERE id = ?').get(session) as { autonomy: string | null } | undefined
   if (!r) throw new BoardError(`no session ${session}`)
-  return r.autonomy ? (JSON.parse(r.autonomy) as Autonomy) : fallback
+  if (!r.autonomy) return fallback
+  const a = JSON.parse(r.autonomy) as Autonomy
+  return { ...a, plan: a.plan ?? false }
 }
 
-export function setAutonomy(db: Store, session: string, a: { mode?: string; items?: string[] }): Autonomy {
+export function setAutonomy(db: Store, session: string, a: { mode?: string; items?: string[]; plan?: boolean }): Autonomy {
   const n = normalize(a)
   const r = db.prepare('UPDATE sessions SET autonomy = ? WHERE id = ?').run(JSON.stringify(n), session)
   if (r.changes !== 1) throw new BoardError(`no session ${session}`)
@@ -100,7 +107,14 @@ export function delegate(db: Store, session: string, item: string | undefined, f
   if (!ITEMS.includes(item)) throw new BoardError(`unknown autonomy item: ${item}`)
   const a = getAutonomy(db, session, fallback)
   if (!allows(a, item)) return { reason: `${item} is not handed to Claude in this session` }
+  if (a.plan && !planApproved(db, session)) return { reason: 'Plan first: the plan is not approved yet; post it with signoff plan and wait for the answer' }
   return { by: `claude (${a.mode === 'custom' ? 'Custom' : MODES[a.mode].label})` }
+}
+
+// Plan first: the user approved this session's latest plan card.
+export function planApproved(db: Store, session: string): boolean {
+  const r = db.prepare("SELECT status, answer FROM decisions WHERE session_id = ? AND autonomy_item = ? ORDER BY created_at DESC, rowid DESC LIMIT 1").get(session, PLAN_ITEM) as { status: string; answer: string | null } | undefined
+  return !!r && ['answered', 'applied'].includes(r.status) && /^approve/i.test(r.answer ?? '')
 }
 
 // A review Claude may accept itself (impl.reviews): every file accepted, recorded with who accepted it.
@@ -117,5 +131,6 @@ export function acceptByClaude(db: Store, review: string, by: string): void {
 export function autonomyBrief(a: Autonomy): string {
   const mode = a.mode === 'custom' ? 'Custom' : MODES[a.mode].label
   if (!a.items.length) return `Autonomy: ${mode}. Nothing is handed to you: every decision and action waits for the user.`
-  return `Autonomy: ${mode}. You may settle these yourself (name them with --item): ${a.items.join(', ')}. Everything else waits for the user.`
+  const plan = a.plan ? ' Plan first: ask the user everything now, then post the plan with signoff plan; until they approve it, nothing is settled by you.' : ''
+  return `Autonomy: ${mode}. You may settle these yourself (name them with --item): ${a.items.join(', ')}. Everything else waits for the user.${plan}`
 }

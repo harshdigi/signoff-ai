@@ -6,7 +6,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { openStore } from '../../main/store'
-import { queueMessage } from '../../shared/board'
+import { answer, postDecision, queueMessage } from '../../shared/board'
 import { saveSettings } from '../../main/settings'
 import { setAutonomy } from '../../shared/autonomy'
 
@@ -141,6 +141,12 @@ describe('decide CLI', () => {
     expect(post('--id', 'D1', '--question', 'Name?', '--recommend', 'GiftCard :: matches the table', '--item', 'impl.details')).toBe('ABC-1/D1\nwaits for the user: impl.details is not handed to Claude in this session')
     const db = openStore(join(dir, 'board.db'))
     setAutonomy(db, 's1', { mode: 'planFirst' })
+    // Plan first: until the plan card is approved, even a handed-over item waits.
+    expect(post('--id', 'D8', '--question', 'Early?', '--recommend', 'x', '--item', 'impl.details').split('\n')[1]).toBe('waits for the user: Plan first: the plan is not approved yet; post it with signoff plan and wait for the answer')
+    writeFileSync(join(dir, 'plan.md'), '1. Add GiftCard\n2. Redeem at checkout\n')
+    expect(decide([...S, 'plan', '--ticket', 'ABC-1', '--id', 'D9', '--file', 'plan.md']).out).toBe('ABC-1/D9')
+    expect(db.prepare("SELECT action, draft, autonomy_item AS item FROM decisions WHERE id = 'ABC-1/D9'").get()).toEqual({ action: 'consent', draft: '1. Add GiftCard\n2. Redeem at checkout', item: 'plan' })
+    answer(db, 'ABC-1/D9', 'Approve', 'you')
     expect(post('--id', 'D2', '--question', 'Helper name?', '--recommend', 'redeem! :: one verb', '--item', 'impl.details')).toBe('ABC-1/D2\nsettled by claude (Plan first, then run): go ahead, no need to wait')
     expect(db.prepare("SELECT status, answer, answered_by, autonomy_item AS item FROM decisions WHERE id = 'ABC-1/D2'").get()).toEqual({ status: 'answered', answer: 'redeem! :: one verb', answered_by: 'claude (Plan first, then run)', item: 'impl.details' })
     expect(post('--id', 'D3', '--question', 'Commit?', '--action', 'consent', '--item', 'ship.commit').split('\n')[1]).toBe('settled by claude (Plan first, then run): go ahead, no need to wait')
@@ -153,7 +159,10 @@ describe('decide CLI', () => {
 
   it('autonomy: with impl.reviews handed over, a proposal is accepted at once and says so', () => {
     decide([...S, 'register'])
-    setAutonomy(openStore(join(dir, 'board.db')), 's1', { mode: 'planFirst' })
+    const db = openStore(join(dir, 'board.db'))
+    setAutonomy(db, 's1', { mode: 'planFirst' })
+    postDecision(db, { ticket: 'ABC-1', number: 'D1', session: 's1', question: 'Approve the plan?', action: 'consent', item: 'plan' })
+    answer(db, 'ABC-1/D1', 'Approve', 'you')
     writeFileSync(join(dir, 'p.diff'), '# a.rb  (new)\n+x\n')
     expect(decide([...S, 'propose', '--ticket', 'ABC-1', '--title', 'PR 1', '--patch', 'p.diff']).out).toBe('R-1\n  C1 a.rb\naccepted by claude (Plan first, then run): apply it now, no need to wait')
     expect(decide(['review', '--id', 'R-1']).out).toBe('R-1 [accepted] PR 1\n  overall note: Accepted by claude (Plan first, then run)\n  C1 a.rb: accept')

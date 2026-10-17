@@ -12,7 +12,7 @@ import * as tk from '../shared/tickets'
 import { search } from '../shared/memory'
 import { syncBoard } from '../main/store/import-board'
 import { getSettings } from '../main/settings'
-import { acceptByClaude, autonomyBrief, delegate, getAutonomy } from '../shared/autonomy'
+import { acceptByClaude, autonomyBrief, delegate, getAutonomy, PLAN_ITEM } from '../shared/autonomy'
 import { anchorsFor, docsBrief, findDocs, indexDocs, touchedDocs, verifyDocs } from '../main/flows'
 import { protocolParts } from '../main/protocol'
 import { finishPiece, passPiece, proposeSplit, proposeTeam, setupLines, teamBrief, leadWith } from '../shared/team'
@@ -30,6 +30,7 @@ import { getApproval, leaveToTerminal, requestApproval } from '../shared/approva
 const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_CODE_SESSION_ID; decide is the same command)
   register  [--ticket K] [--title T] [--description D]   [--parent SESSION-ID: nest under that session; its first 8+ characters are enough]
   autonomy                       what this session may settle itself, and what waits for the user
+  plan      --ticket K --id Dn --file PLAN [--question Q]   Plan first: the whole plan as one approval card
   status    [--state starting|working|waiting|done] [--note N] [--description D]
   post      --ticket K --id Dn --question Q [--context C]... [--option "Label :: what happens"]... [--recommend "Label :: why"]
             [--evidence "file:line :: what it shows"]... [--if-wrong W] [--ref K/Dn]... [--draft T | --draft-file FILE]
@@ -279,6 +280,18 @@ function main(argv: string[]): number {
   const text = (): string => (o['text-file'] ? readFileSync(o['text-file'], 'utf8') : req('text'))
 
   switch (cmd) {
+    case 'plan': {
+      // Plan first: the whole plan as one approval card. Once approved, the session settles its handed-over items alone.
+      const plan = readFileSync(req('file'), 'utf8')
+      if (!plan.trim()) throw new Usage('the plan file is empty')
+      const id = b.postDecision(db, {
+        ticket: req('ticket'), number: (o.id || [])[0] || '', session: sid(), question: o.question || 'Approve the plan?',
+        action: 'consent', draft: plan, item: PLAN_ITEM,
+        context: ['Once approved, Claude implements inside this plan without asking. It stops for a surprise the plan does not cover, a failing test it cannot fix, or anything that always asks.']
+      })
+      console.log(id)
+      return 0
+    }
     case 'autonomy':
       console.log(autonomyBrief(getAutonomy(db, sid(), getSettings(db).autonomy)))
       return 0
