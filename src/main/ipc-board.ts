@@ -43,7 +43,9 @@ export function registerBoardIpc(db: Store, window: () => BrowserWindow | null, 
   ipcMain.handle('board:message', (_e, session: string, text: string) => b.queueMessage(db, session, text, 'board'))
   ipcMain.handle('board:typed', (_e, session: string, text: string) => b.logTyped(db, session, text))
   // Autonomy (SIGNOFF-24): the session's checklist, and a change to it, told to the session at once.
-  ipcMain.handle('autonomy:get', (_e, session: string) => ({ autonomy: getAutonomy(db, session, getSettings(db).autonomy), phases: PHASES, locked: LOCKED, modes: Object.fromEntries(Object.entries(MODES).map(([k, v]) => [k, { label: v.label, items: [...v.items] }])) }))
+  const catalog = (): object => ({ phases: PHASES, locked: LOCKED, modes: Object.fromEntries(Object.entries(MODES).map(([k, v]) => [k, { label: v.label, items: [...v.items], plan: v.plan }])) })
+  ipcMain.handle('autonomy:catalog', catalog)
+  ipcMain.handle('autonomy:get', (_e, session: string) => ({ autonomy: getAutonomy(db, session, getSettings(db).autonomy), ...catalog() }))
   ipcMain.handle('autonomy:set', (_e, session: string, choice: { mode?: string; items?: string[] }) => {
     const a = setAutonomy(db, session, choice)
     b.queueMessage(db, session, `The user changed your autonomy. ${autonomyBrief(a)}`, 'board')

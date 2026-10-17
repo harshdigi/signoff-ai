@@ -1,14 +1,14 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { useEffect, useState } from 'react'
+import { AutonomyEditor } from '../chat/AutonomyEditor'
+import { resolve, type Autonomy, type Catalog } from '../chat/autonomy-choice'
 import { errText, itemKey, type CatalogItem, type Pin } from './types'
 import { MODES, type Mode } from '../chat/modes'
 import { CodePre } from './CodeBlock'
 
 // Settings dialog. Values apply to sessions started after saving (the system prompt is set at start).
-// The autonomy presets (shared/autonomy.ts MODES); the main process expands a mode to its boxes.
-const AUTONOMY = [['ask', 'Ask as you go'], ['planFirst', 'Plan first, then run'], ['full', 'Full auto']] as const
-type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode; tidyDecisions: boolean; speechLocale: string; speechAutoSend: boolean; autonomy: { mode: string; items?: string[]; plan?: boolean } }
+type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode; tidyDecisions: boolean; speechLocale: string; speechAutoSend: boolean; autonomy: Autonomy }
 
 // Voice input (🎤 in the chat): the language, and whether it sends when you stop. Only languages this Mac can
 // recognise offline can be picked; the others need their model downloaded in System Settings first.
@@ -37,6 +37,8 @@ function VoiceInput({ s, setS }: { s: S; setS: (s: S) => void }): React.JSX.Elem
 
 export default function Settings({ close, catalog, openShortcuts }: { close: () => void; catalog: CatalogItem[]; openShortcuts: () => void }): React.JSX.Element {
   const [s, setS] = useState<S | null>(null)
+  const [autoCat, setAutoCat] = useState<Catalog | null>(null) // the autonomy checklist, for the default below
+  useEffect(() => { window.api.autonomy.catalog().then(setAutoCat) }, [])
   const [err, setErr] = useState<string | null>(null)
   useEffect(() => {
     window.api.settings.get().then(setS)
@@ -103,11 +105,8 @@ export default function Settings({ close, catalog, openShortcuts }: { close: () 
             </div>
             <div className="field">
               <div className="label">Autonomy for new sessions</div>
-              <select value={s.autonomy.mode} onChange={(e) => setS({ ...s, autonomy: { mode: e.target.value } })}>
-                {AUTONOMY.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-                {s.autonomy.mode === 'custom' && <option value="custom" disabled>Custom</option>}
-              </select>
-              <div className="meta">What Claude may decide on your behalf in a new session. Change it for one session from the Autonomy button in its chat box. Production, merges, deletes, messages to people, money and secrets always ask.</div>
+              <div className="meta">What Claude may decide on your behalf in every new session. Change it for one session from the settings icon in its chat box.</div>
+              {autoCat ? <AutonomyEditor catalog={autoCat} value={s.autonomy} change={(c) => setS({ ...s, autonomy: resolve(autoCat, c) })} /> : <div className="meta">Loading…</div>}
             </div>
             <VoiceInput s={s} setS={setS} />
             <div className="field">
