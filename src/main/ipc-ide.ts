@@ -352,7 +352,7 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
 
   ipcMain.handle('chat:history', (_e, session: string) => chat.history(session))
   ipcMain.handle('chat:status', (_e, session: string) => chat.status(session))
-  ipcMain.handle('chat:send', (_e, session: string | null, text: string, images: ChatImage[] = [], choice?: RouteChoice) => chat.routeAndSend(session, text, trusted(), images, choice))
+  ipcMain.handle('chat:send', (_e, session: string | null, text: string, images: ChatImage[] = [], choice?: RouteChoice, files: string[] = []) => chat.routeAndSend(session, text, trusted(), images, choice, files))
   // A new session with a team setup (IDE/D21); its Claude terminal starts with the first message, like any chat.
   ipcMain.handle('chat:create', (_e, workflow: string) => {
     const w = getWorkflow(db, workflow)
