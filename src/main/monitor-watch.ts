@@ -23,9 +23,11 @@ export type WatchEvents = {
   incident: (m: Monitor, what: string) => void        // fire fighting (step 7)
 }
 
-export const gh: Gh = (args) => new Promise((resolve, reject) => {
-  execFile('gh', args, { timeout: 60_000, maxBuffer: 10 * 1024 * 1024 }, (err, out, errOut) => (err ? reject(new Error(`gh ${args.slice(0, 3).join(' ')}: ${errOut || err.message}`)) : resolve(out)))
+// gh, optionally in a folder (then `gh pr view` with no number means that folder's current branch).
+export const ghIn = (cwd: string | undefined, args: string[]): Promise<string> => new Promise((resolve, reject) => {
+  execFile('gh', args, { cwd, timeout: 60_000, maxBuffer: 10 * 1024 * 1024 }, (err, out, errOut) => (err ? reject(new Error(`gh ${args.slice(0, 3).join(' ')}: ${(errOut || err.message).trim()}`)) : resolve(out)))
 })
+export const gh: Gh = (args) => ghIn(undefined, args)
 
 const failedOf = (checks: Check[]): string[] => checks.filter((c) => ['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'ERROR'].includes((c.conclusion ?? '').toUpperCase())).map((c) => c.name)
 const settled = (checks: Check[]): boolean => checks.every((c) => (c.status ?? '').toUpperCase() === 'COMPLETED')

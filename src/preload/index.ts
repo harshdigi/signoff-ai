@@ -75,8 +75,11 @@ const api = {
     restore: (id: string) => ipcRenderer.invoke('session:restore', id)
   },
   monitor: {
-    setup: () => ipcRenderer.invoke('monitor:setup'),
-    getSetup: () => ipcRenderer.invoke('monitor:getSetup')
+    forSession: (session: string) => ipcRenderer.invoke('monitor:forSession', session),
+    setup: (session: string) => ipcRenderer.invoke('monitor:setup', session),
+    choose: (repo: string, chosen: unknown) => ipcRenderer.invoke('monitor:choose', repo, chosen),
+    start: (o: { session: string; owner?: string; windowMinutes: number; checkMinutes: number; notify: boolean; recipients: { app: string; where: string; tags: string[] }[] }) => ipcRenderer.invoke('monitor:start', o),
+    stop: (id: string, why: string) => ipcRenderer.invoke('monitor:stop', id, why)
   },
   tickets: {
     start: (key: string, title: string, description: string) => ipcRenderer.invoke('ticket:start', key, title, description),

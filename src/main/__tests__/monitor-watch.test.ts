@@ -30,7 +30,7 @@ const fake = (r: { pr?: object; runs?: object[]; main?: object[]; compare?: Reco
   throw new Error('unexpected gh call ' + args.join(' '))
 }
 const watcher = (g: Gh, now = Date.parse('2026-10-17T10:30:00Z'), wf: string | null = 'deploy.yml'): MonitorWatcher =>
-  new MonitorWatcher(db, g, { ciGreen: (m) => said.push(`green ${m.id}`), ciRed: (m, f) => said.push(`red ${f.join(',')}`), incident: (m, w) => said.push(`incident ${w}`) }, () => wf, () => now)
+  new MonitorWatcher(db, g, { ciGreen: (m) => said.push(`green ${m.id}`), ciRed: (_m, f) => said.push(`red ${f.join(',')}`), incident: (_m, w) => said.push(`incident ${w}`) }, () => wf, () => now)
 const check = (name: string, status: string, conclusion: string | null): object => ({ name, status, conclusion })
 const run = (id: number, workflowName: string, headSha: string, createdAt: string, conclusion: string): object => ({ databaseId: id, workflowName, headSha, createdAt, status: 'completed', conclusion })
 

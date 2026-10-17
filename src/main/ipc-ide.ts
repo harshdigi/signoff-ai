@@ -20,8 +20,6 @@ import { resetStore } from './store'
 import { evidenceSnippet } from './evidence'
 import { addCase, removeCase, setCase, type CaseStatus } from '../shared/testplan'
 import { addComment, editComment, removeComment, sendComments } from '../shared/comments'
-import { getSetup } from '../shared/monitors'
-import { repoOfFolder, runSetup } from './monitor-setup'
 import { editedFiles, findTranscript, listConversations, shellDirs } from './transcript'
 import { deleteWorkflow, getWorkflow, listWorkflows, saveWorkflow, teamLine, type WorkflowInput } from './workflows'
 import type { ChatImage, ChatManager, Mode } from './chat'
@@ -410,18 +408,6 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   })
   ipcMain.handle('chat:handoff', (_e, session: string) => chat.handoff(session, 'manual'))
   // Rename / remove / restore a chat or session. Removing a chat also stops its Claude process.
-  // Monitor setup (SIGNOFF-23): a read-only Claude check of what the open folder's repo can use for monitoring.
-  ipcMain.handle('monitor:setup', () => {
-    const f = getWorkspace(db).current
-    if (!f) throw new Error('open a folder first')
-    return runSetup(db, f, { ...process.env, DECISION_IDE_DB: db.name, DECISION_IDE_APP: '1' })
-  })
-  ipcMain.handle('monitor:getSetup', () => {
-    const f = getWorkspace(db).current
-    if (!f) return null
-    const repo = repoOfFolder(f)
-    return { repo, setup: getSetup(db, repo) }
-  })
   ipcMain.handle('session:rename', (_e, id: string, title: string) => renameSession(db, id, title))
   ipcMain.handle('session:setParent', (_e, id: string, parent: string | null) => setParent(db, id, parent))
   ipcMain.handle('session:remove', (_e, id: string) => {

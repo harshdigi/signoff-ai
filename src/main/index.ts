@@ -33,6 +33,7 @@ import icon from '../../resources/icon.png?asset'
 import { sendTo } from './window-send'
 import { SpeechInput } from './speech'
 import { deployWorkflowOf, gh, MonitorWatcher } from './monitor-watch'
+import { registerMonitorIpc } from './ipc-monitor'
 import { addEvent, type Monitor } from '../shared/monitors'
 import { queueMessage } from '../shared/board'
 import { repairIntegration } from './integration'
@@ -171,6 +172,7 @@ app.whenReady().then(() => {
     incident: (m, what) => tell(m, `Monitor ${m.id}, production: ${what} (${m.repo}#${m.pr}). Investigate the cause and prepare a fix plan and a rollback plan. Do not push, merge, deploy or roll back without the user's approval.`)
   }, (repo) => deployWorkflowOf(store, repo))
   const watchTimer = setInterval(() => void watcher.tick(), 120_000)
+  registerMonitorIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
   app.on('before-quit', () => clearInterval(watchTimer))
   const stopIde = registerIdeIpc(store, chat, terminals, new TestRunner(terminals), pipeline, new Teams(store, chat), () => mainWindow)
   app.on('before-quit', () => {
