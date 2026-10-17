@@ -32,6 +32,9 @@ const terminals = new TerminalManager()
 import icon from '../../resources/icon.png?asset'
 import { sendTo } from './window-send'
 import { SpeechInput } from './speech'
+import { deployWorkflowOf, gh, MonitorWatcher } from './monitor-watch'
+import { addEvent, type Monitor } from '../shared/monitors'
+import { queueMessage } from '../shared/board'
 import { repairIntegration } from './integration'
 import { appPage, denyPermissions, guardIpc, hardenWindow, lockDataDir } from './security'
 
@@ -156,6 +159,19 @@ app.whenReady().then(() => {
     tmux: new Tmux(join(files.resources, 'tmux.conf'))
   }, terminals)
   const pipeline = new Pipeline(store, chat, () => getSettings(store))
+  // Monitors (SIGNOFF-23): GitHub is checked every 2 minutes with gh, at no token cost.
+  const tell = (m: Monitor, text: string): void => {
+    if (!m.session_id) return
+    queueMessage(store, m.session_id, text, 'monitor')
+    try { chat.wake(m.session_id) } catch (e) { console.error(`could not wake session ${m.session_id}:`, e) } // the message waits on the board
+  }
+  const watcher = new MonitorWatcher(store, gh, {
+    ciGreen: (m) => { if (m.notify) addEvent(store, m.id, 'notify', 'Review request due (sending comes with the messaging step)') },
+    ciRed: (m, failed) => tell(m, `Monitor ${m.id}: CI failed on ${m.repo}#${m.pr}: ${failed.join(', ')}. Fix it, or tell the user why not.`),
+    incident: (m, what) => tell(m, `Monitor ${m.id}, production: ${what} (${m.repo}#${m.pr}). Investigate the cause and prepare a fix plan and a rollback plan. Do not push, merge, deploy or roll back without the user's approval.`)
+  }, (repo) => deployWorkflowOf(store, repo))
+  const watchTimer = setInterval(() => void watcher.tick(), 120_000)
+  app.on('before-quit', () => clearInterval(watchTimer))
   const stopIde = registerIdeIpc(store, chat, terminals, new TestRunner(terminals), pipeline, new Teams(store, chat), () => mainWindow)
   app.on('before-quit', () => {
     stopIde()
