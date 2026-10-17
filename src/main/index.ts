@@ -1,6 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, Notification } from 'electron'
 
 import { homedir } from 'os'
 import { join } from 'path'
@@ -32,6 +32,16 @@ const terminals = new TerminalManager()
 import icon from '../../resources/icon.png?asset'
 import { sendTo } from './window-send'
 import { SpeechInput } from './speech'
+import { deployWorkflowOf, gh, MonitorWatcher } from './monitor-watch'
+import { registerMonitorIpc } from './ipc-monitor'
+import { registerStoryIpc } from './ipc-story'
+import { writeStory } from './story'
+import { sendReviewRequest } from './monitor-notify'
+import { checkErrors } from './monitor-errors'
+import { startFirefight } from './monitor-firefight'
+import { runHeadless } from './headless'
+import { addEvent, type Monitor } from '../shared/monitors'
+import { queueMessage } from '../shared/board'
 import { repairIntegration } from './integration'
 import { appPage, denyPermissions, guardIpc, hardenWindow, lockDataDir } from './security'
 
@@ -156,6 +166,43 @@ app.whenReady().then(() => {
     tmux: new Tmux(join(files.resources, 'tmux.conf'))
   }, terminals)
   const pipeline = new Pipeline(store, chat, () => getSettings(store))
+  // Monitors (SIGNOFF-23): GitHub is checked every 2 minutes with gh, at no token cost.
+  const tell = (m: Monitor, text: string): void => {
+    if (!m.session_id) return
+    queueMessage(store, m.session_id, text, 'monitor')
+    try { chat.wake(m.session_id) } catch (e) { console.error(`could not wake session ${m.session_id}:`, e) } // the message waits on the board
+  }
+  const watcher = new MonitorWatcher(store, gh, {
+    ciGreen: (m) => {
+      if (!m.notify) return
+      const cwd = (store.prepare('SELECT cwd FROM sessions WHERE id = ?').get(m.session_id) as { cwd: string | null } | undefined)?.cwd ?? homedir()
+      void sendReviewRequest(store, m, {
+        pr: async (repo, n) => JSON.parse(await gh(['pr', 'view', String(n), '-R', repo, '--json', 'title,url'])) as { title: string; url: string },
+        run: (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 180_000 })
+      }).catch((e: unknown) => addEvent(store, m.id, 'notify-failed', `Review request failed: ${(e as Error).message.slice(0, 200)}`))
+    },
+    ciRed: (m, failed) => tell(m, `Monitor ${m.id}: CI failed on ${m.repo}#${m.pr}: ${failed.join(', ')}. Fix it, or tell the user why not.`),
+    started: (m) => {
+      if (!m.ticket) return
+      const cwd = (store.prepare('SELECT cwd FROM sessions WHERE id = ?').get(m.session_id) as { cwd: string | null } | undefined)?.cwd
+      if (!cwd) return
+      void writeStory(store, m.ticket, cwd, (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 240_000 }))
+        .catch((e: unknown) => addEvent(store, m.id, 'error', `Could not write the Story: ${(e as Error).message.slice(0, 200)}`))
+    },
+    checkErrors: (m) => {
+      const cwd = (store.prepare('SELECT cwd FROM sessions WHERE id = ?').get(m.session_id) as { cwd: string | null } | undefined)?.cwd ?? homedir()
+      return checkErrors(store, m, (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 240_000 }), new Date().toISOString())
+    },
+    incident: (m, what) => {
+      const ff = startFirefight(store, chat, m, what)
+      tell(m, `Monitor ${m.id}, production: ${what} (${m.repo}#${m.pr}).${ff ? ` Fire fighting runs in session ${ff.slice(0, 8)}; it prepares the fix and the rollback for the user's approval.` : ''}`)
+      if (Notification.isSupported()) new Notification({ title: `Production incident: ${m.repo}#${m.pr}`, body: what }).show()
+    }
+  }, (repo) => deployWorkflowOf(store, repo))
+  const watchTimer = setInterval(() => void watcher.tick(), 120_000)
+  registerMonitorIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
+  registerStoryIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
+  app.on('before-quit', () => clearInterval(watchTimer))
   const stopIde = registerIdeIpc(store, chat, terminals, new TestRunner(terminals), pipeline, new Teams(store, chat), () => mainWindow)
   app.on('before-quit', () => {
     stopIde()

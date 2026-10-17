@@ -14,6 +14,7 @@ import { foldTurns, latestTodos, stepsSummary, toRows, toolSummary, waitingInTer
 import { MODES } from './modes'
 import { useVoice } from './use-voice'
 import { MicButton } from './MicButton'
+import { useAutonomyLine } from './use-autonomy-line'
 import { MdCode } from '../ide/CodeBlock'
 import { Chev, Icon } from '../ide/icons'
 
@@ -125,6 +126,7 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   // Shared sessions (started here, or from Terminal through the wrapper) work the same: the chat types into them.
   const shared = (s: { via: string | null; tmux: string | null }): boolean => s.via === 'chat' || !!s.tmux
   const current = board.sessions.find((s) => s.id === session)
+  const autoLine = useAutonomyLine(session)
   // Picked session that runs in a terminal the app cannot reach: messages are queued on the board, not typed.
   const queued = !!current && !shared(current)
   const sent = board.messages.filter((m) => m.session === session)
@@ -449,6 +451,7 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
           onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files) } }}
           onDragOver={(e) => e.preventDefault()} onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); addFiles(e.dataTransfer.files) } }}
           placeholder={queued ? (term ? 'Type to this session (sent to its terminal)' : 'Message this session (queued until it checks the board)') : !folder ? 'Open a folder to start' : !trusted ? 'Trust this folder to chat' : busy ? 'Claude is working. You can queue a message. Esc stops.' : 'Ask Claude · / commands and skills · @ files · drop or paste files · ⇧Tab mode'} />
+        {autoLine && <div className="autonomy-line" title="Change it from the settings icon on the session tab bar">{autoLine}</div>}
         <div className="composer-bar">
           {/* What is set now: the mode from Claude Code's footer, the model of its latest reply, the effort last chosen here. */}
           {!queued && <><select className="mode-pick" value={current?.mode || 'default'} disabled={!session} title="Mode (⇧Tab cycles it)"

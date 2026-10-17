@@ -12,6 +12,9 @@ import * as tk from '../shared/tickets'
 import { search } from '../shared/memory'
 import { syncBoard } from '../main/store/import-board'
 import { getSettings } from '../main/settings'
+import { acceptByClaude, autonomyBrief, delegate, getAutonomy, PLAN_ITEM } from '../shared/autonomy'
+import { startMonitor } from '../shared/monitors'
+import { repoOfFolder } from '../main/monitor-setup'
 import { anchorsFor, docsBrief, findDocs, indexDocs, touchedDocs, verifyDocs } from '../main/flows'
 import { protocolParts } from '../main/protocol'
 import { finishPiece, passPiece, proposeSplit, proposeTeam, setupLines, teamBrief, leadWith } from '../shared/team'
@@ -28,6 +31,9 @@ import { getApproval, leaveToTerminal, requestApproval } from '../shared/approva
 
 const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_CODE_SESSION_ID; decide is the same command)
   register  [--ticket K] [--title T] [--description D]   [--parent SESSION-ID: nest under that session; its first 8+ characters are enough]
+  autonomy                       what this session may settle itself, and what waits for the user
+  plan      --ticket K --id Dn --file PLAN [--question Q]   Plan first: the whole plan as one approval card
+  monitor   [--window MIN] [--every MIN]   start the monitor on this branch's PR (only when after.monitor is handed over)
   status    [--state starting|working|waiting|done] [--note N] [--description D]
   post      --ticket K --id Dn --question Q [--context C]... [--option "Label :: what happens"]... [--recommend "Label :: why"]
             [--evidence "file:line :: what it shows"]... [--if-wrong W] [--ref K/Dn]... [--draft T | --draft-file FILE]
@@ -160,6 +166,7 @@ function hook(db: Store, event: string | undefined, terminal = false): number {
       lines.push(`Ticket: ${ticket}. Decisions on the board for it (cite them by id; do not re-ask settled ones):`, ds.join('\n') || '(none yet)')
     } else lines.push('Ticket: none (the branch has no issue key). Set one before posting: signoff register --ticket <KEY>')
     lines.push(...teamBrief(db, input.session_id))
+    lines.push('', autonomyBrief(getAutonomy(db, input.session_id, getSettings(db).autonomy)))
     // Flow docs (Settings): every session is told to look there first.
     const flow = getSettings(db).flowDocs
     if (flow) lines.push('', ...docsBrief(flow))
@@ -250,7 +257,7 @@ function main(argv: string[]): number {
       ref: { type: 'string', multiple: true }, action: { type: 'string' }, command: { type: 'string' }, force: { type: 'boolean' },
       review: { type: 'string' }, timeout: { type: 'string' }, interval: { type: 'string' }, open: { type: 'boolean' },
       text: { type: 'string' }, 'text-file': { type: 'string' }, done: { type: 'boolean' }, reason: { type: 'string' }, patch: { type: 'string' }, summary: { type: 'string' },
-      'summary-file': { type: 'string' }, file: { type: 'string' }, change: { type: 'string' }, level: { type: 'string' },
+      'summary-file': { type: 'string' }, file: { type: 'string' }, change: { type: 'string' }, level: { type: 'string' }, item: { type: 'string' }, window: { type: 'string' }, every: { type: 'string' },
       decision: { type: 'string', multiple: true }, jira: { type: 'string' }, idx: { type: 'string' }, status: { type: 'string' }, limit: { type: 'string' },
       skill: { type: 'string' }, folder: { type: 'string' }, model: { type: 'string' }, piece: { type: 'string', multiple: true }, role: { type: 'string', multiple: true }, name: { type: 'string' }, workflow: { type: 'string' }, 'good-for': { type: 'string', multiple: true }, 'not-for': { type: 'string', multiple: true }, of: { type: 'string' }, label: { type: 'string' }, group: { type: 'string' }, steps: { type: 'string' }, expected: { type: 'string' },
       context: { type: 'string', multiple: true }, 'if-wrong': { type: 'string' }, draft: { type: 'string' }, 'draft-file': { type: 'string' }
@@ -276,6 +283,34 @@ function main(argv: string[]): number {
   const text = (): string => (o['text-file'] ? readFileSync(o['text-file'], 'utf8') : req('text'))
 
   switch (cmd) {
+    case 'plan': {
+      // Plan first: the whole plan as one approval card. Once approved, the session settles its handed-over items alone.
+      const plan = readFileSync(req('file'), 'utf8')
+      if (!plan.trim()) throw new Usage('the plan file is empty')
+      const id = b.postDecision(db, {
+        ticket: req('ticket'), number: (o.id || [])[0] || '', session: sid(), question: o.question || 'Approve the plan?',
+        action: 'consent', draft: plan, item: PLAN_ITEM,
+        context: ['Once approved, Claude implements inside this plan without asking. It stops for a surprise the plan does not cover, a failing test it cannot fix, or anything that always asks.']
+      })
+      console.log(id)
+      return 0
+    }
+    case 'monitor': {
+      // A session starts its own monitor once its PR is open, when after.monitor is handed to it (SIGNOFF-24).
+      const d = delegate(db, sid(), 'after.monitor', getSettings(db).autonomy)
+      if (!d || !('by' in d)) { console.log(`waits for the user: ${d && 'reason' in d ? d.reason : 'after.monitor'}; they start it from Ship`); return 1 }
+      const cwd = (db.prepare('SELECT cwd FROM sessions WHERE id = ?').get(sid()) as { cwd: string | null } | undefined)?.cwd
+      if (!cwd) throw new b.BoardError('this session has no folder')
+      const repo = repoOfFolder(cwd)
+      const pr = JSON.parse(execFileSync('gh', ['pr', 'view', '--json', 'number'], { cwd, encoding: 'utf8' })) as { number: number }
+      const ticket = (db.prepare('SELECT ticket FROM sessions WHERE id = ?').get(sid()) as { ticket: string | null }).ticket
+      const m = startMonitor(db, { session: sid(), repo, pr: pr.number, ticket, windowMinutes: Number(o.window ?? 60), checkMinutes: Number(o.every ?? 30) })
+      console.log(`${m.id}: watching ${repo}#${pr.number} (started by ${d.by})`)
+      return 0
+    }
+    case 'autonomy':
+      console.log(autonomyBrief(getAutonomy(db, sid(), getSettings(db).autonomy)))
+      return 0
     case 'register':
       // --parent: nest this session under another one (its id, or the first characters of it).
       register(db, sid(), o)
@@ -290,13 +325,19 @@ function main(argv: string[]): number {
     case 'post': {
       if (!o.id?.length) throw new Usage('--id is required')
       if (o.action && !['consent', 'terminal'].includes(o.action)) throw new Usage('--action is consent or terminal')
-      console.log(b.postDecision(db, {
+      // --item: which autonomy item this falls under. If the session hands it to Claude, it is settled at once.
+      const d = o.action === 'terminal' ? null : delegate(db, sid(), o.item, getSettings(db).autonomy)
+      const id = b.postDecision(db, {
         ticket: req('ticket'), number: (o.id || [])[0] || '', session: sid(), question: req('question'),
         options: o.option, recommend: o.recommend, evidence: o.evidence, refs: o.ref,
         action: (o.action as 'consent' | 'terminal') || null, command: o.command, force: o.force, level: o.level as b.Level | undefined,
         context: o.context, ifWrong: o['if-wrong'],
-        draft: o['draft-file'] ? readFileSync(o['draft-file'], 'utf8') : o.draft
-      }))
+        draft: o['draft-file'] ? readFileSync(o['draft-file'], 'utf8') : o.draft,
+        item: o.item ?? null, byClaude: d && 'by' in d ? d.by : null
+      })
+      console.log(id)
+      if (d && 'by' in d) console.log(`settled by ${d.by}: go ahead, no need to wait`)
+      else if (d) console.log(`waits for the user: ${d.reason}`)
       return 0
     }
     case 'split': {
@@ -410,6 +451,9 @@ function main(argv: string[]): number {
       console.log(r.id)
       for (const c of r.changes) console.log(`  ${c.id} ${c.file}` + (r.kept.includes(c.id) ? ' (accepted already: same diff as before)' : ''))
       if (r.replaced.length) console.log(`replaces ${r.replaced.join(', ')} (closed; wait on ${r.id} instead)`)
+      // impl.reviews handed to Claude: accepted at once and recorded as such, so the session does not wait.
+      const auto = delegate(db, sid(), 'impl.reviews', getSettings(db).autonomy)
+      if (auto && 'by' in auto) { acceptByClaude(db, r.id, auto.by); console.log(`accepted by ${auto.by}: apply it now, no need to wait`) }
       return 0
     }
     case 'review': {

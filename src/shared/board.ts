@@ -94,6 +94,8 @@ export interface PostDecision {
   level?: Level
   context?: string[]; ifWrong?: string | null  // what's going on, and what a wrong choice costs
   draft?: string | null  // the exact text you approve (a reply, a commit message), shown as is
+  item?: string | null   // the autonomy checklist item it falls under (SIGNOFF-24)
+  byClaude?: string | null // set when the session's autonomy hands this item to Claude: settled at once, by this name
 }
 
 export const LEVELS = ['ask', 'inform', 'auto'] as const
@@ -114,23 +116,27 @@ export function postDecision(db: Store, p: PostDecision): string {
   }
   const options = p.options?.length ? p.options : p.action === 'consent' ? ['Approve', 'Decline'] : p.action === 'terminal' ? ['Done'] : []
   const t = now()
-  const settled = level !== 'ask'
+  // Handed to Claude by the session's autonomy (SIGNOFF-24): settled at once with Claude's choice (an action: approved).
+  need(!p.byClaude || p.action !== 'terminal', 'a terminal action is never settled by Claude')
+  need(!p.byClaude || p.action === 'consent' || (p.recommend || '').trim(), 'a decision Claude settles itself needs --recommend: what it chose')
+  const byClaude = level === 'ask' && !!p.byClaude
+  const settled = level !== 'ask' || byClaude
   db.transaction(() => {
     touchSession(db, p.session, { ticket: p.ticket.toUpperCase() })
-    db.prepare(`INSERT INTO decisions (id, ticket, number, session_id, question, options, recommend, evidence, refs, action, command, level, status, answer, answered_by, answered_at, context, if_wrong, draft, created_at, updated_at)
-      VALUES (@id, @ticket, @number, @session, @question, @options, @recommend, @evidence, @refs, @action, @command, @level, @status, @answer, @answered_by, @answered_at, @context, @if_wrong, @draft, @created_at, @updated_at)
+    db.prepare(`INSERT INTO decisions (id, ticket, number, session_id, question, options, recommend, evidence, refs, action, command, level, status, answer, answered_by, answered_at, context, if_wrong, draft, autonomy_item, created_at, updated_at)
+      VALUES (@id, @ticket, @number, @session, @question, @options, @recommend, @evidence, @refs, @action, @command, @level, @status, @answer, @answered_by, @answered_at, @context, @if_wrong, @draft, @autonomy_item, @created_at, @updated_at)
       ON CONFLICT(id) DO UPDATE SET session_id = excluded.session_id, question = excluded.question, options = excluded.options, context = excluded.context, if_wrong = excluded.if_wrong, draft = excluded.draft,
         recommend = excluded.recommend, evidence = excluded.evidence, refs = excluded.refs, action = excluded.action,
         command = excluded.command, level = excluded.level, status = excluded.status, answer = excluded.answer,
-        answered_by = excluded.answered_by, answered_at = excluded.answered_at, updated_at = excluded.updated_at`).run({
+        answered_by = excluded.answered_by, answered_at = excluded.answered_at, autonomy_item = excluded.autonomy_item, updated_at = excluded.updated_at`).run({
       id, ticket: p.ticket.toUpperCase(), number: p.number.toUpperCase(), session: p.session, question: p.question,
       options: JSON.stringify(options), recommend: p.recommend ?? null, evidence: JSON.stringify(p.evidence ?? []),
       refs: JSON.stringify((p.refs ?? []).map((r) => r.toUpperCase())), action: p.action ?? null,
       command: p.command ? p.command.split(/\s+/).join(' ') : null, created_at: old?.created_at ?? t, updated_at: t,
-      level, status: settled ? 'answered' : 'open', answer: settled ? p.recommend!.trim() : null,
-      answered_by: settled ? `claude (${level})` : null, answered_at: settled ? t : null,
+      level, status: settled ? 'answered' : 'open', answer: settled ? (byClaude && p.action === 'consent' ? 'Approve' : p.recommend!.trim()) : null,
+      answered_by: byClaude ? p.byClaude : settled ? `claude (${level})` : null, answered_at: settled ? t : null,
       context: JSON.stringify((p.context ?? []).map((c) => c.trim()).filter(Boolean)), if_wrong: p.ifWrong?.trim() || null,
-      draft: p.draft?.trim() || null
+      draft: p.draft?.trim() || null, autonomy_item: p.item ?? null
     })
   })()
   return id
@@ -371,7 +377,7 @@ export function splitPatch(text: string, defaultFile = 'proposal'): { file: stri
   return out.filter((c) => c.lines.join('').trim()).map((c) => ({ file: c.file, diff: c.lines.join('\n').replace(/^\n+|\n+$/g, '') }))
 }
 
-const nextId = (db: Store, table: 'reviews' | 'backlog' | 'runs', prefix: string): string => {
+export const nextId = (db: Store, table: 'reviews' | 'backlog' | 'runs' | 'monitors', prefix: string): string => {
   const rows = db.prepare(`SELECT id FROM ${table} WHERE id LIKE ?`).all(prefix + '-%') as { id: string }[]
   return `${prefix}-${1 + Math.max(0, ...rows.map((r) => Number(r.id.split('-')[1]) || 0))}`
 }

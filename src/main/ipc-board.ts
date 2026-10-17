@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { BrowserWindow, ipcMain } from 'electron'
 import * as b from '../shared/board'
+import { autonomyBrief, getAutonomy, LOCKED, MODES, PHASES, setAutonomy } from '../shared/autonomy'
+import { getSettings } from './settings'
 import { changeStamp, readBoard } from './board-state'
 import type { Store } from './store'
 import { sendTo } from './window-send'
@@ -40,6 +42,16 @@ export function registerBoardIpc(db: Store, window: () => BrowserWindow | null, 
   ipcMain.handle('board:reopen', (_e, id: string) => b.reopen(db, id))
   ipcMain.handle('board:message', (_e, session: string, text: string) => b.queueMessage(db, session, text, 'board'))
   ipcMain.handle('board:typed', (_e, session: string, text: string) => b.logTyped(db, session, text))
+  // Autonomy (SIGNOFF-24): the session's checklist, and a change to it, told to the session at once.
+  const catalog = (): object => ({ phases: PHASES, locked: LOCKED, modes: Object.fromEntries(Object.entries(MODES).map(([k, v]) => [k, { label: v.label, items: [...v.items], plan: v.plan }])) })
+  ipcMain.handle('autonomy:catalog', catalog)
+  ipcMain.handle('autonomy:get', (_e, session: string) => ({ autonomy: getAutonomy(db, session, getSettings(db).autonomy), claudeMode: (db.prepare('SELECT mode FROM sessions WHERE id = ?').get(session) as { mode: string | null } | undefined)?.mode ?? null, ...catalog() }))
+  ipcMain.handle('autonomy:set', (_e, session: string, choice: { mode?: string; items?: string[] }) => {
+    const a = setAutonomy(db, session, choice)
+    b.queueMessage(db, session, `The user changed your autonomy. ${autonomyBrief(a)}`, 'board')
+    tryWake(session)
+    return a
+  })
   ipcMain.handle('board:verdict', (_e, rid: string, cid: string, verdict: b.Verdict, comment?: string) => tryWake(b.setVerdict(db, rid, cid, verdict, comment)))
   ipcMain.handle('board:dismissReview', (_e, rid: string) => tryWake(b.dismissReview(db, rid)))
   ipcMain.handle('board:submit', (_e, rid: string, acceptRest: boolean, note?: string) => {

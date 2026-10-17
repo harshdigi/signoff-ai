@@ -6,8 +6,9 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { openStore } from '../../main/store'
-import { queueMessage } from '../../shared/board'
+import { answer, postDecision, queueMessage } from '../../shared/board'
 import { saveSettings } from '../../main/settings'
+import { setAutonomy } from '../../shared/autonomy'
 
 // Runs the bundled CLI (npm run build:cli first; `npm test` does it) against a throwaway store.
 const CLI = join(__dirname, '../../../out/cli/decide.cjs')
@@ -133,6 +134,44 @@ describe('decide CLI', () => {
     expect(out.parent_id).toBe('lead-session-1')
   })
 
+  it('autonomy: an item handed to Claude is settled at once and recorded; others wait; locked ones always ask', () => {
+    decide([...S, 'register'])
+    const post = (...extra: string[]): string => decide([...S, 'post', '--ticket', 'ABC-1', ...extra]).out
+    // Ask as you go (the default): naming the item changes nothing.
+    expect(post('--id', 'D1', '--question', 'Name?', '--recommend', 'GiftCard :: matches the table', '--item', 'impl.details')).toBe('ABC-1/D1\nwaits for the user: impl.details is not handed to Claude in this session')
+    const db = openStore(join(dir, 'board.db'))
+    setAutonomy(db, 's1', { mode: 'planFirst' })
+    // Autonomy is paused unless Claude Code itself is in Auto mode.
+    expect(post('--id', 'D7', '--question', 'Paused?', '--recommend', 'x', '--item', 'impl.details').split('\n')[1]).toBe('waits for the user: Claude Code is in an unknown mode, not Auto: autonomy is paused')
+    db.prepare("UPDATE sessions SET mode = 'auto' WHERE id = 's1'").run()
+    // Plan first: until the plan card is approved, even a handed-over item waits.
+    expect(post('--id', 'D8', '--question', 'Early?', '--recommend', 'x', '--item', 'impl.details').split('\n')[1]).toBe('waits for the user: Plan first: the plan is not approved yet; post it with signoff plan and wait for the answer')
+    writeFileSync(join(dir, 'plan.md'), '1. Add GiftCard\n2. Redeem at checkout\n')
+    expect(decide([...S, 'plan', '--ticket', 'ABC-1', '--id', 'D9', '--file', 'plan.md']).out).toBe('ABC-1/D9')
+    expect(db.prepare("SELECT action, draft, autonomy_item AS item FROM decisions WHERE id = 'ABC-1/D9'").get()).toEqual({ action: 'consent', draft: '1. Add GiftCard\n2. Redeem at checkout', item: 'plan' })
+    answer(db, 'ABC-1/D9', 'Approve', 'you')
+    expect(post('--id', 'D2', '--question', 'Helper name?', '--recommend', 'redeem! :: one verb', '--item', 'impl.details')).toBe('ABC-1/D2\nsettled by claude (Plan first, then run): go ahead, no need to wait')
+    expect(db.prepare("SELECT status, answer, answered_by, autonomy_item AS item FROM decisions WHERE id = 'ABC-1/D2'").get()).toEqual({ status: 'answered', answer: 'redeem! :: one verb', answered_by: 'claude (Plan first, then run)', item: 'impl.details' })
+    expect(post('--id', 'D3', '--question', 'Commit?', '--action', 'consent', '--item', 'ship.commit').split('\n')[1]).toBe('settled by claude (Plan first, then run): go ahead, no need to wait')
+    expect((db.prepare("SELECT answer FROM decisions WHERE id = 'ABC-1/D3'").get() as { answer: string }).answer).toBe('Approve')
+    expect(post('--id', 'D4', '--question', 'Push?', '--action', 'consent', '--item', 'ship.push').split('\n')[1]).toBe('waits for the user: ship.push is not handed to Claude in this session')
+    setAutonomy(db, 's1', { mode: 'full' })
+    expect(post('--id', 'D5', '--question', 'Merge?', '--action', 'consent', '--item', 'lock.merge').split('\n')[1]).toBe('waits for the user: lock.merge always asks')
+    expect(decide([...S, 'post', '--ticket', 'ABC-1', '--id', 'D6', '--question', 'x', '--item', 'impl.nope']).err).toBe('signoff: unknown autonomy item: impl.nope')
+  })
+
+  it('autonomy: with impl.reviews handed over, a proposal is accepted at once and says so', () => {
+    decide([...S, 'register'])
+    const db = openStore(join(dir, 'board.db'))
+    setAutonomy(db, 's1', { mode: 'planFirst' })
+    db.prepare("UPDATE sessions SET mode = 'auto' WHERE id = 's1'").run()
+    postDecision(db, { ticket: 'ABC-1', number: 'D1', session: 's1', question: 'Approve the plan?', action: 'consent', item: 'plan' })
+    answer(db, 'ABC-1/D1', 'Approve', 'you')
+    writeFileSync(join(dir, 'p.diff'), '# a.rb  (new)\n+x\n')
+    expect(decide([...S, 'propose', '--ticket', 'ABC-1', '--title', 'PR 1', '--patch', 'p.diff']).out).toBe('R-1\n  C1 a.rb\naccepted by claude (Plan first, then run): apply it now, no need to wait')
+    expect(decide(['review', '--id', 'R-1']).out).toBe('R-1 [accepted] PR 1\n  overall note: Accepted by claude (Plan first, then run)\n  C1 a.rb: accept')
+  })
+
   it('register for another session never takes this process tty or pid', () => {
     const out = JSON.parse(decide(['--session', 'someone-else', 'register']).out)
     expect([out.tty, out.pid]).toEqual([null, null])
@@ -145,13 +184,28 @@ describe('decide CLI', () => {
     expect(r.code).toBe(0)
     expect(JSON.parse(r.out)).toEqual({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext:
       '# Signoff AI session\nRegistered on the board as session s2.\n' +
-      'Ticket: ABC-12. Decisions on the board for it (cite them by id; do not re-ask settled ones):\nABC-12/D1 [open] Q?' } })
+      'Ticket: ABC-12. Decisions on the board for it (cite them by id; do not re-ask settled ones):\nABC-12/D1 [open] Q?' +
+      '\n\nAutonomy: Ask as you go. Nothing is handed to you: every decision and action waits for the user.' } })
   })
 
   it('hook session-start without an issue key asks Claude to set one', () => {
     const r = decide(['hook', 'session-start'], {}, JSON.stringify({ session_id: 's3', cwd: dir }))
     expect(JSON.parse(r.out).hookSpecificOutput.additionalContext).toBe('# Signoff AI session\nRegistered on the board as session s3.\n' +
-      'Ticket: none (the branch has no issue key). Set one before posting: signoff register --ticket <KEY>')
+      'Ticket: none (the branch has no issue key). Set one before posting: signoff register --ticket <KEY>' +
+      '\n\nAutonomy: Ask as you go. Nothing is handed to you: every decision and action waits for the user.')
+  })
+
+  it('signoff monitor starts a watch only when after.monitor is handed to the session', () => {
+    decide([...S, 'register'])
+    const r = decide([...S, 'monitor'])
+    expect([r.code, r.out]).toEqual([1, 'waits for the user: after.monitor is not handed to Claude in this session; they start it from Ship'])
+  })
+
+  it('signoff autonomy prints what the session may settle itself', () => {
+    decide([...S, 'register'])
+    expect(decide([...S, 'autonomy']).out).toBe('Autonomy: Ask as you go. Nothing is handed to you: every decision and action waits for the user.')
+    setAutonomy(openStore(join(dir, 'board.db')), 's1', { items: ['impl.fixes', 'ship.commit'] })
+    expect(decide([...S, 'autonomy']).out).toBe('Autonomy: Custom. You may settle these yourself (name them with --item): impl.fixes, ship.commit. Everything else waits for the user. This applies only while your Claude Code mode is Auto.')
   })
 
   it('hook stop delivers queued messages once and never blocks twice', () => {

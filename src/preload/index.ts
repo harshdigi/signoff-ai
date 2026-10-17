@@ -74,6 +74,22 @@ const api = {
     remove: (id: string) => ipcRenderer.invoke('session:remove', id),
     restore: (id: string) => ipcRenderer.invoke('session:restore', id)
   },
+  story: {
+    get: (session: string) => ipcRenderer.invoke('story:get', session),
+    write: (session: string) => ipcRenderer.invoke('story:write', session)
+  },
+  autonomy: {
+    get: (session: string) => ipcRenderer.invoke('autonomy:get', session),
+    catalog: () => ipcRenderer.invoke('autonomy:catalog'),
+    set: (session: string, choice: { mode?: string; items?: string[] }) => ipcRenderer.invoke('autonomy:set', session, choice)
+  },
+  monitor: {
+    forSession: (session: string) => ipcRenderer.invoke('monitor:forSession', session),
+    setup: (session: string) => ipcRenderer.invoke('monitor:setup', session),
+    choose: (repo: string, chosen: unknown) => ipcRenderer.invoke('monitor:choose', repo, chosen),
+    start: (o: { session: string; owner?: string; windowMinutes: number; checkMinutes: number; notify: boolean; recipients: { app: string; where: string; tags: string[] }[] }) => ipcRenderer.invoke('monitor:start', o),
+    stop: (id: string, why: string) => ipcRenderer.invoke('monitor:stop', id, why)
+  },
   tickets: {
     start: (key: string, title: string, description: string) => ipcRenderer.invoke('ticket:start', key, title, description),
     startSubtask: (key: string, idx: number) => ipcRenderer.invoke('ticket:startSubtask', key, idx),

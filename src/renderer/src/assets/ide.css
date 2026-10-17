@@ -38,6 +38,8 @@ select, input { font: inherit; color: var(--ink); background: var(--panel); bord
 .tb-primary { background: var(--accent-tint); border-color: var(--accent); color: var(--ink); font-weight: 600; }
 .tb-menu { position: relative; }
 .dropdown.right { left: auto; right: 0; }
+/* Menu draws its dropdown on top of the page at the button's place (a portal), so nothing clips it. */
+.dropdown.floating { position: fixed; z-index: 1000; -webkit-app-region: no-drag; }
 .dropdown > div.off { opacity: .45; cursor: default; }
 .dropdown { position: absolute; top: 28px; left: 0; z-index: 30; min-width: 260px; max-height: 60vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 24px #0003; padding: 4px; }
 .dropdown > div { padding: 5px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -181,6 +183,24 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .composer { position: relative; border-top: 1px solid var(--edge); padding: 8px; }
 .composer textarea { width: 100%; min-height: 64px; max-height: 240px; resize: vertical; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .composer-bar { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+/* Autonomy (composer): a panel above the button with the mode presets, the plan switch and the grouped checkboxes. */
+.autonomy { position: relative; }
+.autonomy-panel { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 40; width: 360px; max-height: 60vh; overflow-y: auto; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px #0003; }
+.autonomy-panel.down { bottom: auto; top: calc(100% + 6px); left: auto; right: 0; }
+.autonomy-panel .auto-paused { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; padding: 6px 8px; border-radius: 6px; background: var(--warn-tint); color: var(--ink); font-size: 12px; }
+.autonomy-line { font-size: 11px; color: var(--quiet); margin: 4px 2px 0; text-align: right; }
+.autonomy-panel .auto-title { display: flex; gap: 8px; align-items: baseline; margin-bottom: 8px; }
+.autonomy .icon-btn .icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; vertical-align: -2px; }
+.autonomy-editor .auto-modes { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.autonomy-editor .auto-phase { margin-top: 8px; }
+.autonomy-editor .auto-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 3px 0; }
+.autonomy-editor .auto-switch { display: inline-flex; flex: none; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.autonomy-editor .auto-switch button { border: 0; border-radius: 0; padding: 2px 8px; font-size: 11px; background: none; color: var(--quiet); }
+.autonomy-editor .auto-switch button.lit.claude { background: var(--ok); color: #fff; }
+.autonomy-editor .auto-switch button.lit.ask { background: var(--line); color: var(--ink); }
+.autonomy-editor .locked .auto-row { color: var(--quiet); }
+.autonomy-editor .auto-lock { display: inline-flex; gap: 4px; align-items: center; flex: none; font-size: 11px; }
+.autonomy-editor .auto-lock .icon { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 .mic-wrap { position: relative; display: inline-flex; }
 .attach { min-width: 34px; display: inline-flex; align-items: center; justify-content: center; }
 .attach .icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -226,8 +246,8 @@ details.fold > summary::-webkit-details-marker { display: none; }
 /* session page: header, sub-tabs, one-line rows */
 .session-head { padding: 4px 0 10px; border-bottom: 1px solid var(--line); }
 .subtabs { display: flex; gap: 2px; margin: 10px 0 12px; border-bottom: 1px solid var(--line); }
-.subtabs button { background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 12px; color: var(--quiet); }
-.subtabs button.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.subtabs > button { background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 12px; color: var(--quiet); }
+.subtabs > button.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
 /* Tab counts as small round badges: grey for plain counts, orange (.count) for what waits on you. */
 .subtabs .n, .subtabs .count { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; margin-left: 6px; padding: 0 5px; border-radius: 8px; font-size: 10px; font-weight: 600; line-height: 1; vertical-align: 1px; }
 .subtabs .n { background: var(--line); color: var(--ink); }
@@ -415,7 +435,7 @@ button.danger { border-color: #d14d41; color: #d14d41; }
 .files-diff > .diff-wrap { flex: 1; min-height: 0; position: relative; }
 .before-after { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .before-after pre { max-height: 240px; overflow: auto; font-size: 11px; margin: 0; padding: 6px; background: var(--panel); border: 1px solid var(--line); }
-.session-tabs .team { margin-left: auto; align-self: center; }
+.session-tabs .tabs-right { margin-left: auto; align-self: center; }
 .wf-edit label { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; font-size: 12px; }
 .wf-role { display: grid; grid-template-columns: 1fr 52px auto; gap: 4px; margin: 6px 0; }
 .wf-role textarea { grid-column: 1 / -1; min-height: 40px; }
@@ -500,6 +520,18 @@ button.ref { all: unset; cursor: pointer; color: var(--accent, #3b82f6); text-de
 .ship .ship-row.ok .ship-mark { color: #3fa66b; }
 .ship .ship-row.todo .ship-mark { color: var(--quiet); }
 .ship .ship-actions { margin-top: 12px; }
+/* Monitor (Ship): setup, the watch form and its live timeline. */
+.monitor { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+.monitor .mon-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; }
+.monitor .mon-block { margin: 8px 0; }
+.monitor .mon-form { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+.monitor .mon-row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+.monitor .mon-row input { flex: 1; min-width: 0; }
+.monitor .mon-stage { display: flex; gap: 8px; align-items: center; }
+.monitor .mon-events { margin: 6px 0 0; padding-left: 18px; }
+.monitor .mon-events li { margin: 2px 0; }
+.monitor .mon-events li.incident, .monitor .mon-events li.ci-red, .monitor .mon-events li.error { color: var(--warn); }
+.monitor .pill.incident { background: var(--warn); color: #fff; }
 .bp-dot { background: #d14d41; border-radius: 50%; width: 9px !important; height: 9px !important; margin: 5px 0 0 4px; }
 
 /* Code comments (ide/Comments.tsx) */
@@ -594,6 +626,11 @@ button.ref { all: unset; cursor: pointer; color: var(--accent, #3b82f6); text-de
 .sess-view { margin: 4px 0; }
 .sess-tree { display: flex; align-items: center; }
 .sess-tree > .session-row { flex: 1; min-width: 0; }
+/* Drag a session onto another to nest it; onto the strip at the top to move it back to the top level. */
+.sess-tree.drop-ok { outline: 1px dashed var(--accent); outline-offset: -1px; border-radius: 4px; background: var(--accent-tint); }
+.sess-tree.dragging { opacity: .5; }
+.drop-top { margin: 2px 0 4px; padding: 4px 8px; border: 1px dashed var(--line); border-radius: 4px; font-size: 11px; color: var(--quiet); text-align: center; }
+.drop-top.drop-ok { border-color: var(--accent); color: var(--ink); background: var(--accent-tint); }
 /* The fold arrow sits in a fixed slot every grouped row has, so all rows line up; plain, no box. */
 .sess-tree .fold { width: 14px; height: 20px; flex: none; padding: 0; border: none; background: none; color: var(--quiet); font-size: 10px; }
 .sess-tree .fold:hover { color: var(--ink); }
@@ -660,3 +697,38 @@ button.file-head:hover { background: var(--sel); }
 .card-line .line-mark { color: var(--ok); flex: none; } .card-line .line-mark.withdrawn { color: var(--quiet); }
 .card-line .line-q { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-line .line-a { max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--quiet); }
+
+/* Story (session page): summary, a "how it works" flow, the decision chart, folded technical details. */
+.story .story-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 10px; }
+.story .story-summary { margin: 0 0 12px; line-height: 1.5; }
+.story .dg-scroll { overflow-x: auto; padding-bottom: 6px; }
+.story .dg { display: grid; column-gap: 22px; row-gap: 14px; align-items: stretch; width: max-content; }
+.story .dg-lane { align-self: center; font-size: 11px; color: var(--quiet); }
+.story .dg-cell { position: relative; display: flex; flex-direction: column; gap: 6px; }
+.story .dg-cell.up { justify-content: flex-end; }
+.story .dg-cell.up:not(:empty)::after, .story .dg-cell.down::before { content: ''; position: absolute; left: 50%; width: 0; height: 14px; border-left: 1px dashed var(--line); }
+.story .dg-cell.up::after { bottom: -14px; }
+.story .dg-cell.down::before { top: -14px; border-left-style: solid; border-color: var(--ok); }
+.story .dg-cell.mid { justify-content: center; }
+.story .dg-cell.mid:not(:last-child)::after { content: '→'; position: absolute; right: -18px; top: 50%; transform: translateY(-50%); color: var(--quiet); font-size: 12px; }
+.story .dg-box { display: flex; flex-direction: column; gap: 1px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); font-size: 12px; line-height: 1.35; }
+.story .dg-box b { font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.story .dg-box span { color: var(--quiet); font-size: 11px; }
+.story .dg-box em { font-style: normal; color: var(--quiet); font-size: 10px; margin-top: 2px; }
+.story .dg-box.question { border-color: var(--accent); background: var(--accent-tint); }
+.story .dg-box.chosen { border-color: var(--ok); }
+.story .dg-box.rejected { border-style: dashed; opacity: .7; }
+.story .dg-box.rejected b { font-weight: 500; }
+.story .dg-box.option { border-style: dashed; }
+.story .dg-box.waiting { border: 1px dashed var(--warn); background: var(--warn-tint); }
+.story .dg-box.context { border-style: dotted; }
+.story .dg-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 14px; font-size: 11px; }
+.story .dg-legend .key { display: inline-block; width: 10px; height: 10px; border-radius: 3px; border: 1px solid var(--line); margin-left: 6px; }
+.story .dg-legend .key:first-child { margin-left: 0; }
+.story .dg-legend .key.question { border-color: var(--accent); background: var(--accent-tint); }
+.story .dg-legend .key.chosen { border-color: var(--ok); }
+.story .dg-legend .key.rejected { border-style: dashed; }
+.story .dg-legend .grow-text { margin-left: auto; }
+.story .dg-why { margin: 0 0 14px; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.story .dg-why ul { margin: 3px 0 0; padding-left: 18px; color: var(--ink); line-height: 1.45; }
+.story .story-flow { margin: 6px 0 10px; padding-left: 18px; line-height: 1.5; }
