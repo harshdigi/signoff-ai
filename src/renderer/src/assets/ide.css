@@ -184,6 +184,9 @@ details.fold > summary::-webkit-details-marker { display: none; }
 /* Autonomy (composer): a panel above the button with the mode presets, the plan switch and the grouped checkboxes. */
 .autonomy { position: relative; }
 .autonomy-panel { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 40; width: 360px; max-height: 60vh; overflow-y: auto; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px #0003; }
+.autonomy-panel.down { bottom: auto; top: calc(100% + 6px); left: auto; right: 0; }
+.autonomy-panel .auto-paused { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; padding: 6px 8px; border-radius: 6px; background: var(--warn-tint); color: var(--ink); font-size: 12px; }
+.autonomy-line { font-size: 11px; color: var(--quiet); margin: 0 2px 4px; }
 .autonomy-panel .auto-title { display: flex; gap: 8px; align-items: baseline; margin-bottom: 8px; }
 .autonomy .icon-btn .icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; vertical-align: -2px; }
 .autonomy-editor .auto-modes { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
@@ -239,8 +242,8 @@ details.fold > summary::-webkit-details-marker { display: none; }
 /* session page: header, sub-tabs, one-line rows */
 .session-head { padding: 4px 0 10px; border-bottom: 1px solid var(--line); }
 .subtabs { display: flex; gap: 2px; margin: 10px 0 12px; border-bottom: 1px solid var(--line); }
-.subtabs button { background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 12px; color: var(--quiet); }
-.subtabs button.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.subtabs > button { background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 12px; color: var(--quiet); }
+.subtabs > button.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
 /* Tab counts as small round badges: grey for plain counts, orange (.count) for what waits on you. */
 .subtabs .n, .subtabs .count { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; margin-left: 6px; padding: 0 5px; border-radius: 8px; font-size: 10px; font-weight: 600; line-height: 1; vertical-align: 1px; }
 .subtabs .n { background: var(--line); color: var(--ink); }
@@ -427,7 +430,7 @@ button.danger { border-color: #d14d41; color: #d14d41; }
 .files-diff > .diff-wrap { flex: 1; min-height: 0; position: relative; }
 .before-after { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .before-after pre { max-height: 240px; overflow: auto; font-size: 11px; margin: 0; padding: 6px; background: var(--panel); border: 1px solid var(--line); }
-.session-tabs .team { margin-left: auto; align-self: center; }
+.session-tabs .tabs-right { margin-left: auto; align-self: center; }
 .wf-edit label { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; font-size: 12px; }
 .wf-role { display: grid; grid-template-columns: 1fr 52px auto; gap: 4px; margin: 6px 0; }
 .wf-role textarea { grid-column: 1 / -1; min-height: 40px; }

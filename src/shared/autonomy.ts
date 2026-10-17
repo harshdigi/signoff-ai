@@ -107,6 +107,9 @@ export function delegate(db: Store, session: string, item: string | undefined, f
   if (!ITEMS.includes(item)) throw new BoardError(`unknown autonomy item: ${item}`)
   const a = getAutonomy(db, session, fallback)
   if (!allows(a, item)) return { reason: `${item} is not handed to Claude in this session` }
+  // Autonomy applies only while the session's Claude Code mode is Auto (in Manual it would stop at every permission).
+  const cc = (db.prepare('SELECT mode FROM sessions WHERE id = ?').get(session) as { mode: string | null } | undefined)?.mode
+  if (cc !== 'auto') return { reason: `Claude Code is in ${cc ?? 'an unknown'} mode, not Auto: autonomy is paused` }
   if (a.plan && !planApproved(db, session)) return { reason: 'Plan first: the plan is not approved yet; post it with signoff plan and wait for the answer' }
   return { by: `claude (${a.mode === 'custom' ? 'Custom' : MODES[a.mode].label})` }
 }
@@ -132,5 +135,5 @@ export function autonomyBrief(a: Autonomy): string {
   const mode = a.mode === 'custom' ? 'Custom' : MODES[a.mode].label
   if (!a.items.length) return `Autonomy: ${mode}. Nothing is handed to you: every decision and action waits for the user.`
   const plan = a.plan ? ' Plan first: ask the user everything now, then post the plan with signoff plan; until they approve it, nothing is settled by you.' : ''
-  return `Autonomy: ${mode}. You may settle these yourself (name them with --item): ${a.items.join(', ')}. Everything else waits for the user.${plan}`
+  return `Autonomy: ${mode}. You may settle these yourself (name them with --item): ${a.items.join(', ')}. Everything else waits for the user. This applies only while your Claude Code mode is Auto.${plan}`
 }

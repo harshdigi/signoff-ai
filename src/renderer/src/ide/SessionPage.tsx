@@ -7,6 +7,7 @@ import BottomPanel from './BottomPanel'
 import TestPlan from './TestPlan'
 import Ship from './Ship'
 import Story from './Story'
+import AutonomyPanel from '../chat/AutonomyPanel'
 import { toRows, toolSummary, type ToolRow } from '../chat/transcript'
 import { errText, type Term, type Workflow } from './types'
 import { Icon } from './icons'
@@ -25,7 +26,7 @@ type Props = {
   startTerminal: () => void // start (or attach) this session's Claude terminal
 }
 
-export default function SessionPage({ session: s, workflow, board, refresh, tab, setTab, chat, files, terms, term, setTerm, newShell, closeTerm, open, ask, startTerminal }: Props): React.JSX.Element {
+export default function SessionPage({ session: s, board, refresh, tab, setTab, chat, files, terms, term, setTerm, newShell, closeTerm, open, ask, startTerminal }: Props): React.JSX.Element {
   const waiting = s ? waitingOn(board, s.id) : 0
   const children = s ? board.sessions.filter((c) => c.parent_id === s.id && !c.archived) : []
   const plan = s ? board.tests.filter((t) => t.plan === (s.ticket ?? s.id)) : []
@@ -51,7 +52,7 @@ export default function SessionPage({ session: s, workflow, board, refresh, tab,
         {tabs.map(([k, name, n]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{name}{n !== null && <span className={k === 'decisions' ? 'count' : 'n'}>{n}</span>}</button>
         ))}
-        {workflow && <span className="pill team" title={workflow.description}>{workflow.name}: {workflow.line}</span>}
+        <span className="tabs-right"><AutonomyPanel session={s?.id ?? null} place="down" /></span>
         {err && <span className="err">{err}</span>}
       </div>
       <div className="session-body">

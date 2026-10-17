@@ -14,7 +14,7 @@ import { foldTurns, latestTodos, stepsSummary, toRows, toolSummary, waitingInTer
 import { MODES } from './modes'
 import { useVoice } from './use-voice'
 import { MicButton } from './MicButton'
-import AutonomyPanel from './AutonomyPanel'
+import { useAutonomyLine } from './use-autonomy-line'
 import { MdCode } from '../ide/CodeBlock'
 import { Chev } from '../ide/icons'
 
@@ -123,6 +123,7 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   // Shared sessions (started here, or from Terminal through the wrapper) work the same: the chat types into them.
   const shared = (s: { via: string | null; tmux: string | null }): boolean => s.via === 'chat' || !!s.tmux
   const current = board.sessions.find((s) => s.id === session)
+  const autoLine = useAutonomyLine(session)
   // Picked session that runs in a terminal the app cannot reach: messages are queued on the board, not typed.
   const queued = !!current && !shared(current)
   const sent = board.messages.filter((m) => m.session === session)
@@ -427,6 +428,7 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
             ))}
           </div>
         )}
+        {autoLine && <div className="autonomy-line" title="Change it from the settings icon on the session tab bar">{autoLine}</div>}
         <textarea ref={box} value={input} disabled={!queued && (!trusted || !folder)} onChange={(e) => { setInput(e.target.value); setMenuIndex(0) }} onKeyDown={onKey}
           onKeyUp={(e) => { if (e.key === ' ' || e.key === 'Alt') voice.release() }}
           onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addImageFiles(e.clipboardData.files) } }}
@@ -445,8 +447,7 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
           <select value={current?.effort ?? ''} disabled={!session} onChange={(e) => e.target.value && command(`/effort ${e.target.value}`)} title="Effort (sends /effort)">
             {!current?.effort && <option value="">Default effort</option>}
             {EFFORTS.map((x) => <option key={x} value={x}>{x[0].toUpperCase() + x.slice(1)} effort</option>)}
-          </select>
-          <AutonomyPanel session={session} /></>}
+          </select></>}
           <span className="grow" />
           {busy && <button onClick={() => session && window.api.chat.interrupt(session)}>Stop</button>}
           <MicButton voice={voice} disabled={!queued && (!trusted || !folder)} />

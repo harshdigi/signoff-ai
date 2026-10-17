@@ -51,6 +51,9 @@ describe('autonomy', () => {
 
   it('plan first: nothing is settled by Claude until the user approves its plan card', () => {
     setAutonomy(db, 's', { mode: 'planFirst' })
+    db.prepare("UPDATE sessions SET mode = 'default' WHERE id = 's'").run()
+    expect(delegate(db, 's', 'impl.details')).toEqual({ reason: 'Claude Code is in default mode, not Auto: autonomy is paused' })
+    db.prepare("UPDATE sessions SET mode = 'auto' WHERE id = 's'").run()
     expect(delegate(db, 's', 'impl.details')).toEqual({ reason: 'Plan first: the plan is not approved yet; post it with signoff plan and wait for the answer' })
     postDecision(db, { ticket: 'K-1', number: 'D1', session: 's', question: 'Approve the plan?', action: 'consent', item: PLAN_ITEM })
     expect(planApproved(db, 's')).toBe(false)

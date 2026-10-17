@@ -141,6 +141,9 @@ describe('decide CLI', () => {
     expect(post('--id', 'D1', '--question', 'Name?', '--recommend', 'GiftCard :: matches the table', '--item', 'impl.details')).toBe('ABC-1/D1\nwaits for the user: impl.details is not handed to Claude in this session')
     const db = openStore(join(dir, 'board.db'))
     setAutonomy(db, 's1', { mode: 'planFirst' })
+    // Autonomy is paused unless Claude Code itself is in Auto mode.
+    expect(post('--id', 'D7', '--question', 'Paused?', '--recommend', 'x', '--item', 'impl.details').split('\n')[1]).toBe('waits for the user: Claude Code is in an unknown mode, not Auto: autonomy is paused')
+    db.prepare("UPDATE sessions SET mode = 'auto' WHERE id = 's1'").run()
     // Plan first: until the plan card is approved, even a handed-over item waits.
     expect(post('--id', 'D8', '--question', 'Early?', '--recommend', 'x', '--item', 'impl.details').split('\n')[1]).toBe('waits for the user: Plan first: the plan is not approved yet; post it with signoff plan and wait for the answer')
     writeFileSync(join(dir, 'plan.md'), '1. Add GiftCard\n2. Redeem at checkout\n')
@@ -161,6 +164,7 @@ describe('decide CLI', () => {
     decide([...S, 'register'])
     const db = openStore(join(dir, 'board.db'))
     setAutonomy(db, 's1', { mode: 'planFirst' })
+    db.prepare("UPDATE sessions SET mode = 'auto' WHERE id = 's1'").run()
     postDecision(db, { ticket: 'ABC-1', number: 'D1', session: 's1', question: 'Approve the plan?', action: 'consent', item: 'plan' })
     answer(db, 'ABC-1/D1', 'Approve', 'you')
     writeFileSync(join(dir, 'p.diff'), '# a.rb  (new)\n+x\n')
@@ -201,7 +205,7 @@ describe('decide CLI', () => {
     decide([...S, 'register'])
     expect(decide([...S, 'autonomy']).out).toBe('Autonomy: Ask as you go. Nothing is handed to you: every decision and action waits for the user.')
     setAutonomy(openStore(join(dir, 'board.db')), 's1', { items: ['impl.fixes', 'ship.commit'] })
-    expect(decide([...S, 'autonomy']).out).toBe('Autonomy: Custom. You may settle these yourself (name them with --item): impl.fixes, ship.commit. Everything else waits for the user.')
+    expect(decide([...S, 'autonomy']).out).toBe('Autonomy: Custom. You may settle these yourself (name them with --item): impl.fixes, ship.commit. Everything else waits for the user. This applies only while your Claude Code mode is Auto.')
   })
 
   it('hook stop delivers queued messages once and never blocks twice', () => {
