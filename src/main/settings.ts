@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { SAFE_MODES } from './security-rules'
 import type { Store } from './store'
+import { ASK, normalize, type Autonomy } from '../shared/autonomy'
 
 // App settings the user changes in the Settings dialog. Stored as one JSON row in `settings`.
 // Every field has a stated default, used until the user saves a value.
@@ -23,12 +24,13 @@ export type Settings = {
   tidyDecisions: boolean             // default true: when a turn ends, ask the session once to close decisions the chat settled
   speechLocale: string               // default empty: voice input listens in the Mac's own language; else e.g. 'en-IN'
   speechAutoSend: boolean            // default false: voice input fills the box; true: it also sends when you stop
+  autonomy: Autonomy                 // default ask everything: what new sessions let Claude decide alone (SIGNOFF-24)
 }
 
 // A skill on the top bar. key = catalog kind:name; label = what the button says (e.g. "Start my day").
 export type Pin = { key: string; label: string }
 
-export const DEFAULTS: Settings = { profile: 'developer', preferences: '', autoHandoff: true, handoffAt: 75, branching: 'main', branchTemplate: '{KEY}-{slug}', flowDocs: '', nearbySkills: true, pins: [], onOpen: null, askTicket: true, maxChildren: 3, docsOffered: [], defaultMode: 'default', tidyDecisions: true, speechLocale: '', speechAutoSend: false }
+export const DEFAULTS: Settings = { profile: 'developer', preferences: '', autoHandoff: true, handoffAt: 75, branching: 'main', branchTemplate: '{KEY}-{slug}', flowDocs: '', nearbySkills: true, pins: [], onOpen: null, askTicket: true, maxChildren: 3, docsOffered: [], defaultMode: 'default', tidyDecisions: true, speechLocale: '', speechAutoSend: false, autonomy: ASK }
 const KEY = 'app'
 
 export function getSettings(db: Store): Settings {
@@ -47,7 +49,7 @@ export function saveSettings(db: Store, patch: Partial<Settings>): Settings {
   if (patch.maxChildren !== undefined && !(Number.isInteger(patch.maxChildren) && patch.maxChildren >= 1 && patch.maxChildren <= 10)) throw new Error('child sessions per parent must be 1 to 10')
   if (patch.speechLocale !== undefined && !/^([a-z]{2,3}([-_][A-Za-z0-9]{2,8})*)?$/.test(patch.speechLocale)) throw new Error(`bad voice input language ${patch.speechLocale}`)
   if (patch.defaultMode !== undefined && !(SAFE_MODES as readonly string[]).includes(patch.defaultMode)) throw new Error(`bad default mode ${patch.defaultMode}`)
-  const next = { ...getSettings(db), ...patch }
+  const next = { ...getSettings(db), ...patch, ...(patch.autonomy ? { autonomy: normalize(patch.autonomy) } : {}) }
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(KEY, JSON.stringify(next))
   return next
 }

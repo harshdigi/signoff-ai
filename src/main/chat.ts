@@ -123,6 +123,8 @@ export class ChatManager {
     const id = randomUUID()
     b.touchSession(this.db, id, { cwd, via: 'chat', state: 'starting', title: o.title ?? 'New chat', ticket: o.ticket ?? undefined, branch: o.branch ?? undefined })
     this.db.prepare('UPDATE sessions SET mode = ?, model = ?, parent_id = ?, workflow = ?, role = ? WHERE id = ?').run(o.mode ?? this.deps.settings().defaultMode, o.model ?? null, o.parent ?? null, o.workflow ?? null, o.role ?? null, id)
+    // A team member or sub-session starts with its parent's autonomy (SIGNOFF-24/D1).
+    if (o.parent) this.db.prepare('UPDATE sessions SET autonomy = (SELECT autonomy FROM sessions WHERE id = ?) WHERE id = ?').run(o.parent, id)
     return id
   }
 
