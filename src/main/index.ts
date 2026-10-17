@@ -34,6 +34,8 @@ import { sendTo } from './window-send'
 import { SpeechInput } from './speech'
 import { deployWorkflowOf, gh, MonitorWatcher } from './monitor-watch'
 import { registerMonitorIpc } from './ipc-monitor'
+import { sendReviewRequest } from './monitor-notify'
+import { runHeadless } from './headless'
 import { addEvent, type Monitor } from '../shared/monitors'
 import { queueMessage } from '../shared/board'
 import { repairIntegration } from './integration'
@@ -167,7 +169,14 @@ app.whenReady().then(() => {
     try { chat.wake(m.session_id) } catch (e) { console.error(`could not wake session ${m.session_id}:`, e) } // the message waits on the board
   }
   const watcher = new MonitorWatcher(store, gh, {
-    ciGreen: (m) => { if (m.notify) addEvent(store, m.id, 'notify', 'Review request due (sending comes with the messaging step)') },
+    ciGreen: (m) => {
+      if (!m.notify) return
+      const cwd = (store.prepare('SELECT cwd FROM sessions WHERE id = ?').get(m.session_id) as { cwd: string | null } | undefined)?.cwd ?? homedir()
+      void sendReviewRequest(store, m, {
+        pr: async (repo, n) => JSON.parse(await gh(['pr', 'view', String(n), '-R', repo, '--json', 'title,url'])) as { title: string; url: string },
+        run: (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 180_000 })
+      }).catch((e: unknown) => addEvent(store, m.id, 'notify-failed', `Review request failed: ${(e as Error).message.slice(0, 200)}`))
+    },
     ciRed: (m, failed) => tell(m, `Monitor ${m.id}: CI failed on ${m.repo}#${m.pr}: ${failed.join(', ')}. Fix it, or tell the user why not.`),
     incident: (m, what) => tell(m, `Monitor ${m.id}, production: ${what} (${m.repo}#${m.pr}). Investigate the cause and prepare a fix plan and a rollback plan. Do not push, merge, deploy or roll back without the user's approval.`)
   }, (repo) => deployWorkflowOf(store, repo))

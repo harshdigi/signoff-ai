@@ -16,10 +16,10 @@ export function findClaude(path = process.env.PATH ?? '', home = homedir()): str
   return null
 }
 
-export function headlessArgs(prompt: string, o: { system?: string; addDirs?: string[]; disallow?: string[]; model?: string } = {}): string[] {
+export function headlessArgs(prompt: string, o: { system?: string; addDirs?: string[]; allow?: string[]; disallow?: string[]; model?: string } = {}): string[] {
   return ['-p', prompt, '--output-format', 'text', '--permission-prompts', 'none', '--settings', JSON.stringify({ disableAllHooks: true }),
     ...(o.system ? ['--append-system-prompt', o.system] : []), ...(o.addDirs ?? []).flatMap((d) => ['--add-dir', d]),
-    ...(o.disallow?.length ? ['--disallowedTools', o.disallow.join(',')] : []), ...(o.model ? ['--model', o.model] : [])]
+    ...(o.allow?.length ? ['--allowedTools', o.allow.join(',')] : []), ...(o.disallow?.length ? ['--disallowedTools', o.disallow.join(',')] : []), ...(o.model ? ['--model', o.model] : [])]
 }
 
 // Runs without blocking the caller (the app's main process must stay responsive while Claude works).
