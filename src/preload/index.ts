@@ -74,6 +74,10 @@ const api = {
     remove: (id: string) => ipcRenderer.invoke('session:remove', id),
     restore: (id: string) => ipcRenderer.invoke('session:restore', id)
   },
+  monitor: {
+    setup: () => ipcRenderer.invoke('monitor:setup'),
+    getSetup: () => ipcRenderer.invoke('monitor:getSetup')
+  },
   tickets: {
     start: (key: string, title: string, description: string) => ipcRenderer.invoke('ticket:start', key, title, description),
     startSubtask: (key: string, idx: number) => ipcRenderer.invoke('ticket:startSubtask', key, idx),

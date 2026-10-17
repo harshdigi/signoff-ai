@@ -1,10 +1,8 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { spawnSync } from 'child_process'
-import { existsSync } from 'fs'
-import { homedir } from 'os'
-import { delimiter, join } from 'path'
 import { skillDirs } from '../main/skilldirs'
+import { findClaude, headlessArgs } from '../main/headless'
 
 // signoff ask: one spoken-style answer from Claude, for Siri (a Shortcut's "Run Shell Script" reads it out).
 // - Runs your own claude, headless, in your project folder, with your skills (and nearby folders' skills).
@@ -18,17 +16,11 @@ const VOICE = [
   'Do not edit files, post decisions or start long tasks. If you cannot answer without that, say so in one sentence.'
 ].join('\n')
 
-// claude from PATH; Shortcuts runs scripts with a short PATH, so also try where the official installer puts it.
-export function findClaude(path = process.env.PATH ?? '', home = homedir()): string | null {
-  for (const d of [...path.split(delimiter), join(home, '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin'])
-    if (d && existsSync(join(d, 'claude'))) return join(d, 'claude')
-  return null
-}
+export { findClaude }
 
 export function askArgs(question: string, skill: string | undefined, addDirs: string[]): string[] {
   const prompt = skill ? `/${skill} ${question}`.trim() : question
-  return ['-p', prompt, '--output-format', 'text', '--permission-prompts', 'none', '--settings', JSON.stringify({ disableAllHooks: true }),
-    '--append-system-prompt', VOICE, ...addDirs.flatMap((d) => ['--add-dir', d])]
+  return headlessArgs(prompt, { system: VOICE, addDirs })
 }
 
 export function runAsk(question: string, o: { skill?: string; folder: string | null; model?: string; db: string }): { code: number; out: string } {
