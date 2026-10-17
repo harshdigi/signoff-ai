@@ -13,6 +13,8 @@ import { search } from '../shared/memory'
 import { syncBoard } from '../main/store/import-board'
 import { getSettings } from '../main/settings'
 import { acceptByClaude, autonomyBrief, delegate, getAutonomy, PLAN_ITEM } from '../shared/autonomy'
+import { startMonitor } from '../shared/monitors'
+import { repoOfFolder } from '../main/monitor-setup'
 import { anchorsFor, docsBrief, findDocs, indexDocs, touchedDocs, verifyDocs } from '../main/flows'
 import { protocolParts } from '../main/protocol'
 import { finishPiece, passPiece, proposeSplit, proposeTeam, setupLines, teamBrief, leadWith } from '../shared/team'
@@ -31,6 +33,7 @@ const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_COD
   register  [--ticket K] [--title T] [--description D]   [--parent SESSION-ID: nest under that session; its first 8+ characters are enough]
   autonomy                       what this session may settle itself, and what waits for the user
   plan      --ticket K --id Dn --file PLAN [--question Q]   Plan first: the whole plan as one approval card
+  monitor   [--window MIN] [--every MIN]   start the monitor on this branch's PR (only when after.monitor is handed over)
   status    [--state starting|working|waiting|done] [--note N] [--description D]
   post      --ticket K --id Dn --question Q [--context C]... [--option "Label :: what happens"]... [--recommend "Label :: why"]
             [--evidence "file:line :: what it shows"]... [--if-wrong W] [--ref K/Dn]... [--draft T | --draft-file FILE]
@@ -254,7 +257,7 @@ function main(argv: string[]): number {
       ref: { type: 'string', multiple: true }, action: { type: 'string' }, command: { type: 'string' }, force: { type: 'boolean' },
       review: { type: 'string' }, timeout: { type: 'string' }, interval: { type: 'string' }, open: { type: 'boolean' },
       text: { type: 'string' }, 'text-file': { type: 'string' }, done: { type: 'boolean' }, reason: { type: 'string' }, patch: { type: 'string' }, summary: { type: 'string' },
-      'summary-file': { type: 'string' }, file: { type: 'string' }, change: { type: 'string' }, level: { type: 'string' }, item: { type: 'string' },
+      'summary-file': { type: 'string' }, file: { type: 'string' }, change: { type: 'string' }, level: { type: 'string' }, item: { type: 'string' }, window: { type: 'string' }, every: { type: 'string' },
       decision: { type: 'string', multiple: true }, jira: { type: 'string' }, idx: { type: 'string' }, status: { type: 'string' }, limit: { type: 'string' },
       skill: { type: 'string' }, folder: { type: 'string' }, model: { type: 'string' }, piece: { type: 'string', multiple: true }, role: { type: 'string', multiple: true }, name: { type: 'string' }, workflow: { type: 'string' }, 'good-for': { type: 'string', multiple: true }, 'not-for': { type: 'string', multiple: true }, of: { type: 'string' }, label: { type: 'string' }, group: { type: 'string' }, steps: { type: 'string' }, expected: { type: 'string' },
       context: { type: 'string', multiple: true }, 'if-wrong': { type: 'string' }, draft: { type: 'string' }, 'draft-file': { type: 'string' }
@@ -290,6 +293,19 @@ function main(argv: string[]): number {
         context: ['Once approved, Claude implements inside this plan without asking. It stops for a surprise the plan does not cover, a failing test it cannot fix, or anything that always asks.']
       })
       console.log(id)
+      return 0
+    }
+    case 'monitor': {
+      // A session starts its own monitor once its PR is open, when after.monitor is handed to it (SIGNOFF-24).
+      const d = delegate(db, sid(), 'after.monitor', getSettings(db).autonomy)
+      if (!d || !('by' in d)) { console.log(`waits for the user: ${d && 'reason' in d ? d.reason : 'after.monitor'}; they start it from Ship`); return 1 }
+      const cwd = (db.prepare('SELECT cwd FROM sessions WHERE id = ?').get(sid()) as { cwd: string | null } | undefined)?.cwd
+      if (!cwd) throw new b.BoardError('this session has no folder')
+      const repo = repoOfFolder(cwd)
+      const pr = JSON.parse(execFileSync('gh', ['pr', 'view', '--json', 'number'], { cwd, encoding: 'utf8' })) as { number: number }
+      const ticket = (db.prepare('SELECT ticket FROM sessions WHERE id = ?').get(sid()) as { ticket: string | null }).ticket
+      const m = startMonitor(db, { session: sid(), repo, pr: pr.number, ticket, windowMinutes: Number(o.window ?? 60), checkMinutes: Number(o.every ?? 30) })
+      console.log(`${m.id}: watching ${repo}#${pr.number} (started by ${d.by})`)
       return 0
     }
     case 'autonomy':

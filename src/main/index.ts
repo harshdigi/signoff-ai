@@ -35,6 +35,7 @@ import { SpeechInput } from './speech'
 import { deployWorkflowOf, gh, MonitorWatcher } from './monitor-watch'
 import { registerMonitorIpc } from './ipc-monitor'
 import { registerStoryIpc } from './ipc-story'
+import { writeStory } from './story'
 import { sendReviewRequest } from './monitor-notify'
 import { checkErrors } from './monitor-errors'
 import { startFirefight } from './monitor-firefight'
@@ -181,6 +182,13 @@ app.whenReady().then(() => {
       }).catch((e: unknown) => addEvent(store, m.id, 'notify-failed', `Review request failed: ${(e as Error).message.slice(0, 200)}`))
     },
     ciRed: (m, failed) => tell(m, `Monitor ${m.id}: CI failed on ${m.repo}#${m.pr}: ${failed.join(', ')}. Fix it, or tell the user why not.`),
+    started: (m) => {
+      if (!m.ticket) return
+      const cwd = (store.prepare('SELECT cwd FROM sessions WHERE id = ?').get(m.session_id) as { cwd: string | null } | undefined)?.cwd
+      if (!cwd) return
+      void writeStory(store, m.ticket, cwd, (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 240_000 }))
+        .catch((e: unknown) => addEvent(store, m.id, 'error', `Could not write the Story: ${(e as Error).message.slice(0, 200)}`))
+    },
     checkErrors: (m) => {
       const cwd = (store.prepare('SELECT cwd FROM sessions WHERE id = ?').get(m.session_id) as { cwd: string | null } | undefined)?.cwd ?? homedir()
       return checkErrors(store, m, (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 240_000 }), new Date().toISOString())

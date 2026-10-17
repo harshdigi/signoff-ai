@@ -191,6 +191,12 @@ describe('decide CLI', () => {
       '\n\nAutonomy: Ask as you go. Nothing is handed to you: every decision and action waits for the user.')
   })
 
+  it('signoff monitor starts a watch only when after.monitor is handed to the session', () => {
+    decide([...S, 'register'])
+    const r = decide([...S, 'monitor'])
+    expect([r.code, r.out]).toEqual([1, 'waits for the user: after.monitor is not handed to Claude in this session; they start it from Ship'])
+  })
+
   it('signoff autonomy prints what the session may settle itself', () => {
     decide([...S, 'register'])
     expect(decide([...S, 'autonomy']).out).toBe('Autonomy: Ask as you go. Nothing is handed to you: every decision and action waits for the user.')
