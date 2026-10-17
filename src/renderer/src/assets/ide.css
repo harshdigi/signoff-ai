@@ -499,6 +499,18 @@ button.ref { all: unset; cursor: pointer; color: var(--accent, #3b82f6); text-de
 .ship .ship-row.ok .ship-mark { color: #3fa66b; }
 .ship .ship-row.todo .ship-mark { color: var(--quiet); }
 .ship .ship-actions { margin-top: 12px; }
+/* Monitor (Ship): setup, the watch form and its live timeline. */
+.monitor { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+.monitor .mon-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; }
+.monitor .mon-block { margin: 8px 0; }
+.monitor .mon-form { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+.monitor .mon-row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+.monitor .mon-row input { flex: 1; min-width: 0; }
+.monitor .mon-stage { display: flex; gap: 8px; align-items: center; }
+.monitor .mon-events { margin: 6px 0 0; padding-left: 18px; }
+.monitor .mon-events li { margin: 2px 0; }
+.monitor .mon-events li.incident, .monitor .mon-events li.ci-red, .monitor .mon-events li.error { color: var(--warn); }
+.monitor .pill.incident { background: var(--warn); color: #fff; }
 .bp-dot { background: #d14d41; border-radius: 50%; width: 9px !important; height: 9px !important; margin: 5px 0 0 4px; }
 
 /* Code comments (ide/Comments.tsx) */

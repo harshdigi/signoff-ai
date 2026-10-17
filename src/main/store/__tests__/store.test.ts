@@ -61,6 +61,7 @@ describe('openStore', () => {
     db.prepare("INSERT INTO reviews (id, ticket, session_id, title, status, created_at, updated_at) VALUES ('R-1', 'K-1', 's1', 'x', 'open', 't', 't')").run()
     db.prepare("INSERT INTO review_changes (review_id, change_id, file, diff, verdict) VALUES ('R-1', 'C1', 'a.rb', '+a', 'accept')").run()
     db.prepare("INSERT INTO review_thread (review_id, change_id, who, text, at) VALUES ('R-1', 'C1', 'you', 'ok', 't')").run()
+    db.exec('DROP TABLE monitor_events; DROP TABLE monitors; DROP TABLE repo_setups') // added by v22, which runs again
     db.pragma('user_version = 20')
     db.close()
     const up = openStore(path)
@@ -166,7 +167,7 @@ describe('copy before an upgrade', () => {
     const path = join(dir, 'board.db')
     const db = openStore(path)
     db.prepare("INSERT INTO sessions (id, state, started_at, updated_at) VALUES ('s1', 'working', 't', 't')").run()
-    db.exec('ALTER TABLE sessions DROP COLUMN effort') // the newest migration's column (v20)
+    db.exec('DROP TABLE monitor_events; DROP TABLE monitors; DROP TABLE repo_setups') // the newest migration's tables (v22)
     db.pragma(`user_version = ${SCHEMA_VERSION - 1}`)
     db.close()
     return path
