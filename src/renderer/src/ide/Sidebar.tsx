@@ -94,6 +94,25 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
   const under = (id: string): Set<string> => { const out = new Set<string>(); const walk = (p: string): void => kids(p).forEach((c) => { out.add(c.id); walk(c.id) }); walk(id); return out }
   const parentsFor = (id: string): typeof here => { const no = under(id); return here.filter((x) => x.id !== id && !no.has(x.id)) }
   const nameOf = (x: (typeof here)[number]): string => x.title || x.ticket || x.id.slice(0, 8)
+  // Drag and drop: drop a session on another to nest it under that one, or on the top strip to un-nest it.
+  const [dragging, setDragging] = useState<string | null>(null)
+  const [over, setOver] = useState<string | null>(null)
+  const [moveErr, setMoveErr] = useState<string | null>(null)
+  const move = (id: string, parent: string | null): void => {
+    setMoveErr(null)
+    window.api.sessions.setParent(id, parent).catch((e: unknown) => setMoveErr(errText(e)))
+  }
+  const canDrop = (target: string | null): boolean => {
+    if (!dragging) return false
+    const d = byId.get(dragging)
+    if (target === null) return !!d?.parent_id
+    return target !== dragging && d?.parent_id !== target && !under(dragging).has(target)
+  }
+  const dropProps = (target: string | null): Pick<React.HTMLAttributes<HTMLDivElement>, 'onDragOver' | 'onDragLeave' | 'onDrop'> => ({
+    onDragOver: (e: React.DragEvent): void => { if (canDrop(target)) { e.preventDefault(); setOver(target ?? 'top') } },
+    onDragLeave: (): void => setOver((o) => (o === (target ?? 'top') ? null : o)),
+    onDrop: (e: React.DragEvent): void => { e.preventDefault(); if (dragging && canDrop(target)) move(dragging, target); setDragging(null); setOver(null) }
+  })
   // Tickets from Start ticket show on their plan session: key, and subtasks done of all (click: the ticket's page).
   const tickets = board.tickets.filter((t) => t.folder === folder)
   const plans = new Map(tickets.filter((t) => t.plan_session).map((t) => [t.plan_session!, { key: t.key, done: t.subtasks.filter((x) => x.status === 'done').length, total: t.subtasks.length }]))
@@ -103,13 +122,16 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
     const fold = (): void => setFolded((f) => { const n = new Set(f); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n })
     return (
       <Fragment key={s.id}>
-        <div className="sess-tree" style={{ paddingLeft: depth * 14 }}>
+        <div className={'sess-tree' + (over === s.id ? ' drop-ok' : '') + (dragging === s.id ? ' dragging' : '')} style={{ paddingLeft: depth * 14 }}
+          draggable={grouped} title={grouped ? 'Drag onto another session to nest it under that one' : undefined}
+          onDragStart={(e) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; setDragging(s.id) }}
+          onDragEnd={() => { setDragging(null); setOver(null) }} {...dropProps(s.id)}>
           {children.length > 0
             ? <button className="row-act fold" title={shut ? `Show ${children.length}` : 'Collapse'} onClick={fold}><Chev open={!shut} /></button>
             : grouped ? <span className="fold-gap" /> : null /* same slot on every row, so names line up */}
           <SessionRow s={s} label={s.title || s.ticket || s.id.slice(0, 8)} where={place(s.cwd)} active={current === s.id} count={open(s.id)} onOpen={() => openSession(s.id)} onRemove={() => removeIt(s.id)}
             plan={plans.get(s.id)} openTicket={(key) => openTab({ kind: 'ticket', id: key })} showKey={!grouped || byId.get(s.parent_id ?? '')?.ticket !== s.ticket}
-            moveTo={{ options: parentsFor(s.id).map((x) => ({ id: x.id, name: nameOf(x) })), nested: !!s.parent_id, move: (p) => void window.api.sessions.setParent(s.id, p) }} />
+            moveTo={{ options: parentsFor(s.id).map((x) => ({ id: x.id, name: nameOf(x) })), nested: !!s.parent_id, move: (p) => move(s.id, p) }} />
           {shut && <span className="kids" title={`${children.length} session${children.length === 1 ? '' : 's'} under this one (folded)`}>{children.length}</span>}
         </div>
         {!shut && children.map((c) => tree(c, depth + 1))}
@@ -132,6 +154,8 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
           <span className="dir">{t.subtasks.filter((x) => x.status === 'done').length}/{t.subtasks.length}</span>
         </div>
       ))}
+      {moveErr && <div className="err">{moveErr}</div>}
+      {dragging && byId.get(dragging)?.parent_id && <div className={'drop-top' + (over === 'top' ? ' drop-ok' : '')} {...dropProps(null)}>Drop here to move to the top level</div>}
       {(grouped ? roots : here).map((s) => tree(s, 0))}
       {removed.length > 0 && (
         <>

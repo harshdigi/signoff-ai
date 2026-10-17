@@ -38,6 +38,8 @@ select, input { font: inherit; color: var(--ink); background: var(--panel); bord
 .tb-primary { background: var(--accent-tint); border-color: var(--accent); color: var(--ink); font-weight: 600; }
 .tb-menu { position: relative; }
 .dropdown.right { left: auto; right: 0; }
+/* Menu draws its dropdown on top of the page at the button's place (a portal), so nothing clips it. */
+.dropdown.floating { position: fixed; z-index: 1000; -webkit-app-region: no-drag; }
 .dropdown > div.off { opacity: .45; cursor: default; }
 .dropdown { position: absolute; top: 28px; left: 0; z-index: 30; min-width: 260px; max-height: 60vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 24px #0003; padding: 4px; }
 .dropdown > div { padding: 5px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -591,6 +593,11 @@ button.ref { all: unset; cursor: pointer; color: var(--accent, #3b82f6); text-de
 .sess-view { margin: 4px 0; }
 .sess-tree { display: flex; align-items: center; }
 .sess-tree > .session-row { flex: 1; min-width: 0; }
+/* Drag a session onto another to nest it; onto the strip at the top to move it back to the top level. */
+.sess-tree.drop-ok { outline: 1px dashed var(--accent); outline-offset: -1px; border-radius: 4px; background: var(--accent-tint); }
+.sess-tree.dragging { opacity: .5; }
+.drop-top { margin: 2px 0 4px; padding: 4px 8px; border: 1px dashed var(--line); border-radius: 4px; font-size: 11px; color: var(--quiet); text-align: center; }
+.drop-top.drop-ok { border-color: var(--accent); color: var(--ink); background: var(--accent-tint); }
 /* The fold arrow sits in a fixed slot every grouped row has, so all rows line up; plain, no box. */
 .sess-tree .fold { width: 14px; height: 20px; flex: none; padding: 0; border: none; background: none; color: var(--quiet); font-size: 10px; }
 .sess-tree .fold:hover { color: var(--ink); }

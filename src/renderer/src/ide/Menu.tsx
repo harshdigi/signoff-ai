@@ -1,40 +1,57 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 // A button with a dropdown under it. The one way menus open and close in the app:
 // - opens and closes on its button; stays open while the mouse moves to it or away;
-// - closes on a pick (a row that is not a heading or greyed out), a click outside, Escape, or leaving the window.
+// - closes on a pick (a row that is not a heading or greyed out), a click outside, Escape, leaving the window,
+//   or the page scrolling or resizing under it;
+// - drawn on top of the page (a portal at the button's position), so a row or panel that clips its overflow, such as
+//   a session row, cannot hide it.
 export function Menu({ trigger, align = 'left', className = '', children }: {
   trigger: (m: { open: boolean; toggle: () => void }) => ReactNode
   align?: 'left' | 'right'
   className?: string
   children: ReactNode
 }): React.JSX.Element {
-  const [open, setOpen] = useState(false)
-  const box = useRef<HTMLSpanElement>(null)
+  const [at, setAt] = useState<CSSProperties | null>(null)
+  const [box, setBox] = useState<HTMLSpanElement | null>(null) // state, not a ref: the button's place is read in its click handler
+  const drop = useRef<HTMLDivElement>(null)
+  const open = !!at
   useEffect(() => {
     if (!open) return
-    const close = (): void => setOpen(false)
-    const outside = (e: MouseEvent): void => { if (!box.current?.contains(e.target as Node)) close() }
+    const close = (): void => setAt(null)
+    const inside = (t: EventTarget | null): boolean => !!t && (!!box?.contains(t as Node) || !!drop.current?.contains(t as Node))
+    const outside = (e: MouseEvent): void => { if (!inside(e.target)) close() }
     const esc = (e: KeyboardEvent): void => { if (e.key === 'Escape') close() }
+    const scrolled = (e: Event): void => { if (!drop.current?.contains(e.target as Node)) close() }
     document.addEventListener('mousedown', outside, true)
     document.addEventListener('keydown', esc)
+    document.addEventListener('scroll', scrolled, true)
     window.addEventListener('blur', close)
+    window.addEventListener('resize', close)
     return () => {
       document.removeEventListener('mousedown', outside, true)
       document.removeEventListener('keydown', esc)
+      document.removeEventListener('scroll', scrolled, true)
       window.removeEventListener('blur', close)
+      window.removeEventListener('resize', close)
     }
-  }, [open])
+  }, [open, box])
+  const toggle = (): void => {
+    if (open || !box) return setAt(null)
+    const r = box.getBoundingClientRect()
+    setAt(align === 'right' ? { top: r.bottom + 4, right: window.innerWidth - r.right } : { top: r.bottom + 4, left: r.left })
+  }
   const picked = (e: React.MouseEvent): void => {
     const row = (e.target as HTMLElement).closest('.dropdown > div')
-    if (row && !row.classList.contains('dd-head') && !row.classList.contains('off')) setOpen(false)
+    if (row && !row.classList.contains('dd-head') && !row.classList.contains('off')) setAt(null)
   }
   return (
-    <span ref={box} className={className}>
-      {trigger({ open, toggle: () => setOpen(!open) })}
-      {open && <div className={'dropdown' + (align === 'right' ? ' right' : '')} onClick={picked}>{children}</div>}
+    <span ref={setBox} className={className}>
+      {trigger({ open, toggle })}
+      {at && createPortal(<div ref={drop} className="dropdown floating" style={at} onClick={picked} onMouseDown={(e) => e.stopPropagation()}>{children}</div>, document.body)}
     </span>
   )
 }
