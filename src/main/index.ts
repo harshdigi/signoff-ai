@@ -1,6 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, Notification } from 'electron'
 
 import { homedir } from 'os'
 import { join } from 'path'
@@ -36,6 +36,7 @@ import { deployWorkflowOf, gh, MonitorWatcher } from './monitor-watch'
 import { registerMonitorIpc } from './ipc-monitor'
 import { sendReviewRequest } from './monitor-notify'
 import { checkErrors } from './monitor-errors'
+import { startFirefight } from './monitor-firefight'
 import { runHeadless } from './headless'
 import { addEvent, type Monitor } from '../shared/monitors'
 import { queueMessage } from '../shared/board'
@@ -183,7 +184,11 @@ app.whenReady().then(() => {
       const cwd = (store.prepare('SELECT cwd FROM sessions WHERE id = ?').get(m.session_id) as { cwd: string | null } | undefined)?.cwd ?? homedir()
       return checkErrors(store, m, (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 240_000 }), new Date().toISOString())
     },
-    incident: (m, what) => tell(m, `Monitor ${m.id}, production: ${what} (${m.repo}#${m.pr}). Investigate the cause and prepare a fix plan and a rollback plan. Do not push, merge, deploy or roll back without the user's approval.`)
+    incident: (m, what) => {
+      const ff = startFirefight(store, chat, m, what)
+      tell(m, `Monitor ${m.id}, production: ${what} (${m.repo}#${m.pr}).${ff ? ` Fire fighting runs in session ${ff.slice(0, 8)}; it prepares the fix and the rollback for the user's approval.` : ''}`)
+      if (Notification.isSupported()) new Notification({ title: `Production incident: ${m.repo}#${m.pr}`, body: what }).show()
+    }
   }, (repo) => deployWorkflowOf(store, repo))
   const watchTimer = setInterval(() => void watcher.tick(), 120_000)
   registerMonitorIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
