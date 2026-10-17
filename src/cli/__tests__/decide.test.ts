@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { openStore } from '../../main/store'
 import { queueMessage } from '../../shared/board'
 import { saveSettings } from '../../main/settings'
+import { setAutonomy } from '../../shared/autonomy'
 
 // Runs the bundled CLI (npm run build:cli first; `npm test` does it) against a throwaway store.
 const CLI = join(__dirname, '../../../out/cli/decide.cjs')
@@ -131,6 +132,31 @@ describe('decide CLI', () => {
     decide(['--session', 'lead-session-1', 'register'])
     const out = JSON.parse(decide([...S, 'register', '--parent', 'lead-sess']).out)
     expect(out.parent_id).toBe('lead-session-1')
+  })
+
+  it('autonomy: an item handed to Claude is settled at once and recorded; others wait; locked ones always ask', () => {
+    decide([...S, 'register'])
+    const post = (...extra: string[]): string => decide([...S, 'post', '--ticket', 'ABC-1', ...extra]).out
+    // Ask as you go (the default): naming the item changes nothing.
+    expect(post('--id', 'D1', '--question', 'Name?', '--recommend', 'GiftCard :: matches the table', '--item', 'impl.details')).toBe('ABC-1/D1\nwaits for the user: impl.details is not handed to Claude in this session')
+    const db = openStore(join(dir, 'board.db'))
+    setAutonomy(db, 's1', { mode: 'planFirst' })
+    expect(post('--id', 'D2', '--question', 'Helper name?', '--recommend', 'redeem! :: one verb', '--item', 'impl.details')).toBe('ABC-1/D2\nsettled by claude (Plan first, then run): go ahead, no need to wait')
+    expect(db.prepare("SELECT status, answer, answered_by, autonomy_item AS item FROM decisions WHERE id = 'ABC-1/D2'").get()).toEqual({ status: 'answered', answer: 'redeem! :: one verb', answered_by: 'claude (Plan first, then run)', item: 'impl.details' })
+    expect(post('--id', 'D3', '--question', 'Commit?', '--action', 'consent', '--item', 'ship.commit').split('\n')[1]).toBe('settled by claude (Plan first, then run): go ahead, no need to wait')
+    expect((db.prepare("SELECT answer FROM decisions WHERE id = 'ABC-1/D3'").get() as { answer: string }).answer).toBe('Approve')
+    expect(post('--id', 'D4', '--question', 'Push?', '--action', 'consent', '--item', 'ship.push').split('\n')[1]).toBe('waits for the user: ship.push is not handed to Claude in this session')
+    setAutonomy(db, 's1', { mode: 'full' })
+    expect(post('--id', 'D5', '--question', 'Merge?', '--action', 'consent', '--item', 'lock.merge').split('\n')[1]).toBe('waits for the user: lock.merge always asks')
+    expect(decide([...S, 'post', '--ticket', 'ABC-1', '--id', 'D6', '--question', 'x', '--item', 'impl.nope']).err).toBe('signoff: unknown autonomy item: impl.nope')
+  })
+
+  it('autonomy: with impl.reviews handed over, a proposal is accepted at once and says so', () => {
+    decide([...S, 'register'])
+    setAutonomy(openStore(join(dir, 'board.db')), 's1', { mode: 'planFirst' })
+    writeFileSync(join(dir, 'p.diff'), '# a.rb  (new)\n+x\n')
+    expect(decide([...S, 'propose', '--ticket', 'ABC-1', '--title', 'PR 1', '--patch', 'p.diff']).out).toBe('R-1\n  C1 a.rb\naccepted by claude (Plan first, then run): apply it now, no need to wait')
+    expect(decide(['review', '--id', 'R-1']).out).toBe('R-1 [accepted] PR 1\n  overall note: Accepted by claude (Plan first, then run)\n  C1 a.rb: accept')
   })
 
   it('register for another session never takes this process tty or pid', () => {

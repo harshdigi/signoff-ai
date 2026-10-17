@@ -12,6 +12,7 @@ import * as tk from '../shared/tickets'
 import { search } from '../shared/memory'
 import { syncBoard } from '../main/store/import-board'
 import { getSettings } from '../main/settings'
+import { acceptByClaude, delegate } from '../shared/autonomy'
 import { anchorsFor, docsBrief, findDocs, indexDocs, touchedDocs, verifyDocs } from '../main/flows'
 import { protocolParts } from '../main/protocol'
 import { finishPiece, passPiece, proposeSplit, proposeTeam, setupLines, teamBrief, leadWith } from '../shared/team'
@@ -250,7 +251,7 @@ function main(argv: string[]): number {
       ref: { type: 'string', multiple: true }, action: { type: 'string' }, command: { type: 'string' }, force: { type: 'boolean' },
       review: { type: 'string' }, timeout: { type: 'string' }, interval: { type: 'string' }, open: { type: 'boolean' },
       text: { type: 'string' }, 'text-file': { type: 'string' }, done: { type: 'boolean' }, reason: { type: 'string' }, patch: { type: 'string' }, summary: { type: 'string' },
-      'summary-file': { type: 'string' }, file: { type: 'string' }, change: { type: 'string' }, level: { type: 'string' },
+      'summary-file': { type: 'string' }, file: { type: 'string' }, change: { type: 'string' }, level: { type: 'string' }, item: { type: 'string' },
       decision: { type: 'string', multiple: true }, jira: { type: 'string' }, idx: { type: 'string' }, status: { type: 'string' }, limit: { type: 'string' },
       skill: { type: 'string' }, folder: { type: 'string' }, model: { type: 'string' }, piece: { type: 'string', multiple: true }, role: { type: 'string', multiple: true }, name: { type: 'string' }, workflow: { type: 'string' }, 'good-for': { type: 'string', multiple: true }, 'not-for': { type: 'string', multiple: true }, of: { type: 'string' }, label: { type: 'string' }, group: { type: 'string' }, steps: { type: 'string' }, expected: { type: 'string' },
       context: { type: 'string', multiple: true }, 'if-wrong': { type: 'string' }, draft: { type: 'string' }, 'draft-file': { type: 'string' }
@@ -290,13 +291,19 @@ function main(argv: string[]): number {
     case 'post': {
       if (!o.id?.length) throw new Usage('--id is required')
       if (o.action && !['consent', 'terminal'].includes(o.action)) throw new Usage('--action is consent or terminal')
-      console.log(b.postDecision(db, {
+      // --item: which autonomy item this falls under. If the session hands it to Claude, it is settled at once.
+      const d = o.action === 'terminal' ? null : delegate(db, sid(), o.item, getSettings(db).autonomy)
+      const id = b.postDecision(db, {
         ticket: req('ticket'), number: (o.id || [])[0] || '', session: sid(), question: req('question'),
         options: o.option, recommend: o.recommend, evidence: o.evidence, refs: o.ref,
         action: (o.action as 'consent' | 'terminal') || null, command: o.command, force: o.force, level: o.level as b.Level | undefined,
         context: o.context, ifWrong: o['if-wrong'],
-        draft: o['draft-file'] ? readFileSync(o['draft-file'], 'utf8') : o.draft
-      }))
+        draft: o['draft-file'] ? readFileSync(o['draft-file'], 'utf8') : o.draft,
+        item: o.item ?? null, byClaude: d && 'by' in d ? d.by : null
+      })
+      console.log(id)
+      if (d && 'by' in d) console.log(`settled by ${d.by}: go ahead, no need to wait`)
+      else if (d) console.log(`waits for the user: ${d.reason}`)
       return 0
     }
     case 'split': {
@@ -410,6 +417,9 @@ function main(argv: string[]): number {
       console.log(r.id)
       for (const c of r.changes) console.log(`  ${c.id} ${c.file}` + (r.kept.includes(c.id) ? ' (accepted already: same diff as before)' : ''))
       if (r.replaced.length) console.log(`replaces ${r.replaced.join(', ')} (closed; wait on ${r.id} instead)`)
+      // impl.reviews handed to Claude: accepted at once and recorded as such, so the session does not wait.
+      const auto = delegate(db, sid(), 'impl.reviews', getSettings(db).autonomy)
+      if (auto && 'by' in auto) { acceptByClaude(db, r.id, auto.by); console.log(`accepted by ${auto.by}: apply it now, no need to wait`) }
       return 0
     }
     case 'review': {

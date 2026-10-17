@@ -1,6 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import { BoardError } from './board'
+import { BoardError, now } from './board'
 import type { Store } from '../main/store'
 
 // Autonomy (SIGNOFF-24/D1): per session, a checklist of what Claude may decide on your behalf, grouped by phase.
@@ -92,3 +92,23 @@ export function setAutonomy(db: Store, session: string, a: { mode?: string; item
 }
 
 export const allows = (a: Autonomy, item: string): boolean => !item.startsWith('lock.') && a.items.includes(item)
+
+// Whether this session hands an item to Claude, and the name the board records it under.
+export function delegate(db: Store, session: string, item: string | undefined, fallback: Autonomy = ASK): { by: string } | { reason: string } | null {
+  if (!item) return null
+  if (item.startsWith('lock.')) return { reason: `${item} always asks` }
+  if (!ITEMS.includes(item)) throw new BoardError(`unknown autonomy item: ${item}`)
+  const a = getAutonomy(db, session, fallback)
+  if (!allows(a, item)) return { reason: `${item} is not handed to Claude in this session` }
+  return { by: `claude (${a.mode === 'custom' ? 'Custom' : MODES[a.mode].label})` }
+}
+
+// A review Claude may accept itself (impl.reviews): every file accepted, recorded with who accepted it.
+export function acceptByClaude(db: Store, review: string, by: string): void {
+  db.transaction(() => {
+    db.prepare("UPDATE review_changes SET verdict = 'accept' WHERE review_id = ? AND verdict = 'pending'").run(review)
+    const t = now()
+    const r = db.prepare("UPDATE reviews SET status = 'accepted', note = ?, submitted_at = ?, updated_at = ? WHERE id = ? AND status = 'open'").run(`Accepted by ${by}`, t, t, review)
+    if (r.changes !== 1) throw new BoardError(`${review} is not open`)
+  })()
+}
