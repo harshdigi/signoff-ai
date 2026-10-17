@@ -3,7 +3,7 @@
 import { ipcMain } from 'electron'
 import type { Store } from './store'
 import { runHeadless } from './headless'
-import { chartOf, storyOf, writeStory } from './story'
+import { diagramOf, storyOf, writeStory } from './story'
 
 // The Story tab (SIGNOFF-24/D3) for a session's ticket.
 export function registerStoryIpc(db: Store, env: NodeJS.ProcessEnv): void {
@@ -15,8 +15,8 @@ export function registerStoryIpc(db: Store, env: NodeJS.ProcessEnv): void {
   }
   ipcMain.handle('story:get', (_e, session: string) => {
     const s = db.prepare('SELECT ticket FROM sessions WHERE id = ?').get(session) as { ticket: string | null } | undefined
-    if (!s?.ticket) return { ticket: null, chart: [], story: null }
-    return { ticket: s.ticket, chart: chartOf(db, s.ticket), story: storyOf(db, s.ticket) }
+    if (!s?.ticket) return { ticket: null, diagram: null, story: null }
+    return { ticket: s.ticket, diagram: diagramOf(db, s.ticket), story: storyOf(db, s.ticket) }
   })
   ipcMain.handle('story:write', (_e, session: string) => {
     const s = sessionOf(session)
