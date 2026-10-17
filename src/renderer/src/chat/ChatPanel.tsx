@@ -15,7 +15,7 @@ import { MODES } from './modes'
 import { useVoice } from './use-voice'
 import { MicButton } from './MicButton'
 import { MdCode } from '../ide/CodeBlock'
-import { Chev } from '../ide/icons'
+import { Chev, Icon } from '../ide/icons'
 
 // The right-hand chat (IDE/D9). Everything waiting on the user for this chat sits above the input:
 // permission prompts, Claude's questions, decisions, reviews and actions.
@@ -44,6 +44,7 @@ const BUILTINS: { name: string; desc: string }[] = [
   { name: 'config', desc: 'Change a setting: /config key=value' }
 ]
 type Img = { mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string; name: string }
+type Attached = { path: string; name: string }
 type MenuItem = { key: string; label: string; desc: string; source: string; insert: string }
 
 // One Claude message. Markdown parsing is the costly part of a long chat, so a message re-renders only when its own
@@ -76,6 +77,8 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   const [err, setErr] = useState<string | null>(null)
   const [menuIndex, setMenuIndex] = useState(0)
   const [images, setImages] = useState<Img[]>([])
+  const [attached, setAttached] = useState<Attached[]>([])
+  const picker = useRef<HTMLInputElement>(null)
   // "Waiting on you" can be folded per session; remembered on this computer only (storage can fail: then it shows open).
   const [folded, setFolded] = useState<Record<string, boolean>>({})
   const waitingFolded = session ? folded[session] ?? storedFold(session) : false
@@ -89,7 +92,7 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   }
   // A message naming another ticket waits here until you choose where it goes (main/context.ts route).
   type Choice = 'here' | 'existing' | 'new'
-  const [routing, setRouting] = useState<{ key: string; current: string | null; existing: string | null; text: string; images: Img[] } | null>(null)
+  const [routing, setRouting] = useState<{ key: string; current: string | null; existing: string | null; text: string; images: Img[]; files: Attached[] } | null>(null)
   const [files, setFiles] = useState<string[] | null>(null)
   const box = useRef<HTMLTextAreaElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
@@ -163,7 +166,7 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   }, [rows.length, live, sent.length])
 
   const send = async (text: string): Promise<void> => {
-    if (!text.trim() && !images.length) return
+    if (!text.trim() && !images.length && !attached.length) return
     setErr(null)
     // /clear and /rename are handled by the app (a new chat, the chat's name); everything else goes to Claude Code.
     const cmd = /^\/(clear|rename)(?:\s+([\s\S]*))?$/.exec(text.trim())
@@ -190,11 +193,12 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
         return refresh()
       }
       // Same ticket, or none: sent here. Another ticket: you choose first (routing), then sendTo sends it.
-      const r = await window.api.chat.send(session, text, images.map(({ mediaType, data }) => ({ mediaType, data })))
-      if (r.ask) return setRouting({ ...r.ask, text, images })
+      const r = await window.api.chat.send(session, text, images.map(({ mediaType, data }) => ({ mediaType, data })), undefined, attached.map((f) => f.path))
+      if (r.ask) return setRouting({ ...r.ask, text, images, files: attached })
       if (r.session !== session) setSession(r.session)
       setInput('')
       setImages([])
+      setAttached([])
       refresh()
     } catch (e) {
       setErr(errText(e))
@@ -206,11 +210,12 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   const sendTo = async (choice: Choice): Promise<void> => {
     if (!routing) return
     try {
-      const r = await window.api.chat.send(session, routing.text, routing.images.map(({ mediaType, data }) => ({ mediaType, data })), choice)
+      const r = await window.api.chat.send(session, routing.text, routing.images.map(({ mediaType, data }) => ({ mediaType, data })), choice, routing.files.map((f) => f.path))
       setRouting(null)
       if (r.session !== session) setSession(r.session)
       setInput('')
       setImages([])
+      setAttached([])
       refresh()
     } catch (e) {
       setErr(errText(e))
@@ -254,10 +259,17 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
   const command = (line: string): void => {
     if (session) window.api.chat.command(session, line).catch((e: unknown) => setErr(errText(e)))
   }
-  // Pasted or dropped images go to Claude with the next message (PNG, JPEG, GIF, WebP, up to 5 MB each).
-  const addImageFiles = (list: FileList | File[]): void => {
+  // Attached files go to Claude with the next message:
+  // - a file on disk (any type) as its path
+  // - a pasted image with no file (a screenshot) as a saved copy: PNG, JPEG, GIF, WebP, up to 5 MB
+  const addFiles = (list: FileList | File[]): void => {
     for (const f of Array.from(list)) {
-      if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(f.type)) continue
+      const path = window.api.chat.pathOf(f)
+      if (path) {
+        setAttached((xs) => xs.some((x) => x.path === path) ? xs : [...xs, { path, name: f.name }])
+        continue
+      }
+      if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(f.type)) { setErr(`${f.name || 'This item'} is not a file on disk; only pasted images can be sent without one`); continue }
       if (f.size > 5 * 1024 * 1024) { setErr(`${f.name || 'image'} is over 5 MB`); continue }
       const r = new FileReader()
       r.onload = () => setImages((xs) => [...xs, { mediaType: f.type as Img['mediaType'], data: String(r.result).split(',')[1], name: f.name || 'pasted image' }])
@@ -416,8 +428,14 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
             ))}
           </div>
         )}
-        {images.length > 0 && (
+        {(images.length > 0 || attached.length > 0) && (
           <div className="img-chips">
+            {attached.map((f, i) => (
+              <span key={f.path} className="img-chip" title={f.path}>
+                <Icon name="clip" />{f.name}
+                <button className="row-act" onClick={() => setAttached(attached.filter((_, j) => j !== i))}>×</button>
+              </span>
+            ))}
             {images.map((im, i) => (
               <span key={i} className="img-chip">
                 <img src={`data:${im.mediaType};base64,${im.data}`} alt="" />{im.name}
@@ -428,9 +446,9 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
         )}
         <textarea ref={box} value={input} disabled={!queued && (!trusted || !folder)} onChange={(e) => { setInput(e.target.value); setMenuIndex(0) }} onKeyDown={onKey}
           onKeyUp={(e) => { if (e.key === ' ' || e.key === 'Alt') voice.release() }}
-          onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addImageFiles(e.clipboardData.files) } }}
-          onDragOver={(e) => e.preventDefault()} onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); addImageFiles(e.dataTransfer.files) } }}
-          placeholder={queued ? (term ? 'Type to this session (sent to its terminal)' : 'Message this session (queued until it checks the board)') : !folder ? 'Open a folder to start' : !trusted ? 'Trust this folder to chat' : busy ? 'Claude is working. You can queue a message. Esc stops.' : 'Ask Claude · / commands and skills · @ files · paste images · ⇧Tab mode'} />
+          onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files) } }}
+          onDragOver={(e) => e.preventDefault()} onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); addFiles(e.dataTransfer.files) } }}
+          placeholder={queued ? (term ? 'Type to this session (sent to its terminal)' : 'Message this session (queued until it checks the board)') : !folder ? 'Open a folder to start' : !trusted ? 'Trust this folder to chat' : busy ? 'Claude is working. You can queue a message. Esc stops.' : 'Ask Claude · / commands and skills · @ files · drop or paste files · ⇧Tab mode'} />
         <div className="composer-bar">
           {/* What is set now: the mode from Claude Code's footer, the model of its latest reply, the effort last chosen here. */}
           {!queued && <><select className="mode-pick" value={current?.mode || 'default'} disabled={!session} title="Mode (⇧Tab cycles it)"
@@ -447,8 +465,10 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
           </select></>}
           <span className="grow" />
           {busy && <button onClick={() => session && window.api.chat.interrupt(session)}>Stop</button>}
+          {!queued && <button className="attach" disabled={!trusted || !folder} title="Attach files (or drop or paste them in the box)" onClick={() => picker.current?.click()}><Icon name="clip" /></button>}
+          <input ref={picker} type="file" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
           <MicButton voice={voice} disabled={!queued && (!trusted || !folder)} />
-          <button className="primary" disabled={(!input.trim() && !images.length && voice.state === 'off') || (!queued && !trusted)} onClick={() => { if (!voice.stopAndSend()) void send(input) }}>{queued && !term ? 'Queue' : 'Send'}</button>
+          <button className="primary" disabled={(!input.trim() && !images.length && !attached.length && voice.state === 'off') || (!queued && !trusted)} onClick={() => { if (!voice.stopAndSend()) void send(input) }}>{queued && !term ? 'Queue' : 'Send'}</button>
         </div>
         {routing && (
           <div className="route-ask">

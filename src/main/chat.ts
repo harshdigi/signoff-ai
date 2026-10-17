@@ -1,7 +1,7 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { randomUUID } from 'crypto'
-import { mkdirSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import * as b from '../shared/board'
 import { indexChatEvent } from '../shared/memory'
@@ -140,13 +140,13 @@ export class ChatManager {
 
   // The window sends here. A message naming another ticket comes back with `ask` and is not sent: the window asks
   // where it should go and sends again with the choice.
-  routeAndSend(current: string | null, text: string, folder: string, images: ChatImage[] = [], choice?: RouteChoice): { session: string | null; notice?: string; ask?: RouteAsk } {
+  routeAndSend(current: string | null, text: string, folder: string, images: ChatImage[] = [], choice?: RouteChoice, files: string[] = []): { session: string | null; notice?: string; ask?: RouteAsk } {
     const r = route(this.db, current, text, folder, choice)
     if (r.ask) return { session: current, ask: r.ask }
     const target = r.session ?? this.create(folder, { ticket: r.ticket })
     if (r.session && r.ticket) b.touchSession(this.db, target, { ticket: r.ticket })
     if (r.notice) this.note(target, { type: 'notice', text: r.notice })
-    this.send(target, text, images)
+    this.send(target, text, images, files)
     return { session: target, notice: r.notice }
   }
 
@@ -170,10 +170,13 @@ export class ChatManager {
     return (this.chats.get(session) ?? this.start(session)).terminal
   }
 
-  send(session: string, text: string, images: ChatImage[] = []): void {
-    if (!text.trim() && !images.length) throw new b.BoardError('message is empty')
+  // Files go by their path on disk (Claude reads them as they are); pasted images are saved as a copy first.
+  send(session: string, text: string, images: ChatImage[] = [], files: string[] = []): void {
+    if (!text.trim() && !images.length && !files.length) throw new b.BoardError('message is empty')
+    const gone = files.find((f) => !existsSync(f))
+    if (gone) throw new b.BoardError(`${gone} no longer exists`)
     const paths = images.map((i) => this.saveImage(i))
-    const message = [text.trim(), ...paths.map((p) => `[image: ${p}]`)].filter(Boolean).join('\n')
+    const message = [text.trim(), ...paths.map((p) => `[image: ${p}]`), ...files.map((f) => `[file: ${f}]`)].filter(Boolean).join('\n')
     const c = this.chats.get(session) ?? this.start(session)
     const s = this.db.prepare('SELECT title FROM sessions WHERE id = ?').get(session) as { title: string | null }
     // Until Claude names the chat (ai-title, a short summary), its first line stands in; Claude's title then replaces it.

@@ -182,6 +182,8 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .composer textarea { width: 100%; min-height: 64px; max-height: 240px; resize: vertical; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .composer-bar { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
 .mic-wrap { position: relative; display: inline-flex; }
+.attach { min-width: 34px; display: inline-flex; align-items: center; justify-content: center; }
+.attach .icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .mic { min-width: 34px; touch-action: none; user-select: none; display: inline-flex; align-items: center; justify-content: center; }
 .mic .icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .mic.locked .icon { fill: currentColor; }
@@ -386,6 +388,7 @@ button.danger { border-color: #d14d41; color: #d14d41; }
 .img-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
 .img-chip { display: flex; align-items: center; gap: 4px; font-size: 11px; border: 1px solid var(--line); border-radius: 6px; padding: 2px 4px; }
 .img-chip img { width: 28px; height: 28px; object-fit: cover; border-radius: 3px; }
+.img-chip .icon { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .todos { border-top: 1px solid var(--edge); padding: 6px 10px; font-size: 12px; max-height: 30%; overflow-y: auto; }
 .todos > summary { cursor: pointer; color: var(--quiet); }
 .todo { padding: 1px 0; overflow-wrap: anywhere; }

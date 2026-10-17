@@ -358,6 +358,17 @@ describe('terminal chats', () => {
     expect(existsSync(path)).toBe(true)
   })
 
+  it('attached files go into the message as their path; a missing file is refused', async () => {
+    const id = chat.create('/tmp')
+    hookRuns(id)
+    const file = join(mkdtempSync(join(tmpdir(), 'attach-')), 'notes.txt')
+    writeFileSync(file, 'hi')
+    expect(() => chat.send(id, 'x', [], ['/no/such/file.txt'])).toThrow('/no/such/file.txt no longer exists')
+    chat.send(id, 'read this', [], [file])
+    await until(() => said(id).length === 2)
+    expect(said(id)[0]).toBe(`> read this\n[file: ${file}]`)
+  })
+
   it('a handoff starts a fresh chat with the note from the board', async () => {
     const id = chat.create('/tmp', { ticket: 'KA-1' })
     hookRuns(id)
