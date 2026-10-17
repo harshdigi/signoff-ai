@@ -112,3 +112,10 @@ export function acceptByClaude(db: Store, review: string, by: string): void {
     if (r.changes !== 1) throw new BoardError(`${review} is not open`)
   })()
 }
+
+// The lines a session reads: its mode, what it may settle itself, and that everything else asks.
+export function autonomyBrief(a: Autonomy): string {
+  const mode = a.mode === 'custom' ? 'Custom' : MODES[a.mode].label
+  if (!a.items.length) return `Autonomy: ${mode}. Nothing is handed to you: every decision and action waits for the user.`
+  return `Autonomy: ${mode}. You may settle these yourself (name them with --item): ${a.items.join(', ')}. Everything else waits for the user.`
+}

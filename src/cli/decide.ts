@@ -12,7 +12,7 @@ import * as tk from '../shared/tickets'
 import { search } from '../shared/memory'
 import { syncBoard } from '../main/store/import-board'
 import { getSettings } from '../main/settings'
-import { acceptByClaude, delegate } from '../shared/autonomy'
+import { acceptByClaude, autonomyBrief, delegate, getAutonomy } from '../shared/autonomy'
 import { anchorsFor, docsBrief, findDocs, indexDocs, touchedDocs, verifyDocs } from '../main/flows'
 import { protocolParts } from '../main/protocol'
 import { finishPiece, passPiece, proposeSplit, proposeTeam, setupLines, teamBrief, leadWith } from '../shared/team'
@@ -29,6 +29,7 @@ import { getApproval, leaveToTerminal, requestApproval } from '../shared/approva
 
 const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_CODE_SESSION_ID; decide is the same command)
   register  [--ticket K] [--title T] [--description D]   [--parent SESSION-ID: nest under that session; its first 8+ characters are enough]
+  autonomy                       what this session may settle itself, and what waits for the user
   status    [--state starting|working|waiting|done] [--note N] [--description D]
   post      --ticket K --id Dn --question Q [--context C]... [--option "Label :: what happens"]... [--recommend "Label :: why"]
             [--evidence "file:line :: what it shows"]... [--if-wrong W] [--ref K/Dn]... [--draft T | --draft-file FILE]
@@ -161,6 +162,7 @@ function hook(db: Store, event: string | undefined, terminal = false): number {
       lines.push(`Ticket: ${ticket}. Decisions on the board for it (cite them by id; do not re-ask settled ones):`, ds.join('\n') || '(none yet)')
     } else lines.push('Ticket: none (the branch has no issue key). Set one before posting: signoff register --ticket <KEY>')
     lines.push(...teamBrief(db, input.session_id))
+    lines.push('', autonomyBrief(getAutonomy(db, input.session_id, getSettings(db).autonomy)))
     // Flow docs (Settings): every session is told to look there first.
     const flow = getSettings(db).flowDocs
     if (flow) lines.push('', ...docsBrief(flow))
@@ -277,6 +279,9 @@ function main(argv: string[]): number {
   const text = (): string => (o['text-file'] ? readFileSync(o['text-file'], 'utf8') : req('text'))
 
   switch (cmd) {
+    case 'autonomy':
+      console.log(autonomyBrief(getAutonomy(db, sid(), getSettings(db).autonomy)))
+      return 0
     case 'register':
       // --parent: nest this session under another one (its id, or the first characters of it).
       register(db, sid(), o)

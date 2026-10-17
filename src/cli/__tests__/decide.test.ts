@@ -171,13 +171,22 @@ describe('decide CLI', () => {
     expect(r.code).toBe(0)
     expect(JSON.parse(r.out)).toEqual({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext:
       '# Signoff AI session\nRegistered on the board as session s2.\n' +
-      'Ticket: ABC-12. Decisions on the board for it (cite them by id; do not re-ask settled ones):\nABC-12/D1 [open] Q?' } })
+      'Ticket: ABC-12. Decisions on the board for it (cite them by id; do not re-ask settled ones):\nABC-12/D1 [open] Q?' +
+      '\n\nAutonomy: Ask as you go. Nothing is handed to you: every decision and action waits for the user.' } })
   })
 
   it('hook session-start without an issue key asks Claude to set one', () => {
     const r = decide(['hook', 'session-start'], {}, JSON.stringify({ session_id: 's3', cwd: dir }))
     expect(JSON.parse(r.out).hookSpecificOutput.additionalContext).toBe('# Signoff AI session\nRegistered on the board as session s3.\n' +
-      'Ticket: none (the branch has no issue key). Set one before posting: signoff register --ticket <KEY>')
+      'Ticket: none (the branch has no issue key). Set one before posting: signoff register --ticket <KEY>' +
+      '\n\nAutonomy: Ask as you go. Nothing is handed to you: every decision and action waits for the user.')
+  })
+
+  it('signoff autonomy prints what the session may settle itself', () => {
+    decide([...S, 'register'])
+    expect(decide([...S, 'autonomy']).out).toBe('Autonomy: Ask as you go. Nothing is handed to you: every decision and action waits for the user.')
+    setAutonomy(openStore(join(dir, 'board.db')), 's1', { items: ['impl.fixes', 'ship.commit'] })
+    expect(decide([...S, 'autonomy']).out).toBe('Autonomy: Custom. You may settle these yourself (name them with --item): impl.fixes, ship.commit. Everything else waits for the user.')
   })
 
   it('hook stop delivers queued messages once and never blocks twice', () => {
