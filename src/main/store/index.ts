@@ -24,11 +24,12 @@ import migrate18 from './migrate-18.sql?raw'
 import migrate19 from './migrate-19.sql?raw'
 import migrate20 from './migrate-20.sql?raw'
 import migrate21 from './migrate-21.sql?raw'
+import migrate22 from './migrate-22.sql?raw'
 
 export type Store = Database.Database
 
 // Each step runs once, in order. A new migration is appended here.
-const STEPS = [schema, migrate2, migrate3, migrate4, migrate5, migrate6, migrate7, migrate8, migrate9, migrate10, migrate11, migrate12, migrate13, migrate14, migrate15, migrate16, migrate17, migrate18, migrate19, migrate20, migrate21]
+const STEPS = [schema, migrate2, migrate3, migrate4, migrate5, migrate6, migrate7, migrate8, migrate9, migrate10, migrate11, migrate12, migrate13, migrate14, migrate15, migrate16, migrate17, migrate18, migrate19, migrate20, migrate21, migrate22]
 export const SCHEMA_VERSION = STEPS.length
 
 // Opens (and on first run creates) the store.

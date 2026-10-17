@@ -371,7 +371,7 @@ export function splitPatch(text: string, defaultFile = 'proposal'): { file: stri
   return out.filter((c) => c.lines.join('').trim()).map((c) => ({ file: c.file, diff: c.lines.join('\n').replace(/^\n+|\n+$/g, '') }))
 }
 
-const nextId = (db: Store, table: 'reviews' | 'backlog' | 'runs', prefix: string): string => {
+export const nextId = (db: Store, table: 'reviews' | 'backlog' | 'runs' | 'monitors', prefix: string): string => {
   const rows = db.prepare(`SELECT id FROM ${table} WHERE id LIKE ?`).all(prefix + '-%') as { id: string }[]
   return `${prefix}-${1 + Math.max(0, ...rows.map((r) => Number(r.id.split('-')[1]) || 0))}`
 }
