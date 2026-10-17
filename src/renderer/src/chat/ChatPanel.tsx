@@ -14,6 +14,7 @@ import { foldTurns, latestTodos, stepsSummary, toRows, toolSummary, waitingInTer
 import { MODES } from './modes'
 import { useVoice } from './use-voice'
 import { MicButton } from './MicButton'
+import AutonomyPanel from './AutonomyPanel'
 import { MdCode } from '../ide/CodeBlock'
 import { Chev } from '../ide/icons'
 
@@ -444,7 +445,8 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
           <select value={current?.effort ?? ''} disabled={!session} onChange={(e) => e.target.value && command(`/effort ${e.target.value}`)} title="Effort (sends /effort)">
             {!current?.effort && <option value="">Default effort</option>}
             {EFFORTS.map((x) => <option key={x} value={x}>{x[0].toUpperCase() + x.slice(1)} effort</option>)}
-          </select></>}
+          </select>
+          <AutonomyPanel session={session} /></>}
           <span className="grow" />
           {busy && <button onClick={() => session && window.api.chat.interrupt(session)}>Stop</button>}
           <MicButton voice={voice} disabled={!queued && (!trusted || !folder)} />

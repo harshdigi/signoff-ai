@@ -6,7 +6,9 @@ import { MODES, type Mode } from '../chat/modes'
 import { CodePre } from './CodeBlock'
 
 // Settings dialog. Values apply to sessions started after saving (the system prompt is set at start).
-type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode; tidyDecisions: boolean; speechLocale: string; speechAutoSend: boolean }
+// The autonomy presets (shared/autonomy.ts MODES); the main process expands a mode to its boxes.
+const AUTONOMY = [['ask', 'Ask as you go'], ['planFirst', 'Plan first, then run'], ['full', 'Full auto']] as const
+type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode; tidyDecisions: boolean; speechLocale: string; speechAutoSend: boolean; autonomy: { mode: string; items?: string[]; plan?: boolean } }
 
 // Voice input (🎤 in the chat): the language, and whether it sends when you stop. Only languages this Mac can
 // recognise offline can be picked; the others need their model downloaded in System Settings first.
@@ -98,6 +100,14 @@ export default function Settings({ close, catalog, openShortcuts }: { close: () 
                 {MODES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
               </select>
               <div className="meta">New, resumed and team chats start in this mode. To change it for one chat, press ⇧Tab in that chat.</div>
+            </div>
+            <div className="field">
+              <div className="label">Autonomy for new sessions</div>
+              <select value={s.autonomy.mode} onChange={(e) => setS({ ...s, autonomy: { mode: e.target.value } })}>
+                {AUTONOMY.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+                {s.autonomy.mode === 'custom' && <option value="custom" disabled>Custom</option>}
+              </select>
+              <div className="meta">What Claude may decide on your behalf in a new session. Change it for one session from the Autonomy button in its chat box. Production, merges, deletes, messages to people, money and secrets always ask.</div>
             </div>
             <VoiceInput s={s} setS={setS} />
             <div className="field">

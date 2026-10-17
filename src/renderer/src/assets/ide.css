@@ -181,6 +181,13 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .composer { position: relative; border-top: 1px solid var(--edge); padding: 8px; }
 .composer textarea { width: 100%; min-height: 64px; max-height: 240px; resize: vertical; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .composer-bar { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+/* Autonomy (composer): a panel above the button with the mode presets, the plan switch and the grouped checkboxes. */
+.autonomy { position: relative; }
+.autonomy-panel { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 40; width: 360px; max-height: 60vh; overflow-y: auto; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px #0003; }
+.autonomy-panel .auto-modes { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.autonomy-panel .auto-phase { margin-top: 8px; }
+.autonomy-panel label.inline { display: flex; gap: 6px; align-items: baseline; padding: 2px 0; }
+.autonomy-panel .locked label { color: var(--quiet); }
 .mic-wrap { position: relative; display: inline-flex; }
 .mic { min-width: 34px; touch-action: none; user-select: none; display: inline-flex; align-items: center; justify-content: center; }
 .mic .icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
