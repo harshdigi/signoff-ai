@@ -21,6 +21,8 @@ export type WatchEvents = {
   ciGreen: (m: Monitor) => void                       // review request (step 5)
   ciRed: (m: Monitor, failed: string[]) => void       // tell the owner session
   incident: (m: Monitor, what: string) => void        // fire fighting (step 7)
+  // The error check (step 6), at the monitor's interval during the stability window. Null when the app has none.
+  checkErrors?: (m: Monitor) => Promise<{ newErrors: boolean; summary: string }>
 }
 
 // gh, optionally in a folder (then `gh pr view` with no number means that folder's current branch).
@@ -33,10 +35,28 @@ const failedOf = (checks: Check[]): string[] => checks.filter((c) => ['FAILURE',
 const settled = (checks: Check[]): boolean => checks.every((c) => (c.status ?? '').toUpperCase() === 'COMPLETED')
 
 export class MonitorWatcher {
+  private checking = new Map<string, Promise<void>>() // error checks running (minutes each): one per monitor, not awaited by tick
+  private ticking = false
   constructor(private db: Store, private gh: Gh, private on: WatchEvents, private deployWorkflow: (repo: string) => string | null, private now = (): number => Date.now()) {}
 
   // One pass over every live monitor. A failure to reach GitHub is logged on that monitor's timeline and retried next pass.
   async tick(): Promise<void> {
+    // A pass still running (slow GitHub) is not overlapped: two passes could both move a monitor and fire its events twice.
+    if (this.ticking) return
+    this.ticking = true
+    try {
+      await this.pass()
+    } finally {
+      this.ticking = false
+    }
+  }
+
+  // Resolves when the error checks started so far have finished (tests, and a clean quit).
+  idle(): Promise<void> {
+    return Promise.all(this.checking.values()).then(() => undefined)
+  }
+
+  private async pass(): Promise<void> {
     for (const m of liveMonitors(this.db)) {
       try {
         await this.step(m)
@@ -103,7 +123,30 @@ export class MonitorWatcher {
       this.on.incident(setStage(this.db, m.id, 'incident', what), what)
       return
     }
-    if (this.now() - Date.parse(m.deployed_at!) >= m.window_minutes * 60_000) setStage(this.db, m.id, 'done', `Stable for ${m.window_minutes} min after the deploy`)
+    if (this.now() - Date.parse(m.deployed_at!) >= m.window_minutes * 60_000) return void setStage(this.db, m.id, 'done', `Stable for ${m.window_minutes} min after the deploy`)
+    this.startErrorCheck(m)
+  }
+
+  // Runs the error check when one is due: the first at one interval after the deploy, then every interval.
+  private startErrorCheck(m: Monitor): void {
+    if (!this.on.checkErrors || this.checking.has(m.id)) return
+    const last = (this.db.prepare("SELECT at FROM monitor_events WHERE monitor_id = ? AND kind IN ('error-check','error-check-failed') ORDER BY id DESC LIMIT 1").get(m.id) as { at: string } | undefined)?.at ?? m.deployed_at!
+    if (this.now() - Date.parse(last) < m.check_minutes * 60_000) return
+    this.checking.set(m.id, this.errorCheck(m, this.on.checkErrors))
+  }
+
+  private async errorCheck(m: Monitor, check: NonNullable<WatchEvents['checkErrors']>): Promise<void> {
+    try {
+      const v = await check(m)
+      if (v.newErrors) {
+        const what = `New production errors after the deploy: ${v.summary}`
+        this.on.incident(setStage(this.db, m.id, 'incident', what), what)
+      } else addEvent(this.db, m.id, 'error-check', `Errors checked: ${v.summary}`)
+    } catch (e) {
+      addEvent(this.db, m.id, 'error-check-failed', `Error check failed: ${(e as Error).message.slice(0, 200)}`)
+    } finally {
+      this.checking.delete(m.id)
+    }
   }
 
   // Does `head` contain `commit`? GitHub's compare says "identical" or "ahead" when it does.

@@ -97,4 +97,25 @@ describe('monitor watcher', () => {
     saveSetup(db, REPO, { found, foundAt: 't', chosen: { deployWorkflow: 'release.yml' } })
     expect(deployWorkflowOf(db, REPO)).toBe('release.yml')
   })
+
+  it('error checks: first one interval after the deploy, then each interval; new errors are an incident', async () => {
+    db.prepare("UPDATE monitors SET stage = 'stable', merge_sha = 'm1', deployed_at = '2026-10-17T10:00:00Z' WHERE id = 'M-1'").run()
+    const verdicts = [{ newErrors: false, summary: 'no new errors' }, { newErrors: true, summary: 'NoMethodError in EscrowRouter (42 since 10:02)' }]
+    let ran = 0
+    const w = (now: string): MonitorWatcher => new MonitorWatcher(db, fake({ main: [] }), { ciGreen: () => {}, ciRed: () => {}, incident: (_m, x) => said.push(`incident ${x}`), checkErrors: async () => verdicts[ran++] }, () => 'deploy.yml', () => Date.parse(now))
+    const a = w('2026-10-17T10:10:00Z'); await a.tick(); await a.idle()
+    expect(ran).toBe(0) // the interval is 15 min: not due yet
+    const b = w('2026-10-17T10:16:00Z'); await b.tick(); await b.idle()
+    expect([ran, monitorEvents(db, 'M-1').at(-1)?.text]).toEqual([1, 'Errors checked: no new errors'])
+    db.prepare("UPDATE monitor_events SET at = '2026-10-17T10:16:00Z' WHERE kind = 'error-check'").run()
+    const c = w('2026-10-17T10:32:00Z'); await c.tick(); await c.idle()
+    expect([getMonitor(db, 'M-1').stage, said]).toEqual(['incident', ['incident New production errors after the deploy: NoMethodError in EscrowRouter (42 since 10:02)']])
+  })
+
+  it('a failed error check is logged and the watch goes on', async () => {
+    db.prepare("UPDATE monitors SET stage = 'stable', merge_sha = 'm1', deployed_at = '2026-10-17T10:00:00Z' WHERE id = 'M-1'").run()
+    const w = new MonitorWatcher(db, fake({ main: [] }), { ciGreen: () => {}, ciRed: () => {}, incident: () => {}, checkErrors: async () => { throw new Error('Scout timed out') } }, () => 'deploy.yml', () => Date.parse('2026-10-17T10:20:00Z'))
+    await w.tick(); await w.idle()
+    expect([getMonitor(db, 'M-1').stage, monitorEvents(db, 'M-1').at(-1)?.text]).toEqual(['stable', 'Error check failed: Scout timed out'])
+  })
 })

@@ -35,6 +35,7 @@ import { SpeechInput } from './speech'
 import { deployWorkflowOf, gh, MonitorWatcher } from './monitor-watch'
 import { registerMonitorIpc } from './ipc-monitor'
 import { sendReviewRequest } from './monitor-notify'
+import { checkErrors } from './monitor-errors'
 import { runHeadless } from './headless'
 import { addEvent, type Monitor } from '../shared/monitors'
 import { queueMessage } from '../shared/board'
@@ -178,6 +179,10 @@ app.whenReady().then(() => {
       }).catch((e: unknown) => addEvent(store, m.id, 'notify-failed', `Review request failed: ${(e as Error).message.slice(0, 200)}`))
     },
     ciRed: (m, failed) => tell(m, `Monitor ${m.id}: CI failed on ${m.repo}#${m.pr}: ${failed.join(', ')}. Fix it, or tell the user why not.`),
+    checkErrors: (m) => {
+      const cwd = (store.prepare('SELECT cwd FROM sessions WHERE id = ?').get(m.session_id) as { cwd: string | null } | undefined)?.cwd ?? homedir()
+      return checkErrors(store, m, (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 240_000 }), new Date().toISOString())
+    },
     incident: (m, what) => tell(m, `Monitor ${m.id}, production: ${what} (${m.repo}#${m.pr}). Investigate the cause and prepare a fix plan and a rollback plan. Do not push, merge, deploy or roll back without the user's approval.`)
   }, (repo) => deployWorkflowOf(store, repo))
   const watchTimer = setInterval(() => void watcher.tick(), 120_000)
