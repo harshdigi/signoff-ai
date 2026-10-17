@@ -34,6 +34,7 @@ import { sendTo } from './window-send'
 import { SpeechInput } from './speech'
 import { deployWorkflowOf, gh, MonitorWatcher } from './monitor-watch'
 import { registerMonitorIpc } from './ipc-monitor'
+import { registerStoryIpc } from './ipc-story'
 import { sendReviewRequest } from './monitor-notify'
 import { checkErrors } from './monitor-errors'
 import { startFirefight } from './monitor-firefight'
@@ -192,6 +193,7 @@ app.whenReady().then(() => {
   }, (repo) => deployWorkflowOf(store, repo))
   const watchTimer = setInterval(() => void watcher.tick(), 120_000)
   registerMonitorIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
+  registerStoryIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
   app.on('before-quit', () => clearInterval(watchTimer))
   const stopIde = registerIdeIpc(store, chat, terminals, new TestRunner(terminals), pipeline, new Teams(store, chat), () => mainWindow)
   app.on('before-quit', () => {

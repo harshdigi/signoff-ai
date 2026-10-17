@@ -74,6 +74,10 @@ const api = {
     remove: (id: string) => ipcRenderer.invoke('session:remove', id),
     restore: (id: string) => ipcRenderer.invoke('session:restore', id)
   },
+  story: {
+    get: (session: string) => ipcRenderer.invoke('story:get', session),
+    write: (session: string) => ipcRenderer.invoke('story:write', session)
+  },
   autonomy: {
     get: (session: string) => ipcRenderer.invoke('autonomy:get', session),
     set: (session: string, choice: { mode?: string; items?: string[] }) => ipcRenderer.invoke('autonomy:set', session, choice)

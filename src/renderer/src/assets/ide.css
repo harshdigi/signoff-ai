@@ -676,3 +676,14 @@ button.file-head:hover { background: var(--sel); }
 .card-line .line-mark { color: var(--ok); flex: none; } .card-line .line-mark.withdrawn { color: var(--quiet); }
 .card-line .line-q { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-line .line-a { max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--quiet); }
+
+/* Story (session page): summary, a "how it works" flow, the decision chart, folded technical details. */
+.story .story-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 10px; }
+.story .story-summary { margin: 0 0 14px; padding-left: 18px; line-height: 1.5; }
+.story .story-flow, .story .story-chart { display: flex; flex-direction: column; align-items: flex-start; margin: 6px 0 14px; }
+.story .flow-step { display: flex; flex-direction: column; align-items: center; }
+.story .flow-box, .story .chart-box { display: flex; flex-direction: column; gap: 2px; min-width: 320px; max-width: 560px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.story .chart-box.you { border-left: 3px solid var(--accent); }
+.story .chart-box.claude { border-left: 3px solid var(--ok); }
+.story .chart-box.waiting { border-left: 3px solid var(--warn); }
+.story .flow-arrow { color: var(--quiet); line-height: 1.4; }
