@@ -118,4 +118,11 @@ describe('monitor watcher', () => {
     await w.tick(); await w.idle()
     expect([getMonitor(db, 'M-1').stage, monitorEvents(db, 'M-1').at(-1)?.text]).toEqual(['stable', 'Error check failed: Scout timed out'])
   })
+
+  it('started fires once per monitor (the Story is written then)', async () => {
+    const seen: string[] = []
+    const w = new MonitorWatcher(db, fake({ pr: { state: 'OPEN', mergeCommit: null, statusCheckRollup: [] } }), { ciGreen: () => {}, ciRed: () => {}, incident: () => {}, started: (m) => seen.push(m.id) }, () => 'deploy.yml')
+    await w.tick(); await w.tick()
+    expect(seen).toEqual(['M-1'])
+  })
 })

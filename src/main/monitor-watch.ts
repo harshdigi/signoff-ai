@@ -21,6 +21,8 @@ export type WatchEvents = {
   ciGreen: (m: Monitor) => void                       // review request (step 5)
   ciRed: (m: Monitor, failed: string[]) => void       // tell the owner session
   incident: (m: Monitor, what: string) => void        // fire fighting (step 7)
+  // Once per monitor, when the app first sees it (its pull request exists): the Story is written (SIGNOFF-24/D3).
+  started?: (m: Monitor) => void
   // The error check (step 6), at the monitor's interval during the stability window. Null when the app has none.
   checkErrors?: (m: Monitor) => Promise<{ newErrors: boolean; summary: string }>
 }
@@ -58,6 +60,10 @@ export class MonitorWatcher {
 
   private async pass(): Promise<void> {
     for (const m of liveMonitors(this.db)) {
+      if (this.on.started && !this.db.prepare("SELECT 1 FROM monitor_events WHERE monitor_id = ? AND kind = 'story'").get(m.id)) {
+        addEvent(this.db, m.id, 'story', 'Writing the Story for this pull request')
+        this.on.started(m)
+      }
       try {
         await this.step(m)
       } catch (e) {

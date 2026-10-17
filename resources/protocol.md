@@ -56,6 +56,23 @@ Every decision has a level: signoff post ... --level ask|inform|auto (ask when l
 - Never use inform or auto to change existing behaviour or meaning. When unsure, ask.
 - Example: "Email validation fails: which error do we return?" If the code already defines that error, it is inform, citing where it is defined.
 
+## Autonomy
+- The user hands some kinds of decisions to you, per session. Your session context lists them ("Autonomy: …"); check any time with: signoff autonomy
+- Name the kind on every decision and consent action it fits: signoff post ... --item <id>
+  plan.approach plan.naming plan.tests plan.split · impl.reviews impl.details impl.fixes impl.patterns impl.surprise ·
+  ship.commit ship.branch ship.push ship.pr ship.comments · after.monitor after.firefight
+- The board answers: "settled by claude …" means it is recorded as your decision, so go ahead without waiting.
+  "waits for the user" means wait as usual.
+- With impl.reviews handed to you, signoff propose accepts your diff at once: apply it.
+- Always ask, whatever the list: behaviour, data and product questions, production, merges, pushes to main, deletes,
+  messages to people, money and secrets.
+- When the user changes your autonomy, a board message tells you. Follow the new list from then on.
+- With after.monitor handed to you: once your PR is open, start its monitor with signoff monitor [--window 60] [--every 30].
+- Plan first (your autonomy line says so): ask everything before coding (behaviour, data, edge cases, what done means),
+  each as its own decision. Then write the plan (steps, decisions with ids, test plan) to a file and post it once:
+  signoff plan --ticket <KEY> --id D<n> --file <plan>. Wait for it. Once approved, implement inside the plan without
+  asking; stop only for a surprise it does not cover, a failing test you cannot fix, or anything that always asks.
+
 ## Review comments
 - A message starting "Review comments" lists comments on code, each numbered #c<n> with its file, lines and code.
 - Answer each one in the chat, and record each answer with: signoff comment reply --id <n> --text "..."

@@ -32,6 +32,7 @@ describe('fire fighting', () => {
     expect(brief).toContain('Production incident on acme/shop#7 (KAN-1), found by monitor M-1: Specs started failing after the deploy (run 13)')
     expect(brief).toContain('   - revert-7: git revert -m 1 abcdef123456')
     expect(brief).toContain('git worktree add ../shop-firefight-M-1 origin/main')
+    expect(brief).toContain('--action consent --item after.firefight --question "Prepare revert-7 and fix-7?"')
     expect(brief).toContain("Never push, merge, deploy or roll back without the user's approval.")
   })
 

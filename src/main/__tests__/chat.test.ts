@@ -4,6 +4,7 @@ import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from 'vitest'
+import { setAutonomy } from '../../shared/autonomy'
 import { ChatManager, footerMode, inputHasText } from '../chat'
 import { DEFAULTS, type Settings } from '../settings'
 import { openStore, type Store } from '../store'
@@ -144,6 +145,15 @@ describe('terminal chats', () => {
     const resumed = chat.resume('11111111-1111-4111-8111-111111111111', '/tmp', 'Old chat')
     const mode = (id: string): string => (db.prepare('SELECT mode FROM sessions WHERE id = ?').get(id) as { mode: string }).mode
     expect([mode(fresh), mode(asked), mode(resumed)]).toEqual(['acceptEdits', 'plan', 'acceptEdits'])
+  })
+
+  it('a child session starts with its parent\'s autonomy', () => {
+    const lead = chat.create('/tmp')
+    setAutonomy(db, lead, { mode: 'planFirst' })
+    const child = chat.create('/tmp', { parent: lead })
+    const loose = chat.create('/tmp')
+    const auto = (id: string): string | null => (db.prepare('SELECT autonomy FROM sessions WHERE id = ?').get(id) as { autonomy: string | null }).autonomy
+    expect([JSON.parse(auto(child)!).mode, auto(loose)]).toEqual(['planFirst', null])
   })
 
   it("Claude's short title replaces the first-line stand-in, but never a title you chose", async () => {
