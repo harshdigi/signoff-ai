@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.0.6 (19 October 2026, IST)
+
+### New
+- **Autonomy per session.** The settings icon on the session tab bar sets how much Claude decides on its own: Ask as
+  you go, Plan first then run, Full auto, or your own mix, with a "Claude | Ask me" switch per kind of decision.
+  The default for new sessions is in Settings. Merges, pushes to main, deletes, production, money, secrets and
+  messages to people always ask. Autonomy only applies while the Claude Code session is in Auto mode; the panel
+  says when it is paused. The current mode shows in grey above the Send button.
+- **Ship monitor.** From Ship: once a PR's CI is green, a "PR is up for review" message is drafted for the people
+  and apps you choose (sent only if you opt in). After merge it watches the deploy to production and checks for new
+  errors; on an incident it prepares a fire-fighting session with a rollback and fix plan, and ships nothing itself.
+- **Story tab.** A ticket's decisions as one diagram: the question, the chosen way and the rejected options, with a
+  short numbered "why" list. Update has Claude write the short text; approvals and reviews are only counted.
+- **Attach any file** in the chat: the paperclip button, or drop or paste a file. Files on disk go to Claude as
+  their path, with no copy and no size limit; pasted screenshots are saved as before.
+- **Drag and drop sessions** in the sidebar to nest or move them.
+
+### Fixed
+- The session row's Move menu is visible again instead of being cut off by the sidebar.
+
+### Upgrading from 1.0.5
+- Quit the app, replace it in Applications, open it. Your data is kept. See [INSTALL.md](INSTALL.md#updating).
+- The board gains tables and columns for the ship monitor, autonomy and stories (board format v23). A copy of the
+  board is saved first; nothing is removed.
+- Sessions started before the update learn the new `signoff autonomy`, `plan` and `monitor` commands once they restart.
+
 ## 1.0.5 (16 October 2026, IST)
 
 ### New

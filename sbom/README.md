@@ -1,6 +1,6 @@
 # Software bill of materials (SBOM)
 
-CycloneDX 1.5 JSON, generated 13 October 2026 (IST) for Signoff AI 1.0.0, updated for 1.0.1 to 1.0.5 (no dependency changes since 1.0.0;
+CycloneDX 1.5 JSON, generated 13 October 2026 (IST) for Signoff AI 1.0.0, updated for 1.0.1 to 1.0.6 (no dependency changes since 1.0.0;
 only the app's own version changed). 1.0.2 adds a first-party speech helper (`signoff-speech`, Swift) that links only
 Apple system frameworks, so it adds no third-party component.
 
