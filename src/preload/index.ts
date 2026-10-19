@@ -1,6 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 
 // The window gets these calls and nothing else (no raw ipcRenderer).
 type DataEvent = { id: string; data: string }
@@ -178,7 +178,9 @@ const api = {
     openInTerminal: (session: string) => ipcRenderer.invoke('session:openTerminal', session),
     conversations: (): Promise<{ id: string; title: string; at: string }[]> => ipcRenderer.invoke('chat:conversations'),
     resume: (id: string, title: string): Promise<string> => ipcRenderer.invoke('chat:resume', id, title),
-    send: (session: string | null, text: string, images: { mediaType: string; data: string }[] = [], choice?: 'here' | 'existing' | 'new'): Promise<{ session: string | null; notice?: string; ask?: { key: string; current: string | null; existing: string | null } }> => ipcRenderer.invoke('chat:send', session, text, images, choice),
+    send: (session: string | null, text: string, images: { mediaType: string; data: string }[] = [], choice?: 'here' | 'existing' | 'new', files: string[] = []): Promise<{ session: string | null; notice?: string; ask?: { key: string; current: string | null; existing: string | null } }> => ipcRenderer.invoke('chat:send', session, text, images, choice, files),
+    // A dropped, pasted or picked file's path on disk; '' when it has none (a pasted screenshot).
+    pathOf: (file: File): string => webUtils.getPathForFile(file),
     files: (session: string | null): Promise<string[]> => ipcRenderer.invoke('chat:files', session),
     handoff: (session: string): Promise<string> => ipcRenderer.invoke('chat:handoff', session),
     interrupt: (session: string) => ipcRenderer.invoke('chat:interrupt', session),
