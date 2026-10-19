@@ -85,6 +85,39 @@ export function setRemoved(db: Store, id: string, removed: boolean): void {
   touchSession(db, id, { archived: removed })
 }
 
+// Delete permanently (SIGNOFF-28/D2, D5): a removed session and everything on the board it made.
+// - Deleted: its chat, inbox, permission prompts, comments, test plan, search entries, the decisions and reviews it
+//   posted (with their threads and files) and the monitors it started.
+// - Unlinked: sessions under it move to the top level; tickets, subtasks and fire-fighting links lose it.
+// - Claude Code's own transcript file stays, so claude --resume still finds the conversation.
+const DELETE_SESSION = [
+  'DELETE FROM decision_thread WHERE decision_id IN (SELECT id FROM decisions WHERE session_id = ?)',
+  'DELETE FROM decisions WHERE session_id = ?',
+  'DELETE FROM review_thread WHERE review_id IN (SELECT id FROM reviews WHERE session_id = ?)',
+  'DELETE FROM review_changes WHERE review_id IN (SELECT id FROM reviews WHERE session_id = ?)',
+  'DELETE FROM reviews WHERE session_id = ?',
+  'DELETE FROM monitor_events WHERE monitor_id IN (SELECT id FROM monitors WHERE session_id = ?)',
+  'DELETE FROM monitors WHERE session_id = ?',
+  'UPDATE monitors SET firefight_session = NULL WHERE firefight_session = ?',
+  'DELETE FROM chat_events WHERE session_id = ?',
+  'DELETE FROM messages WHERE session_id = ?',
+  'DELETE FROM approvals WHERE session_id = ?',
+  'DELETE FROM comments WHERE session_id = ?',
+  'DELETE FROM test_cases WHERE plan = ?',
+  'DELETE FROM memory WHERE session = ?',
+  'UPDATE sessions SET parent_id = NULL WHERE parent_id = ?',
+  'UPDATE tickets SET plan_session = NULL WHERE plan_session = ?',
+  'UPDATE subtasks SET session_id = NULL WHERE session_id = ?',
+  'DELETE FROM sessions WHERE id = ?'
+]
+
+export function deleteSession(db: Store, id: string): void {
+  const s = db.prepare('SELECT archived FROM sessions WHERE id = ?').get(id) as { archived: number } | undefined
+  need(s, `no session ${id}`)
+  need(s!.archived, 'only a removed session can be deleted: remove it first')
+  db.transaction(() => { for (const sql of DELETE_SESSION) db.prepare(sql).run(id) })()
+}
+
 // ---- decisions --------------------------------------------------------------
 
 export interface PostDecision {

@@ -315,3 +315,29 @@ describe('session parents', () => {
     expect(() => b.sessionByPrefix(db, 'qqqqqq')).toThrow('no session starts with qqqqqq')
   })
 })
+
+describe('delete a removed session', () => {
+  it('deletes the session and what it made; others lose the link; a session not removed is refused', () => {
+    for (const id of ['gone', 'kid', 'keep']) b.touchSession(db, id, {})
+    b.setParent(db, 'kid', 'gone')
+    b.postDecision(db, { ticket: 'KA-1', number: 'D1', session: 'gone', question: 'Q?', options: ['A', 'B'] })
+    b.postDecision(db, { ticket: 'KA-1', number: 'D2', session: 'keep', question: 'Other?', options: ['A', 'B'] })
+    b.addReview(db, { ticket: 'KA-1', session: 'gone', title: 'r', patch: '# a.rb  (new)\n+x\n' })
+    b.queueMessage(db, 'gone', 'hi', 'board')
+    db.prepare("INSERT INTO chat_events (session_id, seq, event, created_at) VALUES ('gone', 1, '{}', 't')").run()
+    expect(() => b.deleteSession(db, 'gone')).toThrow('only a removed session can be deleted: remove it first')
+    b.setRemoved(db, 'gone', true)
+    b.deleteSession(db, 'gone')
+    const n = (sql: string): number => (db.prepare(sql).get() as { n: number }).n
+    expect([
+      n("SELECT COUNT(*) AS n FROM sessions WHERE id = 'gone'"),
+      n("SELECT COUNT(*) AS n FROM decisions WHERE session_id = 'gone'"),
+      n("SELECT COUNT(*) AS n FROM reviews WHERE session_id = 'gone'"),
+      n("SELECT COUNT(*) AS n FROM messages WHERE session_id = 'gone'"),
+      n("SELECT COUNT(*) AS n FROM chat_events WHERE session_id = 'gone'"),
+      n("SELECT COUNT(*) AS n FROM memory WHERE session = 'gone'")
+    ]).toEqual([0, 0, 0, 0, 0, 0])
+    expect(db.prepare("SELECT parent_id FROM sessions WHERE id = 'kid'").get()).toEqual({ parent_id: null })
+    expect(status('KA-1/D2')).toBe('open')
+  })
+})
