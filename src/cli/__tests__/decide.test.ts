@@ -1,6 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import { spawnSync } from 'child_process'
+import { execFileSync, spawnSync } from 'child_process'
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -126,6 +126,26 @@ describe('decide CLI', () => {
     })
     const out = JSON.parse(r.stdout)
     expect([realpathSync(out.cwd), out.ticket]).toEqual([realpathSync(dir), 'ABC-9'])
+  })
+
+  it('register --cwd moves the session to that folder and reads its branch there; a missing folder is refused', () => {
+    decide([...S, 'register'])
+    const repo = mkdtempSync(join(tmpdir(), 'repo-'))
+    execFileSync('git', ['init', '-q', '-b', 'KA-7-work'], { cwd: repo })
+    const out = JSON.parse(decide([...S, 'register', '--cwd', repo]).out)
+    expect([realpathSync(out.cwd), out.branch, out.ticket]).toEqual([realpathSync(repo), 'KA-7-work', 'KA-7'])
+    expect(decide([...S, 'register', '--cwd', join(repo, 'nope')]).err).toContain('no folder')
+  })
+
+  it('a moved folder survives the session-start hook while it is inside the folder Claude runs in', () => {
+    const sub = join(dir, 'repo-wt')
+    mkdirSync(sub)
+    decide([...S, 'register', '--cwd', sub])
+    const id = S[S.indexOf('--session') + 1]
+    const hookAt = (cwd: string): string => (decide(['hook', 'session-start'], {}, JSON.stringify({ session_id: id, cwd })), JSON.parse(decide([...S, 'register']).out).cwd)
+    expect(realpathSync(hookAt(dir))).toBe(realpathSync(sub))
+    const other = mkdtempSync(join(tmpdir(), 'other-'))
+    expect(realpathSync(hookAt(other))).toBe(realpathSync(other))
   })
 
   it('register --parent nests this session under another one, by the start of its id', () => {
