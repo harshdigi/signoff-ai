@@ -5,6 +5,8 @@ import type { Store } from './store'
 import { alreadyRaised, getSetup, liveMonitor, monitorEvents, saveSetup, startMonitor, stopMonitor, type Monitor, type Recipient } from '../shared/monitors'
 import { repoOfFolder, runSetup, type Setup } from './monitor-setup'
 import { ghIn } from './monitor-watch'
+import { checkAsked } from './monitor-notify'
+import { runHeadless } from './headless'
 
 // Monitors in Ship (SIGNOFF-23 step 4): what the panel shows for one session, and starting and stopping a watch.
 export type Chosen = { deployWorkflow?: string; recipients?: Recipient[]; errors?: { app: string; services: string[] } }
@@ -17,9 +19,16 @@ const sessionOf = (db: Store, id: string): SessionRow => {
   return s
 }
 // The pull request of a folder's current branch, or null when there is none yet.
+// A found pull request is reused for 30 s (SIGNOFF-31/D8), so reopening Ship does not wait on gh again.
+// "No pull request" is not kept, so one opened from Ship shows at the next load.
+const prs = new Map<string, { pr: Pr; at: number }>()
 const prOf = async (cwd: string): Promise<Pr | null> => {
+  const hit = prs.get(cwd)
+  if (hit && Date.now() - hit.at < 30_000) return hit.pr
   try {
-    return JSON.parse(await ghIn(cwd, ['pr', 'view', '--json', 'number,url,title,state'])) as Pr
+    const pr = JSON.parse(await ghIn(cwd, ['pr', 'view', '--json', 'number,url,title,state'])) as Pr
+    prs.set(cwd, { pr, at: Date.now() })
+    return pr
   } catch {
     return null // no pull request for this branch (gh exits non-zero); the panel offers to open one first
   }
@@ -49,6 +58,14 @@ export function registerMonitorIpc(db: Store, env: NodeJS.ProcessEnv): void {
     }
   })
   ipcMain.handle('monitor:setup', (_e, id: string) => runSetup(db, sessionOf(db, id).cwd!, env))
+  // Check Slack (SIGNOFF-31/D7): is a review request for this branch's PR already in these channels?
+  ipcMain.handle('monitor:checkAsked', async (_e, id: string, recipients: Recipient[]) => {
+    const s = sessionOf(db, id)
+    const repo = repoOfFolder(s.cwd!)
+    const pr = await prOf(s.cwd!)
+    if (!pr) throw new Error('this branch has no pull request yet')
+    return checkAsked(db, repo, recipients.filter((r) => r.where.trim()), pr.url, (args) => runHeadless(args, { cwd: s.cwd!, env, timeoutMs: 180_000 }))
+  })
   ipcMain.handle('monitor:choose', (_e, repo: string, chosen: Chosen) => {
     const s = getSetup<Setup>(db, repo)
     if (!s) throw new Error(`run the setup check for ${repo} first`)

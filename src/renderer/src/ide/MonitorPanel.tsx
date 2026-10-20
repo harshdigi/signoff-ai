@@ -15,6 +15,7 @@ type Found = {
 }
 type Chosen = { deployWorkflow?: string; recipients?: Recipient[]; errors?: { app: string; services: string[] } }
 type Event = { at: string; kind: string; text: string }
+type Asked = { app: string; where: string; found: boolean; when?: string; link?: string; error?: string }
 type Mon = { id: string; stage: string; window_minutes: number; check_minutes: number; notify: number; session_id: string | null; events: Event[] }
 type Pr = { number: number; url: string; title: string; state: string }
 type View = {
@@ -30,14 +31,22 @@ const STAGE: Record<string, string> = { ci: 'CI running', merge: 'Waiting for me
 const TRACK: Record<string, string> = { ci: 'CI', merge: 'Merge', deploy: 'Production deploy', done: 'Done' }
 const time = (iso: string): string => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
+// The panel's last view and your unsaved choices, per session (SIGNOFF-31/D8). Ship is dropped when you switch tabs;
+// coming back shows these at once and refreshes quietly. Kept in memory only, until the app quits.
+type Kept = { v: View | null; win: number; every: number; notify: boolean; recipients: Recipient[] | null; asked: Asked[] | null }
+const kept = new Map<string, Kept>()
+
 export default function MonitorPanel({ session }: { session: string }): React.JSX.Element {
-  const [v, setV] = useState<View | null>(null)
+  const k = kept.get(session)
+  const [v, setV] = useState<View | null>(k?.v ?? null)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
-  const [win, setWin] = useState(60)
-  const [every, setEvery] = useState(30)
-  const [notify, setNotify] = useState(false) // D2: opt-in, off by default
-  const [recipients, setRecipients] = useState<Recipient[] | null>(null)
+  const [win, setWin] = useState(k?.win ?? 60)
+  const [every, setEvery] = useState(k?.every ?? 30)
+  const [notify, setNotify] = useState(k?.notify ?? false) // D2: opt-in, off by default
+  const [recipients, setRecipients] = useState<Recipient[] | null>(k?.recipients ?? null)
+  const [asked, setAsked] = useState<Asked[] | null>(k?.asked ?? null)
+  useEffect(() => { kept.set(session, { v, win, every, notify, recipients, asked }) }, [session, v, win, every, notify, recipients, asked])
   const load = useCallback(() => {
     window.api.monitor.forSession(session).then((x: View) => { setV(x); setErr(null) }, (e: unknown) => setErr(errText(e)))
   }, [session])
@@ -132,11 +141,18 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
                             <datalist id={`tag-${i}`}>{dests.filter((d) => d.kind !== 'channel').map((d) => <option key={d.name} value={d.name} />)}</datalist>
                             <label className="inline mon-default" title="Saved for this repo and filled in next time"><input type="checkbox" disabled={!r.where.trim() || !!busy} checked={isDefault(r)} onChange={(e) => markDefault(r, e.target.checked)} /> Default</label>
                             <button className="sm" title="Remove" onClick={() => setRow(i, null)}>×</button>
+                            {(() => {
+                              const a = asked?.find((x) => x.app === r.app && x.where === r.where.trim())
+                              return a && <div className={'mon-asked ' + (a.found ? 'found' : a.error ? 'err' : 'none')}>{a.error ? `Not checked: ${a.error}` : a.found ? <>Already asked{a.when ? ` · ${a.when}` : ''}{a.link && <> · <a href={a.link} target="_blank" rel="noreferrer">open</a></>}</> : 'Not asked yet'}</div>
+                            })()}
                           </div>
                         )
                       })}
                       <div className="bar">
                         {apps.length > 0 && <button className="sm" onClick={() => setRecipients([...rows, { app: apps[0].app, where: '', tags: [] }])}>+ Recipient</button>}
+                        {rows.some((r) => r.where.trim()) && <button className="sm" disabled={!!busy || !v.pr} title={v.pr ? 'Searches these channels for the PR link now; posts nothing' : 'Needs a pull request first'}
+                          onClick={() => { setBusy('ask'); setErr(null); window.api.monitor.checkAsked(session, rows).then((x: Asked[]) => setAsked(x), (e: unknown) => setErr(errText(e))).finally(() => setBusy(null)) }}>
+                          {busy === 'ask' ? 'Checking…' : `Check ${[...new Set(rows.filter((r) => r.where.trim()).map((r) => r.app))].join(', ')}`}</button>}
                       </div>
                     </div>
                   )}

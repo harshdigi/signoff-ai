@@ -40,8 +40,11 @@ export function parseSent(out: string): Sent[] {
 // Which send tool each recipient's app uses, from the repo's setup. A recipient whose app the setup does not know is
 // reported, not guessed.
 export function plan(db: Store, m: Monitor): { sends: Send[]; unknown: Recipient[] } {
-  const found = getSetup<Setup>(db, m.repo)?.found
-  const recipients = JSON.parse(m.recipients ?? '[]') as Recipient[]
+  return sendsFor(db, m.repo, JSON.parse(m.recipients ?? '[]') as Recipient[])
+}
+
+function sendsFor(db: Store, repo: string, recipients: Recipient[]): { sends: Send[]; unknown: Recipient[] } {
+  const found = getSetup<Setup>(db, repo)?.found
   const sends: Send[] = []
   const unknown: Recipient[] = []
   for (const r of recipients) {
@@ -49,6 +52,40 @@ export function plan(db: Store, m: Monitor): { sends: Send[]; unknown: Recipient
     if (app) sends.push({ ...r, sendTool: app.sendTool, searchTool: app.searchTool ?? null }); else unknown.push(r)
   }
   return { sends, unknown }
+}
+
+// Check Slack (SIGNOFF-31/D7): a read-only run that searches each recipient's channel for the PR link now.
+// - Only the apps' search tools are allowed; nothing is posted and nothing is stored.
+// - The send still checks again when CI passes.
+export type Asked = { app: string; where: string; found: boolean; when?: string; link?: string; error?: string }
+
+export function checkPrompt(url: string, sends: Send[]): string {
+  return [
+    'READ-ONLY: search messages; do not post, react, reply or change anything.',
+    ...sends.map((r, i) => `${i + 1}. With ${r.searchTool} (${r.app}), search ${r.where} for a message that contains ${url}.`),
+    'Reply with ONLY a JSON list between <asked> and </asked>: [{ "app": "…", "where": "…", "found": true|false, "when": "…time of the message when found", "link": "…its link when the tool gives one", "error": "…when the search failed" }]'
+  ].join('\n')
+}
+
+export function parseAsked(out: string): Asked[] {
+  const m = /<asked>([\s\S]*?)<\/asked>/.exec(out)
+  if (!m) throw new Error(`the check did not report what it found: ${out.slice(0, 200)}`)
+  const list = JSON.parse(m[1]) as Asked[]
+  if (!Array.isArray(list)) throw new Error('the check report is not a list')
+  return list
+}
+
+export async function checkAsked(db: Store, repo: string, recipients: Recipient[], url: string, run: (args: string[]) => Promise<{ code: number; out: string }>): Promise<Asked[]> {
+  const { sends, unknown } = sendsFor(db, repo, recipients)
+  const cannot: Asked[] = [
+    ...unknown.map((u) => ({ app: u.app, where: u.where, found: false, error: `${u.app} is not in this repo's setup (Check again)` })),
+    ...sends.filter((s) => !s.searchTool).map((s) => ({ app: s.app, where: s.where, found: false, error: 'no search tool in this repo\'s setup (Check again)' }))
+  ]
+  const searchable = sends.filter((s) => s.searchTool)
+  if (!searchable.length) return cannot
+  const r = await run(headlessArgs(checkPrompt(url, searchable), { allow: [...new Set(searchable.map((s) => s.searchTool!))], disallow: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash'] }))
+  if (r.code !== 0) throw new Error(`the check failed: ${r.out.slice(0, 200)}`)
+  return [...parseAsked(r.out), ...cannot]
 }
 
 // Sends the review request and records each result on the monitor's timeline.

@@ -551,6 +551,10 @@ button.ref { all: unset; cursor: pointer; color: var(--accent, #3b82f6); text-de
 .monitor .mon-details input { flex: 1; min-width: 0; }
 .monitor .mon-notes { margin: 4px 0 0; padding-left: 18px; }
 .monitor .mon-default { white-space: nowrap; font-size: 11px; }
+.monitor .mon-row { flex-wrap: wrap; }
+.monitor .mon-asked { flex-basis: 100%; font-size: 11px; padding-left: 2px; }
+.monitor .mon-asked.found { color: var(--ok); }
+.monitor .mon-asked.none, .monitor .mon-asked.err { color: var(--quiet); }
 .monitor .mon-track { display: flex; flex-wrap: wrap; gap: 4px; }
 .monitor .chip.on { border-color: var(--accent); background: var(--accent-tint); color: var(--ink); }
 .monitor .mon-raised { list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--ok); }

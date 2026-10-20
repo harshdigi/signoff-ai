@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { openStore, type Store } from '../store'
 import { touchSession } from '../../shared/board'
 import { addEvent, monitorEvents, saveSetup, startMonitor, type Monitor } from '../../shared/monitors'
-import { notifyPrompt, reviewLine, sendReviewRequest } from '../monitor-notify'
+import { checkAsked, notifyPrompt, reviewLine, sendReviewRequest } from '../monitor-notify'
 
 const REPO = 'acme/shop'
 let db: Store
@@ -56,6 +56,20 @@ describe('review request', () => {
     expect(prompt).not.toContain('#reviews')
     expect(texts()).toContain('Review request already in Releases (Teams), not sent again: 10:40, by Asha')
     expect(texts().some((t) => /^Review request already raised in #reviews \(Slack\) at .+; not sent again$/.test(t))).toBe(true)
+  })
+
+  it('Check Slack searches with only the search tools, posts nothing, stores nothing, and says which rows it could not check', async () => {
+    let args: string[] = []
+    const out = await checkAsked(db, REPO, [{ app: 'Slack', where: '#reviews', tags: [] }, { app: 'Teams', where: 'Releases', tags: [] }, { app: 'Zoho', where: 'dev', tags: [] }], 'https://x/pull/7',
+      async (a) => { args = a; return { code: 0, out: '<asked>[{"app":"Slack","where":"#reviews","found":true,"when":"10:40"}]</asked>' } })
+    expect(args[args.indexOf('--allowedTools') + 1]).toBe('mcp__slack__search')
+    expect(args.join(' ')).toContain('READ-ONLY')
+    expect(out).toEqual([
+      { app: 'Slack', where: '#reviews', found: true, when: '10:40' },
+      { app: 'Zoho', where: 'dev', found: false, error: "Zoho is not in this repo's setup (Check again)" },
+      { app: 'Teams', where: 'Releases', found: false, error: "no search tool in this repo's setup (Check again)" }
+    ])
+    expect(texts()).toEqual([])
   })
 
   it('a run that does not report what it sent is recorded as unconfirmed, not as sent', async () => {
