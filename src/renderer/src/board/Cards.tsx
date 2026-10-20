@@ -337,6 +337,9 @@ function Delivery({ d, b, run }: { d: Decision; b: BoardState; run: (fn: () => P
 
 function SplitPicker({ d, pieces, run }: { d: Decision; pieces: Piece[]; run: (fn: () => Promise<unknown>) => Promise<void> }): React.JSX.Element {
   const [keep, setKeep] = useState(() => pieces.map((_, i) => i))
+  const [starting, setStarting] = useState(false)
+  // Disabled while starting, so a second click cannot start the team twice (main refuses it too).
+  const start = (): Promise<void> => { setStarting(true); return run(() => window.api.chat.startSplit(d.id, keep)).finally(() => setStarting(false)) }
   const toggle = (i: number): void => setKeep(keep.includes(i) ? keep.filter((k) => k !== i) : [...keep, i].sort())
   return (
     <div className="split-pick">
@@ -347,7 +350,7 @@ function SplitPicker({ d, pieces, run }: { d: Decision; pieces: Piece[]; run: (f
         </label>
       ))}
       <div className="bar">
-        <button className="primary" disabled={!keep.length} onClick={() => run(() => window.api.chat.startSplit(d.id, keep))}>Start {keep.length} session{keep.length === 1 ? '' : 's'}</button>
+        <button className="primary" disabled={!keep.length || starting} onClick={() => void start()}>{starting ? 'Starting…' : `Start ${keep.length} session${keep.length === 1 ? '' : 's'}`}</button>
         <button onClick={() => run(() => window.api.board.answer(d.id, 'Not now'))}>Not now</button>
       </div>
     </div>

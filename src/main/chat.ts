@@ -168,8 +168,12 @@ export class ChatManager {
   }
 
   // The chat's terminal, started if needed (to show it, or to type into it).
+  // A removed session is not started again from here (SIGNOFF-29/D6): restore it first.
   terminalOf(session: string): string {
-    return (this.chats.get(session) ?? this.start(session)).terminal
+    const c = this.chats.get(session)
+    if (c) return c.terminal
+    if (this.removed(session)) throw new b.BoardError('this session is removed; restore it to start it again')
+    return this.start(session).terminal
   }
 
   // Files go by their path on disk (Claude reads them as they are); pasted images are saved as a copy first.
@@ -423,6 +427,8 @@ export class ChatManager {
     if (this.chats.has(session)) return 'running'
     const s = this.db.prepare('SELECT via, tmux, pid FROM sessions WHERE id = ?').get(session) as { via: string | null; tmux: string | null; pid: number | null } | undefined
     if (!s) throw new b.BoardError(`no session ${session}`)
+    // Removed: not started; the message waits on the board and arrives if it is restored.
+    if (this.removed(session)) return 'turn-end'
     const inTmux = !!s.tmux && this.deps.tmux.has(s.tmux)
     if (!inTmux && s.via !== 'chat' && s.pid && alive(s.pid)) return 'turn-end'
     this.start(session)
@@ -491,6 +497,10 @@ export class ChatManager {
     if (line.type !== 'prompt' && line.type !== 'assistant') return
     if (this.db.prepare("SELECT 1 FROM memory WHERE kind = 'chat' AND ref = ?").get(`${session}:${line.uuid}`)) return
     indexChatEvent(this.db, session, line.uuid, line.type === 'prompt' ? { type: 'prompt', text: line.text } : { type: 'assistant', message: line.message as never }, line.at)
+  }
+
+  private removed(session: string): boolean {
+    return !!(this.db.prepare('SELECT archived FROM sessions WHERE id = ?').get(session) as { archived: number } | undefined)?.archived
   }
 
   private saveImage(i: ChatImage): string {
