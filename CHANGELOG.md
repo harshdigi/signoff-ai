@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.7 (20 October 2026, IST)
+
+### New
+- **Close ticket.** A ticket from Start ticket can be closed from its page: its plan and subtask sessions stop and
+  move to Show removed; branches and worktrees stay. Reopen brings the ticket and its sessions back.
+- **Delete removed sessions for good.** Each row under Show removed has Delete, and there is Delete all. Both ask
+  once. It deletes the session, its chat and the decisions and reviews it posted; Claude Code's own transcript stays.
+- **`signoff register --cwd <folder>`** moves a session to a repo or worktree, so a team lead that started in a parent
+  folder can start its team. The move survives restarts while the folder is inside where Claude runs.
+
+### Fixed
+- Clicking Start twice on a team split no longer starts every session twice. The button shows "Starting…" meanwhile.
+- A removed session is no longer started again by the app.
+
+### Upgrading from 1.0.6
+- Quit the app, replace it in Applications, open it. Your data is kept. See [INSTALL.md](INSTALL.md#updating).
+- The board gains one column for closed tickets (board format v24). A copy of the board is saved first; nothing is
+  removed.
+- Sessions started before the update learn `register --cwd` once they restart.
+
 ## 1.0.6 (19 October 2026, IST)
 
 ### New
