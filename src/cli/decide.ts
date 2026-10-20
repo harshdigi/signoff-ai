@@ -31,6 +31,7 @@ import { getApproval, leaveToTerminal, requestApproval } from '../shared/approva
 
 const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_CODE_SESSION_ID; decide is the same command)
   register  [--ticket K] [--title T] [--description D]   [--parent SESSION-ID: nest under that session; its first 8+ characters are enough]
+            [--cwd DIR: move this session to that folder, e.g. a repo or worktree, so a team can start from it]
   autonomy                       what this session may settle itself, and what waits for the user
   plan      --ticket K --id Dn --file PLAN [--question Q]   Plan first: the whole plan as one approval card
   monitor   [--window MIN] [--every MIN]   start the monitor on this branch's PR (only when after.monitor is handed over)
@@ -155,7 +156,11 @@ function hook(db: Store, event: string | undefined, terminal = false): number {
   if (!input.session_id) throw new Usage('hook input has no session_id')
   if (event === 'session-start') {
     if (input.cwd) process.chdir(input.cwd)
-    const ticket = register(db, input.session_id, {}, process.cwd()).ticket as string | null
+    // A folder moved with register --cwd survives restarts while it is inside the folder Claude runs in (SIGNOFF-29/D2).
+    const here = process.cwd()
+    const kept = (db.prepare('SELECT cwd FROM sessions WHERE id = ?').get(input.session_id) as { cwd: string | null } | undefined)?.cwd
+    const inside = !!kept && existsSync(kept) && realpathSync(kept).startsWith(here + '/')
+    const ticket = register(db, input.session_id, {}, inside ? kept! : here).ticket as string | null
     // Where Claude Code saves this conversation: the app's chat panel shows the session from it.
     if (input.transcript_path) db.prepare('UPDATE sessions SET transcript = ? WHERE id = ?').run(input.transcript_path, input.session_id)
     // The shared tmux session it runs in (set by the app, or by the `claude` wrapper in your shell), so both can use it.
@@ -251,7 +256,7 @@ function main(argv: string[]): number {
   const { values: o, positionals } = parseArgs({
     args: rest, allowPositionals: cmd === 'recall' || cmd === 'ask' || cmd === 'docs', strict: true,
     options: {
-      session: { type: 'string' }, ticket: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' }, parent: { type: 'string' },
+      session: { type: 'string' }, ticket: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' }, parent: { type: 'string' }, cwd: { type: 'string' },
       state: { type: 'string' }, note: { type: 'string' }, id: { type: 'string', multiple: true }, question: { type: 'string' },
       option: { type: 'string', multiple: true }, recommend: { type: 'string' }, evidence: { type: 'string', multiple: true },
       ref: { type: 'string', multiple: true }, action: { type: 'string' }, command: { type: 'string' }, force: { type: 'boolean' },
@@ -313,7 +318,9 @@ function main(argv: string[]): number {
       return 0
     case 'register':
       // --parent: nest this session under another one (its id, or the first characters of it).
-      register(db, sid(), o)
+      // --cwd: move the session to another folder (SIGNOFF-29/D1); its branch is read from there.
+      if (o.cwd && !existsSync(resolve(o.cwd))) throw new Usage(`no folder ${o.cwd}`)
+      register(db, sid(), o, o.cwd ? resolve(o.cwd) : undefined)
       if (o.parent) b.setParent(db, sid(), b.sessionByPrefix(db, o.parent))
       console.log(JSON.stringify(db.prepare('SELECT * FROM sessions WHERE id = ?').get(sid())))
       return 0

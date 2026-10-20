@@ -40,6 +40,8 @@ Chat is still fine for explaining. Anything the user must decide, review or do g
 - Do not re-ask a settled decision. Cite it by id.
 - To work as a team (several sessions, each on its own branch): signoff team list shows the setups.
   signoff team use --workflow <id> makes this session the lead of one; then propose the split with signoff split.
+  Implementers' worktrees are cut from the lead's folder. If it is not a git repo, first move the lead there:
+  signoff register --cwd <repo or worktree>.
   If none fits, propose one: signoff team propose --ticket <KEY> --id D<n> --name "..." --role "implementer :: N :: ..." --role "reviewer :: 1 :: ...".
   The user approves it on the board; you then get a message that you lead it. Never tell the user to set it up in the app instead.
 - Questions the user asks under a decision arrive as board messages.

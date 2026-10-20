@@ -23,10 +23,24 @@ const slug = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').
 export const ownsWorktree = (p: Piece): boolean => p.role !== 'reviewer'
 
 export class Teams {
+  // Splits being started now. A second start of the same split is refused (SIGNOFF-29/D6): the split is recorded as
+  // started only after the git work, so without this a double click starts every session twice.
+  private starting = new Set<string>()
+
   constructor(private db: Store, private chat: TeamChatPort) {}
 
   async start(decision: string, keep: number[]): Promise<string[]> {
-    const { lead, pieces } = startPlan(this.db, decision, keep)
+    if (this.starting.has(decision)) throw new b.BoardError(`${decision} is already starting`)
+    const plan = startPlan(this.db, decision, keep)
+    this.starting.add(decision)
+    try {
+      return await this.launch(decision, plan)
+    } finally {
+      this.starting.delete(decision)
+    }
+  }
+
+  private async launch(decision: string, { lead, pieces }: ReturnType<typeof startPlan>): Promise<string[]> {
     if (!lead.cwd) throw new b.BoardError(`session ${lead.id} has no folder to start its team in`)
     const root = await git(lead.cwd, ['rev-parse', '--show-toplevel']).catch(() => {
       throw new b.BoardError(`${lead.cwd} is not a git repository; implementers need their own worktrees`)

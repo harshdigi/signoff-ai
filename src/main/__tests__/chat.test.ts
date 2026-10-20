@@ -14,7 +14,7 @@ import { Teams } from '../teams'
 import { Tmux } from '../tmux'
 import { execFileSync } from 'child_process'
 import { mkdirSync, realpathSync } from 'fs'
-import { answerFromBoard, postDecision, queueMessage } from '../../shared/board'
+import { answerFromBoard, postDecision, queueMessage, setRemoved } from '../../shared/board'
 
 // A fake interactive `claude` on PATH, run in a real terminal: it reads keystrokes, writes a transcript
 // to $HOME/.claude/projects/p/<id>.jsonl the way Claude Code does (user, assistant, turn_duration lines)
@@ -218,7 +218,11 @@ describe('terminal chats', () => {
     g('init', '-q', '-b', 'KA-1-pay'); g('commit', '-q', '--allow-empty', '-m', 'start')
     const lead = chat.create(repo, { workflow: 'parallel', ticket: 'KA-1' })
     const d = proposeSplit(db, { session: lead, ticket: 'KA-1', number: 'D1', pieces: [{ title: 'API', task: 'add the endpoint' }, { title: 'UI', task: 'add the form' }] })
-    const kids = await new Teams(db, chat).start(d, [0, 2])
+    // A second start while the first is still running (a double click) is refused, not run twice.
+    const teams = new Teams(db, chat)
+    const first = teams.start(d, [0, 2])
+    await expect(teams.start(d, [0, 2])).rejects.toThrow(`${d} is already starting`)
+    const kids = await first
     expect(db.prepare('SELECT title, role, cwd, branch, base_branch FROM sessions WHERE parent_id = ? ORDER BY title').all(lead)).toEqual([
       { title: 'API', role: 'implementer', cwd: join(repo, '.claude/worktrees/KA-1-pay-api'), branch: 'KA-1-pay-api', base_branch: 'KA-1-pay' },
       { title: 'reviewer', role: 'reviewer', cwd: repo, branch: 'KA-1-pay', base_branch: null }
@@ -255,6 +259,14 @@ describe('terminal chats', () => {
     await until(() => (db.prepare('SELECT submitted_at FROM messages').get() as { submitted_at: string | null }).submitted_at !== null)
     expect(db.prepare('SELECT decision_id, via, failed FROM messages').get()).toEqual({ decision_id: 'KA-1/D1', via: 'terminal', failed: null })
     expect(chat.wake(id)).toBe('running')
+  })
+
+  it('a removed session is not started again: no terminal, and a board message waits', () => {
+    const id = chat.create('/tmp')
+    setRemoved(db, id, true)
+    expect(() => chat.terminalOf(id)).toThrow('this session is removed; restore it to start it again')
+    expect(chat.wake(id)).toBe('turn-end')
+    expect(chat.status(id).running).toBe(false)
   })
 
   it('a session started in a Terminal window (through the wrapper) is used from the chat as is, and keeps running when the app quits', async () => {
