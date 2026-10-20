@@ -1,7 +1,7 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import type { Store } from './store'
-import { addEvent, getSetup, type Monitor, type Recipient } from '../shared/monitors'
+import { addEvent, alreadyRaised, getSetup, raisedKey, type Monitor, type Recipient } from '../shared/monitors'
 import type { Setup } from './monitor-setup'
 import { headlessArgs } from './headless'
 
@@ -9,18 +9,23 @@ import { headlessArgs } from './headless'
 // asking again), a short headless Claude run posts one fixed line to each recipient, with whatever messaging app the
 // setup found for it (D6: Slack, Teams, Zoho Cliq, …).
 // - The text is ours, never Claude's wording; Claude only fits the mentions to the app's format.
-// - Only each app's send tool is allowed in that run (permission prompts are off, so nothing else that needs approval runs).
+// - Only each app's send and search tools are allowed in that run (permission prompts are off, so nothing else that
+//   needs approval runs).
+// - Never raised twice (SIGNOFF-31/D3): a destination this app already sent to for the PR is skipped, and the run first
+//   searches each channel for the PR link and does not post where it is found. An app with no search tool in the setup
+//   is not searched; that is recorded on the timeline.
 export type Pr = { title: string; url: string }
-export type Sent = { app: string; where: string; ok: boolean; error?: string }
+export type Sent = { app: string; where: string; ok: boolean; found?: string; error?: string }
+type Send = Recipient & { sendTool: string; searchTool?: string | null }
 
 export const reviewLine = (m: Monitor, pr: Pr): string => `PR up for review: ${m.ticket ? `${m.ticket} ` : ''}${pr.title} — ${pr.url}`
 
-export function notifyPrompt(line: string, sends: (Recipient & { sendTool: string })[]): string {
+export function notifyPrompt(line: string, url: string, sends: Send[]): string {
   return [
     'Post a message with your messaging tools. Send exactly what is described here and nothing else; change nothing else.',
-    ...sends.map((r, i) => `${i + 1}. With ${r.sendTool} (${r.app}), post to ${r.where}: "${line}"${r.tags.length ? `, mentioning ${r.tags.join(', ')} at the end in ${r.app}'s mention format` : ''}.`),
+    ...sends.map((r, i) => `${i + 1}. ${r.searchTool ? `First, with ${r.searchTool}, search ${r.where} for a message that contains ${url}. If one exists, do not post there; report it as found. Otherwise, w` : 'W'}ith ${r.sendTool} (${r.app}), post to ${r.where}: "${line}"${r.tags.length ? `, mentioning ${r.tags.join(', ')} at the end in ${r.app}'s mention format` : ''}.`),
     'Do not reword, translate or add to the text. If a destination or mention cannot be resolved, do not post there; report it.',
-    'Reply with ONLY a JSON list between <sent> and </sent>: [{ "app": "…", "where": "…", "ok": true|false, "error": "…when not ok" }]'
+    'Reply with ONLY a JSON list between <sent> and </sent>: [{ "app": "…", "where": "…", "ok": true|false, "found": "…when an earlier message was found: its time or link", "error": "…when not ok" }]'
   ].join('\n')
 }
 
@@ -34,14 +39,14 @@ export function parseSent(out: string): Sent[] {
 
 // Which send tool each recipient's app uses, from the repo's setup. A recipient whose app the setup does not know is
 // reported, not guessed.
-export function plan(db: Store, m: Monitor): { sends: (Recipient & { sendTool: string })[]; unknown: Recipient[] } {
+export function plan(db: Store, m: Monitor): { sends: Send[]; unknown: Recipient[] } {
   const found = getSetup<Setup>(db, m.repo)?.found
   const recipients = JSON.parse(m.recipients ?? '[]') as Recipient[]
-  const sends: (Recipient & { sendTool: string })[] = []
+  const sends: Send[] = []
   const unknown: Recipient[] = []
   for (const r of recipients) {
     const app = found?.messaging.find((a) => a.app === r.app)
-    if (app) sends.push({ ...r, sendTool: app.sendTool }); else unknown.push(r)
+    if (app) sends.push({ ...r, sendTool: app.sendTool, searchTool: app.searchTool ?? null }); else unknown.push(r)
   }
   return { sends, unknown }
 }
@@ -51,11 +56,20 @@ export async function sendReviewRequest(db: Store, m: Monitor, deps: {
   pr: (repo: string, pr: number) => Promise<Pr>
   run: (args: string[]) => Promise<{ code: number; out: string }>
 }): Promise<Sent[]> {
-  const { sends, unknown } = plan(db, m)
-  for (const u of unknown) addEvent(db, m.id, 'notify-failed', `Review request not sent to ${u.where}: ${u.app} is not in this repo's setup (Check again in Ship)`)
+  const planned = plan(db, m)
+  for (const u of planned.unknown) addEvent(db, m.id, 'notify-failed', `Review request not sent to ${u.where}: ${u.app} is not in this repo's setup (Check again in Ship)`)
+  const raised = alreadyRaised(db, m.repo, m.pr)
+  const sends = planned.sends.filter((s) => {
+    const before = raised.find((e) => e.text.includes(raisedKey(s.where, s.app)))
+    if (before) addEvent(db, m.id, 'notify-skipped', `Review request already raised in ${raisedKey(s.where, s.app)} at ${before.at}; not sent again`)
+    return !before
+  })
+  for (const s of sends.filter((x) => !x.searchTool)) addEvent(db, m.id, 'notify-note', `${raisedKey(s.where, s.app)} was not searched for an earlier request: no search tool in this repo's setup (Check again in Ship)`)
   if (!sends.length) return []
-  const line = reviewLine(m, await deps.pr(m.repo, m.pr))
-  const r = await deps.run(headlessArgs(notifyPrompt(line, sends), { allow: [...new Set(sends.map((s) => s.sendTool))], disallow: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash'] }))
+  const pr = await deps.pr(m.repo, m.pr)
+  const line = reviewLine(m, pr)
+  const tools = [...new Set(sends.flatMap((s) => [s.sendTool, ...(s.searchTool ? [s.searchTool] : [])]))]
+  const r = await deps.run(headlessArgs(notifyPrompt(line, pr.url, sends), { allow: tools, disallow: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash'] }))
   let sent: Sent[]
   try {
     if (r.code !== 0) throw new Error(r.out.slice(0, 200))
@@ -64,6 +78,9 @@ export async function sendReviewRequest(db: Store, m: Monitor, deps: {
     addEvent(db, m.id, 'notify-failed', `Review request: could not confirm it was sent (${(e as Error).message.slice(0, 160)})`)
     return []
   }
-  for (const s of sent) addEvent(db, m.id, s.ok ? 'notified' : 'notify-failed', s.ok ? `Review request sent to ${s.where} (${s.app})` : `Review request not sent to ${s.where} (${s.app}): ${s.error ?? 'no reason given'}`)
+  for (const s of sent) {
+    if (s.found) addEvent(db, m.id, 'notify-found', `Review request already in ${raisedKey(s.where, s.app)}, not sent again: ${s.found}`)
+    else addEvent(db, m.id, s.ok ? 'notified' : 'notify-failed', s.ok ? `Review request sent to ${raisedKey(s.where, s.app)}` : `Review request not sent to ${raisedKey(s.where, s.app)}: ${s.error ?? 'no reason given'}`)
+  }
   return sent
 }

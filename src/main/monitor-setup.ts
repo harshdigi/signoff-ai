@@ -13,7 +13,7 @@ import { headlessArgs, runHeadless } from './headless'
 // You then choose in Ship; found and chosen are kept together per repo.
 export type Destination = { kind: 'channel' | 'person' | 'group'; name: string; id?: string }
 export type Found = {
-  messaging: { app: string; mcp: string; sendTool: string; destinations: Destination[]; needs: string[] }[]
+  messaging: { app: string; mcp: string; sendTool: string; searchTool?: string | null; destinations: Destination[]; needs: string[] }[]
   errors: { app: string; mcp: string; tools: string[]; services: string[]; needs: string[] }[]
   ci: { provider: string; prChecks: string[]; mainWorkflows: string[] }
   deploy: { workflow: string | null; trigger: string; postDeploy: string | null }
@@ -23,6 +23,7 @@ export type Setup = { found: Found; foundAt: string; chosen: unknown }
 
 const SHAPE = `{
   "messaging": [{ "app": "Slack", "mcp": "<server name>", "sendTool": "<tool that posts a message>",
+    "searchTool": "<read-only tool that searches messages in a channel, or null>",
     "destinations": [{ "kind": "channel|person|group", "name": "#lrs-reviews", "id": "<id if the tool gives one>" }],
     "needs": ["what a message needs, e.g. channel id, mention format <!subteam^ID>"] }],
   "errors": [{ "app": "Scout", "mcp": "<server name>", "tools": ["<read tools for errors, logs, traces>"],

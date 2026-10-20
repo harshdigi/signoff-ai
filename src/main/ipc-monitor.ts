@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { ipcMain } from 'electron'
 import type { Store } from './store'
-import { getSetup, liveMonitor, monitorEvents, saveSetup, startMonitor, stopMonitor, type Monitor, type Recipient } from '../shared/monitors'
+import { alreadyRaised, getSetup, liveMonitor, monitorEvents, saveSetup, startMonitor, stopMonitor, type Monitor, type Recipient } from '../shared/monitors'
 import { repoOfFolder, runSetup, type Setup } from './monitor-setup'
 import { ghIn } from './monitor-watch'
 
@@ -44,6 +44,7 @@ export function registerMonitorIpc(db: Store, env: NodeJS.ProcessEnv): void {
     return {
       repo, problem, pr, setup: repo ? getSetup<Setup>(db, repo) : null,
       monitor: repo && pr ? withEvents(db, liveMonitor(db, repo, pr.number)) : null,
+      raised: repo && pr ? alreadyRaised(db, repo, pr.number) : [],
       team
     }
   })

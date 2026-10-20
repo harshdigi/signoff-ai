@@ -21,11 +21,13 @@ type View = {
   repo: string | null; problem: string | null; pr: Pr | null
   setup: { found: Found; foundAt: string; chosen: Chosen | null } | null
   monitor: Mon | null
+  raised: Event[]
   team: { session: string; title: string | null; repo: string | null; pr: Pr | null; monitor: Mon | null }[]
 }
 const WINDOWS = [[60, '1 hour'], [240, '4 hours'], [1440, '24 hours']] as const
 const CHECKS = [[15, 'every 15 min'], [30, 'every 30 min'], [60, 'every hour']] as const
 const STAGE: Record<string, string> = { ci: 'CI running', merge: 'Waiting for merge', deploy: 'Waiting for deploy', stable: 'Watching production', done: 'Done', incident: 'Incident', stopped: 'Stopped' }
+const TRACK: Record<string, string> = { ci: 'CI', merge: 'Merge', deploy: 'Production deploy', done: 'Done' }
 const time = (iso: string): string => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
 export default function MonitorPanel({ session }: { session: string }): React.JSX.Element {
@@ -59,6 +61,13 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
     setRecipients(next)
   }
   const apps = found?.messaging ?? []
+  // Default recipients per repo (SIGNOFF-31/D4): a checkbox on each row saves or drops it at once; no separate button.
+  const defaults = chosen.recipients ?? []
+  const same = (a: Recipient, b: Recipient): boolean => a.app === b.app && a.where.trim() === b.where.trim()
+  const isDefault = (r: Recipient): boolean => !!r.where.trim() && defaults.some((d) => same(d, r))
+  const saveDefaults = (next: Recipient[]): void => act('choose', window.api.monitor.choose(v.repo!, { ...chosen, recipients: next }))
+  const markDefault = (r: Recipient, on: boolean): void => saveDefaults(on ? [...defaults.filter((d) => !same(d, r)), r] : defaults.filter((d) => !same(d, r)))
+  const track = ['ci', 'merge', 'deploy', 'stable', 'done']
   const deploy = chosen.deployWorkflow ?? found?.deploy.workflow ?? null
   // Steps (SIGNOFF-31/D1): 1 repo setup, 2 review request, 3 production watch; then team pull requests.
   const step = (n: number, title: string, done: boolean, body: React.ReactNode, side?: React.ReactNode): React.JSX.Element => (
@@ -96,14 +105,17 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
 
           {v.monitor ? step(2, 'Watching', v.monitor.stage === 'done', (
             <>
-              <div className="mon-stage"><span className={'pill ' + v.monitor.stage}>{STAGE[v.monitor.stage] ?? v.monitor.stage}</span>
-                <span className="meta">{v.monitor.window_minutes} min after deploy · errors every {v.monitor.check_minutes} min · {v.monitor.id}</span></div>
+              {track.includes(v.monitor.stage)
+                ? <div className="mon-track">{track.map((t, i) => <span key={t} className={'chip ' + (t === v.monitor!.stage ? 'on' : i < track.indexOf(v.monitor!.stage) ? 'ok' : 'todo')}>{t === 'stable' ? `Watching (${v.monitor!.window_minutes} min)` : TRACK[t]}</span>)}</div>
+                : <div className="mon-stage"><span className={'pill ' + v.monitor.stage}>{STAGE[v.monitor.stage] ?? v.monitor.stage}</span></div>}
+              <span className="meta">Errors checked every {v.monitor.check_minutes} min while watching · {v.monitor.id}</span>
               <ol className="mon-events">{v.monitor.events.map((e, i) => <li key={i} className={e.kind}><span className="meta">{time(e.at)}</span> {e.text}</li>)}</ol>
             </>
           ), <button className="sm" disabled={!!busy} onClick={() => act('stop', window.api.monitor.stop(v.monitor!.id, 'stopped from Ship'))}>Stop</button>) : (
             <>
               {step(2, 'Review request', false, found ? (
                 <>
+                  {v.raised.length > 0 && <ul className="mon-raised">{v.raised.map((e, i) => <li key={i}>✓ {e.text.replace(/^Review request /, '')} <span className="meta">· {time(e.at)}</span></li>)}</ul>}
                   <label className="inline"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Post &quot;PR is up for review&quot; when CI passes</label>
                   {notify && (
                     <div className="mon-recipients">
@@ -115,19 +127,20 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
                             <select value={r.app} onChange={(e) => setRow(i, { ...r, app: e.target.value })}>{apps.map((x) => <option key={x.app}>{x.app}</option>)}</select>
                             <input list={`dest-${i}`} placeholder="channel or person" value={r.where} onChange={(e) => setRow(i, { ...r, where: e.target.value })} />
                             <datalist id={`dest-${i}`}>{dests.filter((d) => d.kind !== 'group').map((d) => <option key={d.name} value={d.name} />)}</datalist>
-                            <input list={`tag-${i}`} placeholder="tag: @team, @person" value={r.tags.join(', ')} onChange={(e) => setRow(i, { ...r, tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })} />
+                            <input list={`tag-${i}`} placeholder="tag: @team, @person" value={r.tags.join(', ')} onChange={(e) => setRow(i, { ...r, tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })}
+                              onBlur={() => { if (isDefault(r)) markDefault(r, true) }} />
                             <datalist id={`tag-${i}`}>{dests.filter((d) => d.kind !== 'channel').map((d) => <option key={d.name} value={d.name} />)}</datalist>
+                            <label className="inline mon-default" title="Saved for this repo and filled in next time"><input type="checkbox" disabled={!r.where.trim() || !!busy} checked={isDefault(r)} onChange={(e) => markDefault(r, e.target.checked)} /> Default</label>
                             <button className="sm" title="Remove" onClick={() => setRow(i, null)}>×</button>
                           </div>
                         )
                       })}
                       <div className="bar">
                         {apps.length > 0 && <button className="sm" onClick={() => setRecipients([...rows, { app: apps[0].app, where: '', tags: [] }])}>+ Recipient</button>}
-                        {rows.length > 0 && <button className="sm" onClick={() => act('choose', window.api.monitor.choose(v.repo!, { ...chosen, recipients: rows }))}>Save as default for this repo</button>}
                       </div>
                     </div>
                   )}
-                  {!notify && <div className="meta">Optional. Off: nothing is posted.</div>}
+                  <div className="meta">{notify ? 'Not posted again where it was already raised; each channel is searched for the PR link first.' : 'Optional. Off: nothing is posted.'}</div>
                 </>
               ) : <p className="meta">After setup.</p>)}
               {step(3, 'Watch production', false, found ? (
@@ -136,6 +149,7 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
                     <label>For <select value={win} onChange={(e) => setWin(Number(e.target.value))}>{WINDOWS.map(([m, l]) => <option key={m} value={m}>{l}</option>)}</select> after deploy</label>
                     <label>Check errors <select value={every} onChange={(e) => setEvery(Number(e.target.value))}>{CHECKS.filter(([m]) => m <= win).map(([m, l]) => <option key={m} value={m}>{l}</option>)}</select></label>
                   </div>
+                  <div className="meta">Starts after the PR is merged and deployed to production; until then it follows CI and the merge.</div>
                   {!v.pr && <div className="meta">Needs a pull request: use Open PR above first.</div>}
                 </>
               ) : <p className="meta">After setup.</p>,
