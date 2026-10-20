@@ -78,8 +78,8 @@ export function parseAsked(out: string): Asked[] {
 export async function checkAsked(db: Store, repo: string, recipients: Recipient[], url: string, run: (args: string[]) => Promise<{ code: number; out: string }>): Promise<Asked[]> {
   const { sends, unknown } = sendsFor(db, repo, recipients)
   const cannot: Asked[] = [
-    ...unknown.map((u) => ({ app: u.app, where: u.where, found: false, error: `${u.app} is not in this repo's setup (Check again)` })),
-    ...sends.filter((s) => !s.searchTool).map((s) => ({ app: s.app, where: s.where, found: false, error: 'no search tool in this repo\'s setup (Check again)' }))
+    ...unknown.map((u) => ({ app: u.app, where: u.where, found: false, error: `${u.app} is not in this repo's setup (Re-scan apps)` })),
+    ...sends.filter((s) => !s.searchTool).map((s) => ({ app: s.app, where: s.where, found: false, error: 'no search tool in this repo\'s setup (Re-scan apps)' }))
   ]
   const searchable = sends.filter((s) => s.searchTool)
   if (!searchable.length) return cannot
@@ -94,14 +94,14 @@ export async function sendReviewRequest(db: Store, m: Monitor, deps: {
   run: (args: string[]) => Promise<{ code: number; out: string }>
 }): Promise<Sent[]> {
   const planned = plan(db, m)
-  for (const u of planned.unknown) addEvent(db, m.id, 'notify-failed', `Review request not sent to ${u.where}: ${u.app} is not in this repo's setup (Check again in Ship)`)
+  for (const u of planned.unknown) addEvent(db, m.id, 'notify-failed', `Review request not sent to ${u.where}: ${u.app} is not in this repo's setup (Re-scan apps in Ship)`)
   const raised = alreadyRaised(db, m.repo, m.pr)
   const sends = planned.sends.filter((s) => {
     const before = raised.find((e) => e.text.includes(raisedKey(s.where, s.app)))
     if (before) addEvent(db, m.id, 'notify-skipped', `Review request already raised in ${raisedKey(s.where, s.app)} at ${before.at}; not sent again`)
     return !before
   })
-  for (const s of sends.filter((x) => !x.searchTool)) addEvent(db, m.id, 'notify-note', `${raisedKey(s.where, s.app)} was not searched for an earlier request: no search tool in this repo's setup (Check again in Ship)`)
+  for (const s of sends.filter((x) => !x.searchTool)) addEvent(db, m.id, 'notify-note', `${raisedKey(s.where, s.app)} was not searched for an earlier request: no search tool in this repo's setup (Re-scan apps in Ship)`)
   if (!sends.length) return []
   const pr = await deps.pr(m.repo, m.pr)
   const line = reviewLine(m, pr)

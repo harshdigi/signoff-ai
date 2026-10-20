@@ -42,8 +42,8 @@ describe('review request', () => {
     expect(args.slice(args.indexOf('--allowedTools'), args.indexOf('--allowedTools') + 2)).toEqual(['--allowedTools', 'mcp__slack__send_message,mcp__slack__search,mcp__teams__post'])
     expect(args[args.indexOf('--disallowedTools') + 1]).toContain('Bash')
     expect(texts()).toEqual([
-      'Review request not sent to dev: Zoho is not in this repo\'s setup (Check again in Ship)',
-      'Releases (Teams) was not searched for an earlier request: no search tool in this repo\'s setup (Check again in Ship)',
+      'Review request not sent to dev: Zoho is not in this repo\'s setup (Re-scan apps in Ship)',
+      'Releases (Teams) was not searched for an earlier request: no search tool in this repo\'s setup (Re-scan apps in Ship)',
       'Review request sent to #reviews (Slack)',
       'Review request not sent to Releases (Teams): no access'
     ])
@@ -66,8 +66,8 @@ describe('review request', () => {
     expect(args.join(' ')).toContain('READ-ONLY')
     expect(out).toEqual([
       { app: 'Slack', where: '#reviews', found: true, when: '10:40' },
-      { app: 'Zoho', where: 'dev', found: false, error: "Zoho is not in this repo's setup (Check again)" },
-      { app: 'Teams', where: 'Releases', found: false, error: "no search tool in this repo's setup (Check again)" }
+      { app: 'Zoho', where: 'dev', found: false, error: "Zoho is not in this repo's setup (Re-scan apps)" },
+      { app: 'Teams', where: 'Releases', found: false, error: "no search tool in this repo's setup (Re-scan apps)" }
     ])
     expect(texts()).toEqual([])
   })

@@ -110,7 +110,7 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
               </details>
             </>
           ) : <p className="meta">Claude checks which connected apps can post messages and show production errors, and how this repo deploys. It only reads.</p>,
-          <button className="sm" disabled={!!busy} onClick={() => act('setup', window.api.monitor.setup(session))}>{busy === 'setup' ? 'Checking (about a minute)…' : found ? 'Check again' : 'Set up'}</button>)}
+          <button className="sm" disabled={!!busy} title="Scans your connected apps (messaging, errors) and this repo's deploy setup again. Read-only, about a minute. Use it after connecting an app in Tools." onClick={() => act('setup', window.api.monitor.setup(session))}>{busy === 'setup' ? 'Scanning (about a minute)…' : found ? 'Re-scan apps' : 'Set up'}</button>)}
 
           {v.monitor ? step(2, 'Watching', v.monitor.stage === 'done', (
             <>
@@ -126,9 +126,9 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
                 <>
                   {v.raised.length > 0 && <ul className="mon-raised">{v.raised.map((e, i) => <li key={i}>✓ {e.text.replace(/^Review request /, '')} <span className="meta">· {time(e.at)}</span></li>)}</ul>}
                   <label className="inline"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Post &quot;PR is up for review&quot; when CI passes</label>
-                  {notify && (
+                  {(
                     <div className="mon-recipients">
-                      {apps.length === 0 && <div className="meta">No connected app can post messages. Connect one in Tools, then Check again.</div>}
+                      {apps.length === 0 && <div className="meta">No connected app can post messages. Connect one in Tools, then Re-scan apps.</div>}
                       {rows.map((r, i) => {
                         const dests = apps.find((x) => x.app === r.app)?.destinations ?? []
                         return (
@@ -156,7 +156,7 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
                       </div>
                     </div>
                   )}
-                  <div className="meta">{notify ? 'Not posted again where it was already raised; each channel is searched for the PR link first.' : 'Optional. Off: nothing is posted.'}</div>
+                  <div className="meta">{notify ? 'Posts when CI passes. Not posted again where it was already raised; each channel is searched for the PR link first.' : 'Off: nothing is posted. You can still check the channels above.'}</div>
                 </>
               ) : <p className="meta">After setup.</p>)}
               {step(3, 'Watch production', false, found ? (
