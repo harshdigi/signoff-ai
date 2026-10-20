@@ -70,13 +70,8 @@ export function stopMonitor(db: Store, id: string, why: string): Monitor {
   return setStage(db, id, 'stopped', why.trim())
 }
 
-// Review requests already raised for a pull request, by any of its monitors (SIGNOFF-31/D3): sent by the app, or found
-// in the channel by the send run. The texts carry raisedKey, so a later send can skip those destinations.
+// "#reviews (Slack)": a destination as the timeline names it.
 export const raisedKey = (where: string, app: string): string => `${where} (${app})`
-export function alreadyRaised(db: Store, repo: string, pr: number): { at: string; kind: string; text: string }[] {
-  return db.prepare("SELECT e.at, e.kind, e.text FROM monitor_events e JOIN monitors m ON m.id = e.monitor_id WHERE m.repo = ? AND m.pr = ? AND e.kind IN ('notified', 'notify-found') ORDER BY e.id")
-    .all(repo, pr) as { at: string; kind: string; text: string }[]
-}
 
 export function addEvent(db: Store, id: string, kind: string, text: string): void {
   db.prepare('INSERT INTO monitor_events (monitor_id, at, kind, text) VALUES (?, ?, ?, ?)').run(id, now(), kind, text)

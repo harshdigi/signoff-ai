@@ -3,6 +3,7 @@
 import { execFile } from 'child_process'
 import type { Store } from './store'
 import { addEvent, getSetup, liveMonitors, setStage, type Monitor } from '../shared/monitors'
+import { recordRequest, requestsOf } from '../shared/review-requests'
 import type { Setup } from './monitor-setup'
 
 // The monitor watcher (SIGNOFF-23 step 3, D1 hybrid): follows each live monitor through GitHub with the gh CLI, at
@@ -25,7 +26,10 @@ export type WatchEvents = {
   started?: (m: Monitor) => void
   // The error check (step 6), at the monitor's interval during the stability window. Null when the app has none.
   checkErrors?: (m: Monitor) => Promise<{ newErrors: boolean; summary: string }>
+  // The approval check (SIGNOFF-31/D13): reads the review-request threads, every 15 min while the PR waits for its merge.
+  checkApproval?: (m: Monitor) => Promise<unknown>
 }
+export const THREAD_EVERY_MS = 15 * 60_000
 
 // gh, optionally in a folder (then `gh pr view` with no number means that folder's current branch).
 export const ghIn = (cwd: string | undefined, args: string[]): Promise<string> => new Promise((resolve, reject) => {
@@ -38,6 +42,8 @@ const settled = (checks: Check[]): boolean => checks.every((c) => (c.status ?? '
 
 export class MonitorWatcher {
   private checking = new Map<string, Promise<void>>() // error checks running (minutes each): one per monitor, not awaited by tick
+  private reading = new Map<string, Promise<void>>() // approval checks running: one per monitor, not awaited by tick
+  private lastRead = new Map<string, number>()
   private ticking = false
   constructor(private db: Store, private gh: Gh, private on: WatchEvents, private deployWorkflow: (repo: string) => string | null, private now = (): number => Date.now()) {}
 
@@ -55,7 +61,7 @@ export class MonitorWatcher {
 
   // Resolves when the error checks started so far have finished (tests, and a clean quit).
   idle(): Promise<void> {
-    return Promise.all(this.checking.values()).then(() => undefined)
+    return Promise.all([...this.checking.values(), ...this.reading.values()]).then(() => undefined)
   }
 
   private async pass(): Promise<void> {
@@ -79,8 +85,10 @@ export class MonitorWatcher {
   }
 
   private async pullRequest(m: Monitor): Promise<void> {
-    const pr = JSON.parse(await this.gh(['pr', 'view', String(m.pr), '-R', m.repo, '--json', 'state,mergeCommit,statusCheckRollup'])) as
-      { state: string; mergeCommit: { oid: string } | null; statusCheckRollup: { name?: string; context?: string; status?: string; state?: string; conclusion?: string | null }[] }
+    const pr = JSON.parse(await this.gh(['pr', 'view', String(m.pr), '-R', m.repo, '--json', 'state,mergeCommit,statusCheckRollup,reviewDecision,latestReviews'])) as
+      { state: string; mergeCommit: { oid: string } | null; statusCheckRollup: { name?: string; context?: string; status?: string; state?: string; conclusion?: string | null }[]
+        reviewDecision?: string | null; latestReviews?: { author?: { login?: string }; state?: string }[] }
+    this.approvals(m, pr)
     if (pr.state === 'MERGED' && pr.mergeCommit) {
       setStage(this.db, m.id, 'deploy', `Merged as ${pr.mergeCommit.oid.slice(0, 8)}; waiting for the production deploy`, { merge_sha: pr.mergeCommit.oid })
       return
@@ -99,6 +107,27 @@ export class MonitorWatcher {
       const next = setStage(this.db, m.id, 'merge', `CI passed (${checks.length} checks)`)
       this.on.ciGreen(next)
     }
+  }
+
+  // Approval (SIGNOFF-31/D13): a GitHub approval is recorded at once (free); the review-request threads are read in the
+  // background every 15 min while the PR is open and not approved yet.
+  private approvals(m: Monitor, pr: { state: string; reviewDecision?: string | null; latestReviews?: { author?: { login?: string }; state?: string }[] }): void {
+    const reqs = requestsOf(this.db, m.repo, m.pr)
+    if (pr.reviewDecision === 'APPROVED' && !reqs.some((r) => r.app === 'GitHub' && r.state === 'approved')) {
+      const by = (pr.latestReviews ?? []).filter((r) => r.state === 'APPROVED').map((r) => r.author?.login).filter(Boolean).join(', ') || null
+      recordRequest(this.db, { repo: m.repo, pr: m.pr, app: 'GitHub', place: 'pull request', state: 'approved', by })
+      addEvent(this.db, m.id, 'approved', `Approved on GitHub${by ? ` by ${by}` : ''}`)
+      return
+    }
+    if (pr.state !== 'OPEN' || !this.on.checkApproval || this.reading.has(m.id)) return
+    if (reqs.some((r) => r.state === 'approved') || !reqs.some((r) => r.app !== 'GitHub')) return
+    if (this.now() - (this.lastRead.get(m.id) ?? 0) < THREAD_EVERY_MS) return
+    this.lastRead.set(m.id, this.now())
+    const run = this.on.checkApproval(m)
+      .catch((e: unknown) => addEvent(this.db, m.id, 'error', `Could not check the review thread: ${(e as Error).message.slice(0, 200)}`))
+      .then(() => undefined)
+      .finally(() => this.reading.delete(m.id))
+    this.reading.set(m.id, run)
   }
 
   private async deploy(m: Monitor): Promise<void> {

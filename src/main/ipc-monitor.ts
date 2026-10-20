@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { ipcMain } from 'electron'
 import type { Store } from './store'
-import { alreadyRaised, getSetup, liveMonitor, monitorEvents, saveSetup, startMonitor, stopMonitor, type Monitor, type Recipient } from '../shared/monitors'
+import { getSetup, liveMonitor, monitorEvents, saveSetup, startMonitor, stopMonitor, type Monitor, type Recipient } from '../shared/monitors'
 import { repoOfFolder, runSetup, type Setup } from './monitor-setup'
 import { ghIn } from './monitor-watch'
 import { checkAsked } from './monitor-notify'
+import { requestsOf } from '../shared/review-requests'
 import { runHeadless } from './headless'
 
 // Monitors in Ship (SIGNOFF-23 step 4): what the panel shows for one session, and starting and stopping a watch.
@@ -53,7 +54,7 @@ export function registerMonitorIpc(db: Store, env: NodeJS.ProcessEnv): void {
     return {
       repo, problem, pr, setup: repo ? getSetup<Setup>(db, repo) : null,
       monitor: repo && pr ? withEvents(db, liveMonitor(db, repo, pr.number)) : null,
-      raised: repo && pr ? alreadyRaised(db, repo, pr.number) : [],
+      requests: repo && pr ? requestsOf(db, repo, pr.number) : [],
       team
     }
   })
@@ -64,7 +65,7 @@ export function registerMonitorIpc(db: Store, env: NodeJS.ProcessEnv): void {
     const repo = repoOfFolder(s.cwd!)
     const pr = await prOf(s.cwd!)
     if (!pr) throw new Error('this branch has no pull request yet')
-    return checkAsked(db, repo, recipients.filter((r) => r.where.trim()), pr.url, (args) => runHeadless(args, { cwd: s.cwd!, env, timeoutMs: 180_000 }))
+    return checkAsked(db, repo, recipients.filter((r) => r.where.trim()), pr, (args) => runHeadless(args, { cwd: s.cwd!, env, timeoutMs: 180_000 }))
   })
   ipcMain.handle('monitor:choose', (_e, repo: string, chosen: Chosen) => {
     const s = getSetup<Setup>(db, repo)

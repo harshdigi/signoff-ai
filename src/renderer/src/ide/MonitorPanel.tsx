@@ -15,14 +15,15 @@ type Found = {
 }
 type Chosen = { deployWorkflow?: string; recipients?: Recipient[]; errors?: { app: string; services: string[] } }
 type Event = { at: string; kind: string; text: string }
-type Asked = { app: string; where: string; found: boolean; when?: string; link?: string; error?: string }
+type Asked = { app: string; where: string; found: boolean; in?: string; when?: string; link?: string; error?: string }
+type Request = { app: string; place: string; state: 'sent' | 'found' | 'approved'; message: string | null; by: string | null; at: string }
 type Mon = { id: string; stage: string; window_minutes: number; check_minutes: number; notify: number; session_id: string | null; events: Event[] }
 type Pr = { number: number; url: string; title: string; state: string }
 type View = {
   repo: string | null; problem: string | null; pr: Pr | null
   setup: { found: Found; foundAt: string; chosen: Chosen | null } | null
   monitor: Mon | null
-  raised: Event[]
+  requests: Request[]
   team: { session: string; title: string | null; repo: string | null; pr: Pr | null; monitor: Mon | null }[]
 }
 const WINDOWS = [[60, '1 hour'], [240, '4 hours'], [1440, '24 hours']] as const
@@ -123,9 +124,14 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
             </>
           ), <button className="sm" disabled={!!busy} onClick={() => act('stop', window.api.monitor.stop(v.monitor!.id, 'stopped from Ship'))}>Stop</button>) : (
             <>
-              {step(2, 'Review request', false, found ? (
+              {step(2, 'Review request', v.requests.some((r) => r.state === 'approved'), found ? (
                 <>
-                  {v.raised.length > 0 && <ul className="mon-raised">{v.raised.map((e, i) => <li key={i}>✓ {e.text.replace(/^Review request /, '')} <span className="meta">· {time(e.at)}</span></li>)}</ul>}
+                  {v.requests.length > 0 && <ul className="mon-raised">{v.requests.map((r) => (
+                    <li key={r.app + r.place} className={r.state}>
+                      {r.state === 'approved' ? '✓ Approved' : r.state === 'sent' ? '✓ Sent' : '✓ Found'} {r.app === 'GitHub' ? 'on GitHub' : `${r.state === 'sent' ? 'to' : 'in'} ${r.place} (${r.app})`}{r.by ? ` by ${r.by}` : ''}
+                      <span className="meta"> · {time(r.at)}{r.message ? ` · ${r.message}` : ''}</span>
+                    </li>
+                  ))}</ul>}
                   <label className="inline"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Post &quot;PR is up for review&quot; when CI passes</label>
                   {(
                     <div className="mon-recipients">
@@ -144,7 +150,7 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
                             <button className="sm" title="Remove" onClick={() => setRow(i, null)}>×</button>
                             {(() => {
                               const a = asked?.find((x) => x.app === r.app && x.where === r.where.trim())
-                              return a && <div className={'mon-asked ' + (a.found ? 'found' : a.error ? 'err' : 'none')}>{a.error ? `Not checked: ${a.error}` : a.found ? <>Already asked{a.when ? ` · ${a.when}` : ''}{a.link && <> · <a href={a.link} target="_blank" rel="noreferrer">open</a></>}</> : 'Not asked yet'}</div>
+                              return a && <div className={'mon-asked ' + (a.found ? 'found' : a.error ? 'err' : 'none')}>{a.error ? `Not checked: ${a.error}` : a.found ? <>Already asked{a.in && a.in !== r.where.trim() ? ` in ${a.in}` : ''}{a.when ? ` · ${a.when}` : ''}{a.link && <> · <a href={a.link} target="_blank" rel="noreferrer">open</a></>}</> : 'Not asked yet'}</div>
                             })()}
                           </div>
                         )
@@ -153,7 +159,7 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
                         {apps.length > 0 && <button className="sm" onClick={() => setRecipients([...rows, { app: apps[0].app, where: '', tags: [] }])}>+ Recipient</button>}
                         {apps.length > 0 && <button className="sm" disabled={!!busy || !v.pr || !rows.some((r) => r.where.trim())}
                           title={!v.pr ? 'Needs a pull request first' : !rows.some((r) => r.where.trim()) ? 'Add a channel above first' : 'Searches these channels for the PR link now; posts nothing'}
-                          onClick={() => { setBusy('ask'); setErr(null); window.api.monitor.checkAsked(session, rows).then((x: Asked[]) => setAsked(x), (e: unknown) => setErr(errText(e))).finally(() => setBusy(null)) }}>
+                          onClick={() => { setBusy('ask'); setErr(null); window.api.monitor.checkAsked(session, rows).then((x: Asked[]) => { setAsked(x); load() }, (e: unknown) => setErr(errText(e))).finally(() => setBusy(null)) }}>
                           {busy === 'ask' ? 'Checking…' : `Check ${[...new Set((rows.some((r) => r.where.trim()) ? rows.filter((r) => r.where.trim()) : apps.slice(0, 1)).map((r) => r.app))].join(', ')}`}</button>}
                       </div>
                     </div>

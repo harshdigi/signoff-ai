@@ -558,6 +558,7 @@ button.ref { all: unset; cursor: pointer; color: var(--accent, #3b82f6); text-de
 .monitor .mon-track { display: flex; flex-wrap: wrap; gap: 4px; }
 .monitor .chip.on { border-color: var(--accent); background: var(--accent-tint); color: var(--ink); }
 .monitor .mon-raised { list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--ok); }
+.monitor .mon-raised li.approved { font-weight: 600; }
 .monitor .mon-team { margin-top: 14px; }
 .monitor .mon-team-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
 .monitor .mon-team-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

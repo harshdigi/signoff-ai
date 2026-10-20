@@ -7,7 +7,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { openStore, type Store } from '../store'
 import { touchSession } from '../../shared/board'
 import { getMonitor, monitorEvents, saveSetup, startMonitor } from '../../shared/monitors'
-import { deployWorkflowOf, MonitorWatcher, type Gh } from '../monitor-watch'
+import { deployWorkflowOf, MonitorWatcher, THREAD_EVERY_MS, type Gh } from '../monitor-watch'
+import { recordRequest, requestsOf } from '../../shared/review-requests'
 
 const REPO = 'acme/shop'
 let db: Store
@@ -117,6 +118,28 @@ describe('monitor watcher', () => {
     const w = new MonitorWatcher(db, fake({ main: [] }), { ciGreen: () => {}, ciRed: () => {}, incident: () => {}, checkErrors: async () => { throw new Error('Scout timed out') } }, () => 'deploy.yml', () => Date.parse('2026-10-17T10:20:00Z'))
     await w.tick(); await w.idle()
     expect([getMonitor(db, 'M-1').stage, monitorEvents(db, 'M-1').at(-1)?.text]).toEqual(['stable', 'Error check failed: Scout timed out'])
+  })
+
+  it('approval: a GitHub approval is recorded once; review threads are read every 15 min while open and unapproved', async () => {
+    let reads = 0
+    let now = Date.parse('2026-10-17T10:00:00Z')
+    const open = { state: 'OPEN', mergeCommit: null, statusCheckRollup: [check('rspec', 'IN_PROGRESS', null)] }
+    const w = (pr: object): MonitorWatcher => new MonitorWatcher(db, fake({ pr }), { ciGreen: () => {}, ciRed: () => {}, incident: () => {}, checkApproval: async () => { reads++ } }, () => 'deploy.yml', () => now)
+    const one = w(open)
+    await one.tick(); await one.idle()
+    expect(reads).toBe(0) // no request recorded yet: nothing to read
+    recordRequest(db, { repo: REPO, pr: 7, app: 'Slack', place: '#reviews', state: 'sent' })
+    await one.tick(); await one.idle()
+    now += 60_000; await one.tick(); await one.idle()
+    expect(reads).toBe(1)
+    now += THREAD_EVERY_MS; await one.tick(); await one.idle()
+    expect(reads).toBe(2)
+    const approved = w({ ...open, reviewDecision: 'APPROVED', latestReviews: [{ author: { login: 'asha' }, state: 'APPROVED' }, { author: { login: 'ravi' }, state: 'COMMENTED' }] })
+    await approved.tick(); await approved.tick(); await approved.idle()
+    expect(monitorEvents(db, 'M-1').filter((e) => e.kind === 'approved').map((e) => e.text)).toEqual(['Approved on GitHub by asha'])
+    expect(requestsOf(db, REPO, 7).find((r) => r.app === 'GitHub')).toMatchObject({ state: 'approved', by: 'asha' })
+    now += THREAD_EVERY_MS; await one.tick(); await one.idle()
+    expect(reads).toBe(2) // approved: the threads are not read any more
   })
 
   it('started fires once per monitor (the Story is written then)', async () => {
