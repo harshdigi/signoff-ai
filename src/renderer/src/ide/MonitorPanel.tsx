@@ -59,85 +59,104 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
     setRecipients(next)
   }
   const apps = found?.messaging ?? []
+  const deploy = chosen.deployWorkflow ?? found?.deploy.workflow ?? null
+  // Steps (SIGNOFF-31/D1): 1 repo setup, 2 review request, 3 production watch; then team pull requests.
+  const step = (n: number, title: string, done: boolean, body: React.ReactNode, side?: React.ReactNode): React.JSX.Element => (
+    <li className={'mon-step' + (done ? ' done' : '')}>
+      <span className="step-n">{done ? '✓' : n}</span>
+      <div className="step-body"><div className="step-title"><b>{title}</b><span className="grow" />{side}</div>{body}</div>
+    </li>
+  )
   return (
     <div className="monitor">
       <div className="mon-head"><b>After the PR: monitor</b>{v.repo && <span className="meta">{v.repo}{v.pr ? ` #${v.pr.number}` : ''}</span>}</div>
       {v.problem && <div className="meta">{v.problem}</div>}
       {err && <div className="err">{err}</div>}
 
-      {v.repo && !v.setup && (
-        <div className="mon-block">
-          <p className="meta">First, Claude checks which of your connected apps can post messages and show production errors, and how this repo deploys. It only reads; it sends nothing.</p>
-          <button disabled={!!busy} onClick={() => act('setup', window.api.monitor.setup(session))}>{busy === 'setup' ? 'Checking (about a minute)…' : 'Set up monitoring for this repo'}</button>
-        </div>
-      )}
+      {v.repo && (
+        <ol className="mon-steps">
+          {step(1, 'Repo setup', !!found, found ? (
+            <>
+              <div className="mon-chips">
+                {apps.map((x) => <span key={x.app} className="chip ok">✓ {x.app}</span>)}
+                {found.errors.map((x) => <span key={x.app} className="chip ok">✓ {x.app}</span>)}
+                <span className={'chip ' + (deploy ? 'ok' : 'todo')} title={deploy ?? undefined}>{deploy ? `✓ ${deploy.replace(/\s*\(.*\)$/, '')}` : '○ no deploy workflow'}</span>
+                {!apps.length && <span className="chip todo">○ no messaging app</span>}
+                {!found.errors.length && <span className="chip todo">○ no error tool</span>}
+              </div>
+              <details className="fold mon-details">
+                <summary className="meta">Details{found.notes.length ? ` · notes (${found.notes.length})` : ''}</summary>
+                <label>Production deploy workflow <input defaultValue={deploy ?? ''} onBlur={(e) => act('choose', window.api.monitor.choose(v.repo!, { ...chosen, deployWorkflow: e.target.value.trim() || undefined }))} /></label>
+                <div className="meta">Starts: {found.deploy.trigger}</div>
+                {found.notes.length > 0 && <ul className="meta mon-notes">{found.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
+              </details>
+            </>
+          ) : <p className="meta">Claude checks which connected apps can post messages and show production errors, and how this repo deploys. It only reads.</p>,
+          <button className="sm" disabled={!!busy} onClick={() => act('setup', window.api.monitor.setup(session))}>{busy === 'setup' ? 'Checking (about a minute)…' : found ? 'Check again' : 'Set up'}</button>)}
 
-      {found && (
-        <details className="mon-block fold">
-          <summary className="side-group">Repo setup: {apps.map((a) => a.app).join(', ') || 'no messaging app'} · {found.errors.map((e) => e.app).join(', ') || 'no error tool'} · deploy: {chosen.deployWorkflow ?? found.deploy.workflow ?? 'none found'}</summary>
-          <label>Production deploy workflow <input defaultValue={chosen.deployWorkflow ?? found.deploy.workflow ?? ''} onBlur={(e) => act('choose', window.api.monitor.choose(v.repo!, { ...chosen, deployWorkflow: e.target.value.trim() || undefined }))} /></label>
-          <div className="meta">{found.deploy.trigger}</div>
-          {found.notes.length > 0 && <ul className="meta">{found.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
-          <button className="sm" disabled={!!busy} onClick={() => act('setup', window.api.monitor.setup(session))}>{busy === 'setup' ? 'Checking…' : 'Check again'}</button>
-        </details>
-      )}
-
-      {v.monitor ? (
-        <div className="mon-block">
-          <div className="mon-stage"><span className={'pill ' + v.monitor.stage}>{STAGE[v.monitor.stage] ?? v.monitor.stage}</span>
-            <span className="meta">{v.monitor.id} · {v.monitor.window_minutes} min after deploy · checks every {v.monitor.check_minutes} min</span>
-            <span className="grow" />
-            <button className="sm" disabled={!!busy} onClick={() => act('stop', window.api.monitor.stop(v.monitor!.id, 'stopped from Ship'))}>Stop</button>
-          </div>
-          <ol className="mon-events">{v.monitor.events.map((e, i) => <li key={i} className={e.kind}><span className="meta">{time(e.at)}</span> {e.text}</li>)}</ol>
-        </div>
-      ) : v.repo && v.setup && (
-        <div className="mon-block">
-          {!v.pr && <p className="meta">This branch has no pull request yet. Open it first (Open PR above), then start the monitor.</p>}
-          <div className="mon-form">
-            <label>Watch production for <select value={win} onChange={(e) => setWin(Number(e.target.value))}>{WINDOWS.map(([m, l]) => <option key={m} value={m}>{l}</option>)}</select></label>
-            <label>Error check <select value={every} onChange={(e) => setEvery(Number(e.target.value))}>{CHECKS.filter(([m]) => m <= win).map(([m, l]) => <option key={m} value={m}>{l}</option>)}</select></label>
-          </div>
-          <label className="inline"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Post a review request when CI passes</label>
-          {notify && (
-            <div className="mon-recipients">
-              {apps.length === 0 && <div className="meta">No connected app can post messages. Connect one in Tools, then Check again.</div>}
-              {rows.map((r, i) => {
-                const dests = apps.find((a) => a.app === r.app)?.destinations ?? []
-                return (
-                  <div key={i} className="mon-row">
-                    <select value={r.app} onChange={(e) => setRow(i, { ...r, app: e.target.value })}>{apps.map((a) => <option key={a.app}>{a.app}</option>)}</select>
-                    <input list={`dest-${i}`} placeholder="channel or person" value={r.where} onChange={(e) => setRow(i, { ...r, where: e.target.value })} />
-                    <datalist id={`dest-${i}`}>{dests.filter((d) => d.kind !== 'group').map((d) => <option key={d.name} value={d.name} />)}</datalist>
-                    <input list={`tag-${i}`} placeholder="tag: @team, @person (comma separated)" value={r.tags.join(', ')} onChange={(e) => setRow(i, { ...r, tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })} />
-                    <datalist id={`tag-${i}`}>{dests.filter((d) => d.kind !== 'channel').map((d) => <option key={d.name} value={d.name} />)}</datalist>
-                    <button className="sm" title="Remove" onClick={() => setRow(i, null)}>×</button>
+          {v.monitor ? step(2, 'Watching', v.monitor.stage === 'done', (
+            <>
+              <div className="mon-stage"><span className={'pill ' + v.monitor.stage}>{STAGE[v.monitor.stage] ?? v.monitor.stage}</span>
+                <span className="meta">{v.monitor.window_minutes} min after deploy · errors every {v.monitor.check_minutes} min · {v.monitor.id}</span></div>
+              <ol className="mon-events">{v.monitor.events.map((e, i) => <li key={i} className={e.kind}><span className="meta">{time(e.at)}</span> {e.text}</li>)}</ol>
+            </>
+          ), <button className="sm" disabled={!!busy} onClick={() => act('stop', window.api.monitor.stop(v.monitor!.id, 'stopped from Ship'))}>Stop</button>) : (
+            <>
+              {step(2, 'Review request', false, found ? (
+                <>
+                  <label className="inline"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Post &quot;PR is up for review&quot; when CI passes</label>
+                  {notify && (
+                    <div className="mon-recipients">
+                      {apps.length === 0 && <div className="meta">No connected app can post messages. Connect one in Tools, then Check again.</div>}
+                      {rows.map((r, i) => {
+                        const dests = apps.find((x) => x.app === r.app)?.destinations ?? []
+                        return (
+                          <div key={i} className="mon-row">
+                            <select value={r.app} onChange={(e) => setRow(i, { ...r, app: e.target.value })}>{apps.map((x) => <option key={x.app}>{x.app}</option>)}</select>
+                            <input list={`dest-${i}`} placeholder="channel or person" value={r.where} onChange={(e) => setRow(i, { ...r, where: e.target.value })} />
+                            <datalist id={`dest-${i}`}>{dests.filter((d) => d.kind !== 'group').map((d) => <option key={d.name} value={d.name} />)}</datalist>
+                            <input list={`tag-${i}`} placeholder="tag: @team, @person" value={r.tags.join(', ')} onChange={(e) => setRow(i, { ...r, tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })} />
+                            <datalist id={`tag-${i}`}>{dests.filter((d) => d.kind !== 'channel').map((d) => <option key={d.name} value={d.name} />)}</datalist>
+                            <button className="sm" title="Remove" onClick={() => setRow(i, null)}>×</button>
+                          </div>
+                        )
+                      })}
+                      <div className="bar">
+                        {apps.length > 0 && <button className="sm" onClick={() => setRecipients([...rows, { app: apps[0].app, where: '', tags: [] }])}>+ Recipient</button>}
+                        {rows.length > 0 && <button className="sm" onClick={() => act('choose', window.api.monitor.choose(v.repo!, { ...chosen, recipients: rows }))}>Save as default for this repo</button>}
+                      </div>
+                    </div>
+                  )}
+                  {!notify && <div className="meta">Optional. Off: nothing is posted.</div>}
+                </>
+              ) : <p className="meta">After setup.</p>)}
+              {step(3, 'Watch production', false, found ? (
+                <>
+                  <div className="mon-form">
+                    <label>For <select value={win} onChange={(e) => setWin(Number(e.target.value))}>{WINDOWS.map(([m, l]) => <option key={m} value={m}>{l}</option>)}</select> after deploy</label>
+                    <label>Check errors <select value={every} onChange={(e) => setEvery(Number(e.target.value))}>{CHECKS.filter(([m]) => m <= win).map(([m, l]) => <option key={m} value={m}>{l}</option>)}</select></label>
                   </div>
-                )
-              })}
-              {apps.length > 0 && <button className="sm" onClick={() => setRecipients([...rows, { app: apps[0].app, where: '', tags: [] }])}>+ Recipient</button>}
-              {rows.length > 0 && <button className="sm" onClick={() => act('choose', window.api.monitor.choose(v.repo!, { ...chosen, recipients: rows }))}>Save as the default for this repo</button>}
-            </div>
+                  {!v.pr && <div className="meta">Needs a pull request: use Open PR above first.</div>}
+                </>
+              ) : <p className="meta">After setup.</p>,
+              found && <button className="primary sm" disabled={!!busy || !v.pr || (notify && !rows.some((r) => r.where.trim()))}
+                onClick={() => act('start', window.api.monitor.start({ session, windowMinutes: win, checkMinutes: every, notify, recipients: notify ? rows.filter((r) => r.where.trim()) : [] }))}>
+                {busy === 'start' ? 'Starting…' : 'Start monitor'}
+              </button>)}
+            </>
           )}
-          <div className="bar">
-            <button className="primary" disabled={!!busy || !v.pr || (notify && !rows.some((r) => r.where.trim()))}
-              onClick={() => act('start', window.api.monitor.start({ session, windowMinutes: win, checkMinutes: every, notify, recipients: notify ? rows.filter((r) => r.where.trim()) : [] }))}>
-              {busy === 'start' ? 'Starting…' : 'Start monitor'}
-            </button>
-          </div>
-        </div>
+        </ol>
       )}
 
       {v.team.length > 0 && (
-        <div className="mon-block">
+        <div className="mon-team">
           <div className="side-group">Team pull requests</div>
           {v.team.map((t) => (
-            <div key={t.session} className="mon-row">
+            <div key={t.session} className="mon-team-row">
               <span className="name">{t.title ?? t.session.slice(0, 8)}</span>
               <span className="meta">{t.pr ? `#${t.pr.number}` : 'no PR yet'}</span>
-              <span className="grow" />
-              {t.monitor ? <span className="meta">{STAGE[t.monitor.stage]} · {t.monitor.id}{t.monitor.session_id === session ? '' : ' (watched by its session)'}</span>
-                : t.pr && <button className="sm" disabled={!!busy || !v.setup} onClick={() => act('start', window.api.monitor.start({ session: t.session, owner: session, windowMinutes: win, checkMinutes: every, notify: false, recipients: [] }))}>Watch</button>}
+              <span className="meta">{t.monitor ? `${STAGE[t.monitor.stage]}${t.monitor.session_id === session ? '' : ' (its session)'}` : ''}</span>
+              {!t.monitor && t.pr ? <button className="sm" disabled={!!busy || !v.setup} onClick={() => act('start', window.api.monitor.start({ session: t.session, owner: session, windowMinutes: win, checkMinutes: every, notify: false, recipients: [] }))}>Watch</button> : <span />}
             </div>
           ))}
         </div>

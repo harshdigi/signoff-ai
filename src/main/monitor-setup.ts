@@ -28,8 +28,8 @@ const SHAPE = `{
   "errors": [{ "app": "Scout", "mcp": "<server name>", "tools": ["<read tools for errors, logs, traces>"],
     "services": ["<service names that match this repo>"], "needs": ["what a check needs"] }],
   "ci": { "provider": "GitHub Actions", "prChecks": ["<check names on pull requests>"], "mainWorkflows": ["<workflows on the main branch>"] },
-  "deploy": { "workflow": "<workflow that deploys to production, or null>", "trigger": "<how it starts: push, tag, manual>", "postDeploy": "<post-deploy test workflow, or null>" },
-  "notes": ["anything the user should know"]
+  "deploy": { "workflow": "<workflow that deploys to production, or null>", "trigger": "<how it starts, in a few words: push, tag, manual>", "postDeploy": "<post-deploy test workflow, or null>" },
+  "notes": ["at most 5, one short line each (under 15 words): only what the user must know or do"]
 }`
 
 export const SETUP_PROMPT = [
