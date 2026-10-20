@@ -34,7 +34,7 @@ export interface Subtask {
   ticket: string; idx: number; title: string; decisions: string[]; jira_key: string | null; branch: string | null
   worktree: string | null; session_id: string | null; status: 'planned' | 'in_progress' | 'review' | 'done'
 }
-export interface Ticket { key: string; title: string | null; folder: string; strategy: 'main' | 'stacked'; plan_session: string | null; created_at: string; subtasks: Subtask[] }
+export interface Ticket { key: string; title: string | null; folder: string; strategy: 'main' | 'stacked'; plan_session: string | null; closed_at: string | null; created_at: string; subtasks: Subtask[] }
 export type TestCase = {
   plan: string; idx: number; title: string; steps: string; expected: string; status: 'pending' | 'pass' | 'fail' | 'blocked'
   verified_by: 'claude' | 'you' | null; evidence: string | null; created_at: string; updated_at: string

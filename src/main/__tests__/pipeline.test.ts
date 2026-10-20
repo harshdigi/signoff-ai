@@ -59,6 +59,23 @@ describe('tickets and subtasks', () => {
   })
 })
 
+describe('close ticket', () => {
+  it('removes the plan and subtask sessions and marks it closed; reopen restores both', () => {
+    tk.createTicket(db, { key: 'KA-1', folder: '/r', strategy: 'main' })
+    for (const id of ['plan', 'sub', 'other']) b.touchSession(db, id, {})
+    tk.setPlanSession(db, 'KA-1', 'plan')
+    tk.addSubtask(db, 'KA-1', { title: 'a' })
+    tk.updateSubtask(db, 'KA-1', 1, { session_id: 'sub' })
+    const archived = (): string[] => (db.prepare('SELECT id FROM sessions WHERE archived = 1 ORDER BY id').all() as { id: string }[]).map((r) => r.id)
+    expect(tk.closeTicket(db, 'ka-1').sort()).toEqual(['plan', 'sub'])
+    expect(archived()).toEqual(['plan', 'sub'])
+    expect(tk.getTicket(db, 'KA-1').closed_at).not.toBeNull()
+    tk.reopenTicket(db, 'KA-1')
+    expect(archived()).toEqual([])
+    expect(tk.getTicket(db, 'KA-1').closed_at).toBeNull()
+  })
+})
+
 describe('Pipeline', () => {
   it('start opens a planning chat with the plan prompt', () => {
     const r = new Pipeline(db, port, () => settings).start(root, 'ABC-7', { description: 'Customers see only their invoices.' })

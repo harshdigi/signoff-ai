@@ -7,7 +7,7 @@ import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import { answerApproval, leaveToTerminal, type Answer } from '../shared/approvals'
-import { renameSession, setParent, setRemoved } from '../shared/board'
+import { deleteSession, renameSession, setParent, setRemoved } from '../shared/board'
 import { readCatalog } from './catalog'
 import { search } from '../shared/memory'
 import { getSettings, saveSettings, type Settings } from './settings'
@@ -35,7 +35,7 @@ import { allowedRoots, findFiles, grep, readCode, resolveRef, type CodeQuery } f
 import type { Pipeline } from './pipeline'
 import type { Teams } from './teams'
 import { adoptTeam } from '../shared/team'
-import { updateSubtask, type SubtaskState } from '../shared/tickets'
+import { closeTicket, reopenTicket, updateSubtask, type SubtaskState } from '../shared/tickets'
 import { detectFramework, listSpecs, relatedSpecs, type TestRunner } from './testing'
 import { inUserShell, type TerminalManager } from './terminals'
 import { getWorkspace, isTrusted, openFolder, review, rootsOf, setFileDiff, setTrust, tryGit, type ChangeSet, type DiffMode } from './workspace'
@@ -272,6 +272,9 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   })
   ipcMain.handle('ticket:openPr', (_e, key: string, idx: number) => pipeline.openPr(key, idx, hasRole('create-pr')))
   ipcMain.handle('ticket:setStatus', (_e, key: string, idx: number, status: SubtaskState) => updateSubtask(db, key, idx, { status }))
+  // Close stops the ticket's chats too, like removing each session.
+  ipcMain.handle('ticket:close', (_e, key: string) => { for (const id of closeTicket(db, key)) chat.stop(id) })
+  ipcMain.handle('ticket:reopen', (_e, key: string) => reopenTicket(db, key))
   ipcMain.handle('memory:search', (_e, q: string) => search(db, q, { limit: 40 }))
   // Code search (Search tab), in the repos of the open folder.
   ipcMain.handle('code:files', (_e, q: string, include?: string) => findFiles(folder(), q, include))
@@ -415,6 +418,12 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
     setRemoved(db, id, true)
   })
   ipcMain.handle('session:restore', (_e, id: string) => setRemoved(db, id, false))
+  ipcMain.handle('session:delete', (_e, ids: string[]) => {
+    for (const id of ids) {
+      chat.stop(id)
+      deleteSession(db, id)
+    }
+  })
   ipcMain.handle('chat:interrupt', (_e, session: string) => chat.interrupt(session))
   ipcMain.handle('chat:setMode', (_e, session: string, mode: Mode) => chat.setMode(session, mode))
   ipcMain.handle('chat:choose', (_e, session: string, question: string, option: number) => chat.choose(session, question, option))

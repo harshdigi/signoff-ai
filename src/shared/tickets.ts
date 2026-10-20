@@ -1,13 +1,13 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import { BoardError, now } from './board'
+import { BoardError, now, setRemoved } from './board'
 import type { Store } from '../main/store'
 
 // Tickets and their subtasks (IDE/D16 C). Shared by the app and decide (sessions record the plan with it).
 export type Strategy = 'main' | 'stacked'
 export const SUBTASK_STATES = ['planned', 'in_progress', 'review', 'done'] as const
 export type SubtaskState = (typeof SUBTASK_STATES)[number]
-export type Ticket = { key: string; title: string | null; folder: string; strategy: Strategy; plan_session: string | null; created_at: string; updated_at: string }
+export type Ticket = { key: string; title: string | null; folder: string; strategy: Strategy; plan_session: string | null; closed_at: string | null; created_at: string; updated_at: string }
 export type Subtask = {
   ticket: string; idx: number; title: string; decisions: string[]; jira_key: string | null; branch: string | null
   worktree: string | null; session_id: string | null; status: SubtaskState; created_at: string; updated_at: string
@@ -34,6 +34,31 @@ export function getTicket(db: Store, key: string): Ticket {
 
 export function setPlanSession(db: Store, key: string, session: string): void {
   db.prepare('UPDATE tickets SET plan_session = ?, updated_at = ? WHERE key = ?').run(session, now(), key.toUpperCase())
+}
+
+// Close ticket (SIGNOFF-28/D1, D4): the ticket and its plan and subtask sessions leave the list.
+// - Branches and worktrees stay on disk.
+// - Returns those sessions, so the app can stop their Claude processes.
+// - Reopen restores the ticket and the same sessions.
+const sessionsOf = (db: Store, key: string): string[] =>
+  (db.prepare('SELECT id FROM sessions WHERE id IN (SELECT plan_session FROM tickets WHERE key = ? UNION SELECT session_id FROM subtasks WHERE ticket = ?)').all(key, key) as { id: string }[]).map((r) => r.id)
+
+export function closeTicket(db: Store, key: string): string[] {
+  const t = getTicket(db, key)
+  const ids = sessionsOf(db, t.key)
+  db.transaction(() => {
+    db.prepare('UPDATE tickets SET closed_at = ?, updated_at = ? WHERE key = ?').run(now(), now(), t.key)
+    for (const id of ids) setRemoved(db, id, true)
+  })()
+  return ids
+}
+
+export function reopenTicket(db: Store, key: string): void {
+  const t = getTicket(db, key)
+  db.transaction(() => {
+    db.prepare('UPDATE tickets SET closed_at = NULL, updated_at = ? WHERE key = ?').run(now(), t.key)
+    for (const id of sessionsOf(db, t.key)) setRemoved(db, id, false)
+  })()
 }
 
 const row = (r: Record<string, unknown>): Subtask => ({ ...(r as unknown as Subtask), decisions: JSON.parse(String(r.decisions)) })

@@ -387,6 +387,9 @@ button.danger { border-color: #d14d41; color: #d14d41; }
 /* rename / remove */
 .session-row .row-acts, .session-row .row-confirm { margin-left: auto; display: none; gap: 2px; }
 .session-row:hover .row-acts, .session-row .row-confirm { display: flex; }
+.row-act.danger-text { color: var(--quiet); }
+.row-act.danger-text:hover { color: #d64545; }
+.row-confirm-inline { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--quiet); }
 .session-row .count { margin-left: auto; }
 .session-row:hover .count { display: none; }
 .row-act { font-size: 11px; padding: 0 5px; line-height: 16px; }

@@ -47,7 +47,12 @@ export function TicketView({ t, b, openChat }: { t: Ticket; b: BoardState; openC
   return (
     <div className="view">
       <div className="session-head">
-        <div className="row"><span className="id">{t.key}</span>{t.title && <span>{t.title}</span>}<span className="meta">{t.strategy === 'stacked' ? 'stacked branches' : 'each subtask from the base branch'} · {base(t.folder)}</span></div>
+        <div className="row"><span className="id">{t.key}</span>{t.title && <span>{t.title}</span>}<span className="meta">{t.strategy === 'stacked' ? 'stacked branches' : 'each subtask from the base branch'} · {base(t.folder)}</span>
+          <span className="grow" />
+          {t.closed_at
+            ? <><span className="meta">Closed</span><button className="sm" onClick={() => act(window.api.tickets.reopen(t.key))}>Reopen</button></>
+            : <button className="sm" title="Stops and removes its sessions; branches and worktrees stay. Reopen undoes it." onClick={() => act(window.api.tickets.close(t.key))}>Close ticket</button>}
+        </div>
       </div>
       <div className="steps">{STEPS.map((s, i) => <span key={s} className={'step' + (i < step ? ' done' : i === step ? ' on' : '')}>{i + 1}. {s}</span>)}</div>
 

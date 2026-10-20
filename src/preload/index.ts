@@ -72,7 +72,9 @@ const api = {
     rename: (id: string, title: string) => ipcRenderer.invoke('session:rename', id, title),
     setParent: (id: string, parent: string | null) => ipcRenderer.invoke('session:setParent', id, parent),
     remove: (id: string) => ipcRenderer.invoke('session:remove', id),
-    restore: (id: string) => ipcRenderer.invoke('session:restore', id)
+    restore: (id: string) => ipcRenderer.invoke('session:restore', id),
+    // Removed sessions only; permanent.
+    delete: (ids: string[]) => ipcRenderer.invoke('session:delete', ids)
   },
   story: {
     get: (session: string) => ipcRenderer.invoke('story:get', session),
@@ -94,7 +96,9 @@ const api = {
     start: (key: string, title: string, description: string) => ipcRenderer.invoke('ticket:start', key, title, description),
     startSubtask: (key: string, idx: number) => ipcRenderer.invoke('ticket:startSubtask', key, idx),
     openPr: (key: string, idx: number) => ipcRenderer.invoke('ticket:openPr', key, idx),
-    setStatus: (key: string, idx: number, status: string) => ipcRenderer.invoke('ticket:setStatus', key, idx, status)
+    setStatus: (key: string, idx: number, status: string) => ipcRenderer.invoke('ticket:setStatus', key, idx, status),
+    close: (key: string) => ipcRenderer.invoke('ticket:close', key),
+    reopen: (key: string) => ipcRenderer.invoke('ticket:reopen', key)
   },
   flows: {
     touched: () => ipcRenderer.invoke('flows:touched'),

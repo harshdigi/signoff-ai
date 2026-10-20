@@ -114,7 +114,8 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
     onDrop: (e: React.DragEvent): void => { e.preventDefault(); if (dragging && canDrop(target)) move(dragging, target); setDragging(null); setOver(null) }
   })
   // Tickets from Start ticket show on their plan session: key, and subtasks done of all (click: the ticket's page).
-  const tickets = board.tickets.filter((t) => t.folder === folder)
+  const tickets = board.tickets.filter((t) => t.folder === folder && !t.closed_at)
+  const closed = board.tickets.filter((t) => t.folder === folder && t.closed_at)
   const plans = new Map(tickets.filter((t) => t.plan_session).map((t) => [t.plan_session!, { key: t.key, done: t.subtasks.filter((x) => x.status === 'done').length, total: t.subtasks.length }]))
   const tree = (s: (typeof here)[number], depth: number): React.JSX.Element => {
     const children = grouped ? kids(s.id) : []
@@ -157,18 +158,42 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
       {moveErr && <div className="err">{moveErr}</div>}
       {dragging && byId.get(dragging)?.parent_id && <div className={'drop-top' + (over === 'top' ? ' drop-ok' : '')} {...dropProps(null)}>Drop here to move to the top level</div>}
       {(grouped ? roots : here).map((s) => tree(s, 0))}
-      {removed.length > 0 && (
+      {removed.length + closed.length > 0 && (
         <>
-          <button className="link removed-toggle" onClick={() => setShowRemoved(!showRemoved)}>{showRemoved ? 'Hide removed' : `Show removed (${removed.length})`}</button>
+          <button className="link removed-toggle" onClick={() => setShowRemoved(!showRemoved)}>{showRemoved ? 'Hide removed' : `Show removed (${removed.length + closed.length})`}</button>
+          {showRemoved && closed.map((t) => (
+            <div key={t.key} className="side-item removed">
+              <span className="pill key-pill">{t.key}</span><span className="name">{t.title ?? 'Closed ticket'}</span>
+              <button className="row-act" onClick={() => void window.api.tickets.reopen(t.key)}>Reopen</button>
+            </div>
+          ))}
+          {showRemoved && removed.length > 1 && <Confirmed label={`Delete all ${removed.length} removed`} ask="Delete them all for good?" run={() => window.api.sessions.delete(removed.map((s) => s.id))} />}
           {showRemoved && removed.map((s) => (
             <div key={s.id} className="side-item removed">
               <span className="name">{s.title || s.ticket || s.id.slice(0, 8)}</span>
               <button className="row-act" onClick={() => void window.api.sessions.restore(s.id)}>Restore</button>
+              <Confirmed label="Delete" ask="For good?" run={() => window.api.sessions.delete([s.id])} />
             </div>
           ))}
         </>
       )}
     </div>
+  )
+}
+
+// Delete permanently (SIGNOFF-28/D3): asks once inline, like ×. Deletes the session, its chat and the decisions and
+// reviews it posted; Claude Code's transcript stays.
+function Confirmed({ label, ask, run }: { label: string; ask: string; run: () => Promise<unknown> }): React.JSX.Element {
+  const [sure, setSure] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  if (!sure) return <button className="row-act danger-text" title="Deletes the session, its chat and the decisions and reviews it posted. Cannot be undone." onClick={() => setSure(true)}>{label}</button>
+  return (
+    <span className="row-confirm-inline">
+      {ask}
+      <button className="danger row-act" onClick={() => { setSure(false); run().catch((e: unknown) => setErr(errText(e))) }}>Delete</button>
+      <button className="row-act" onClick={() => setSure(false)}>Keep</button>
+      {err && <span className="err">{err}</span>}
+    </span>
   )
 }
 
