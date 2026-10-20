@@ -63,7 +63,8 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
   if (!v) return <div className="monitor"><div className="meta">{err ?? 'Loading the monitor…'}</div></div>
   const found = v.setup?.found
   const chosen = v.setup?.chosen ?? {}
-  const rows = recipients ?? chosen.recipients ?? []
+  // No saved default and nothing added yet: one empty row for the first app, so the channel box and Check are visible.
+  const rows = recipients ?? (chosen.recipients?.length ? chosen.recipients : found?.messaging.length ? [{ app: found.messaging[0].app, where: '', tags: [] }] : [])
   const setRow = (i: number, r: Recipient | null): void => {
     const next = [...rows]
     if (r) next[i] = r; else next.splice(i, 1)
@@ -150,9 +151,10 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
                       })}
                       <div className="bar">
                         {apps.length > 0 && <button className="sm" onClick={() => setRecipients([...rows, { app: apps[0].app, where: '', tags: [] }])}>+ Recipient</button>}
-                        {rows.some((r) => r.where.trim()) && <button className="sm" disabled={!!busy || !v.pr} title={v.pr ? 'Searches these channels for the PR link now; posts nothing' : 'Needs a pull request first'}
+                        {apps.length > 0 && <button className="sm" disabled={!!busy || !v.pr || !rows.some((r) => r.where.trim())}
+                          title={!v.pr ? 'Needs a pull request first' : !rows.some((r) => r.where.trim()) ? 'Add a channel above first' : 'Searches these channels for the PR link now; posts nothing'}
                           onClick={() => { setBusy('ask'); setErr(null); window.api.monitor.checkAsked(session, rows).then((x: Asked[]) => setAsked(x), (e: unknown) => setErr(errText(e))).finally(() => setBusy(null)) }}>
-                          {busy === 'ask' ? 'Checking…' : `Check ${[...new Set(rows.filter((r) => r.where.trim()).map((r) => r.app))].join(', ')}`}</button>}
+                          {busy === 'ask' ? 'Checking…' : `Check ${[...new Set((rows.some((r) => r.where.trim()) ? rows.filter((r) => r.where.trim()) : apps.slice(0, 1)).map((r) => r.app))].join(', ')}`}</button>}
                       </div>
                     </div>
                   )}
