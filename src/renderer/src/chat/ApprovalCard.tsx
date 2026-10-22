@@ -11,6 +11,8 @@ import { languageForPath } from '../ide/languages'
 import { outsidePath } from './approval-scope'
 
 type Question = { question: string; header?: string; options: { label: string; description?: string }[]; multiSelect?: boolean }
+// The one question a session may ask with AskUserQuestion (resources/tickets-ask.md). Anything else is a board decision.
+const TICKET_QUESTION = 'Create a ticket for this work?'
 
 // A permission prompt from Claude Code, answered inline (IDE/D10). Claude waits until it is answered.
 // who: the session asking, so it is clear the request comes from Claude, not from Signoff AI.
@@ -54,8 +56,23 @@ function QuestionCard({ a, questions, answer, err }: { a: Approval; questions: Q
     setPicked((p) => ({ ...p, [q.question]: q.multiSelect ? (p[q.question]?.includes(label) ? p[q.question].filter((x) => x !== label) : [...(p[q.question] ?? []), label]) : [label] }))
   const answers = Object.fromEntries(questions.map((q) => [q.question, other[q.question]?.trim() || (picked[q.question] ?? []).join(', ')]))
   const ready = questions.every((q) => answers[q.question])
+  // Guard (SIGNOFF-33/D1): other questions in this card should have been board decisions. The button sends the ticket
+  // answer (if asked) and tells the session to post the rest with signoff post; the tool call itself is declined.
+  const extra = questions.filter((q) => q.question.trim() !== TICKET_QUESTION)
+  const ticket = questions.find((q) => q.question.trim() === TICKET_QUESTION)
+  const toBoard = (): void => answer({ allow: false, message: [
+    ticket ? `Ticket: ${answers[ticket.question]}.` : '',
+    `Post these as board decisions with signoff post, one each, with context, options, a recommendation and evidence: ${extra.map((q) => `"${q.question}"`).join('; ')}.`,
+    'Use AskUserQuestion only for the ticket question.'
+  ].filter(Boolean).join(' ') })
   return (
     <div className="ccard warn" data-approval={a.id}>
+      {extra.length > 0 && (
+        <div className="outside-note">
+          {extra.length === 1 ? 'This question should' : `${extra.length} of these questions should`} be a board decision, with context, evidence and a recommendation. This card is only for the ticket question.
+          <button className="sm" disabled={!!ticket && !answers[ticket.question]} title={ticket && !answers[ticket.question] ? 'Answer the ticket question first' : 'Sends your ticket answer and asks the session to post the rest as decisions'} onClick={toBoard}>Ask to post as decisions</button>
+        </div>
+      )}
       {questions.map((q) => (
         <div key={q.question} className="question">
           <div className="ccard-head">{q.header && <span className="chip">{q.header}</span>} {q.question}</div>
