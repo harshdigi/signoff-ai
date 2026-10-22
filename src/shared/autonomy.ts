@@ -55,7 +55,7 @@ export const MODES = {
   full: { label: 'Full auto', items: ITEMS, plan: false }
 } as const
 export type Mode = keyof typeof MODES | 'custom'
-export type Autonomy = { mode: Mode; items: string[]; plan: boolean }
+export type Autonomy = { mode: Mode; items: string[]; plan: boolean; discuss?: boolean }
 export const ASK: Autonomy = { mode: 'ask', items: [], plan: false }
 export const PLAN_ITEM = 'plan' // marks the plan's approval card; never settled by Claude
 
@@ -92,7 +92,10 @@ export function getAutonomy(db: Store, session: string, fallback: Autonomy = ASK
 }
 
 export function setAutonomy(db: Store, session: string, a: { mode?: string; items?: string[]; plan?: boolean }): Autonomy {
-  const n = normalize(a)
+  // The Discuss switch is kept as it is when the checklist changes.
+  const kept = (db.prepare('SELECT autonomy FROM sessions WHERE id = ?').get(session) as { autonomy: string | null } | undefined)?.autonomy
+  const discuss = kept ? (JSON.parse(kept) as Autonomy).discuss : undefined
+  const n = { ...normalize(a), ...(discuss === undefined ? {} : { discuss }) }
   const r = db.prepare('UPDATE sessions SET autonomy = ? WHERE id = ?').run(JSON.stringify(n), session)
   if (r.changes !== 1) throw new BoardError(`no session ${session}`)
   return n
@@ -131,6 +134,23 @@ export function acceptByClaude(db: Store, review: string, by: string): void {
 }
 
 // The lines a session reads: its mode, what it may settle itself, and that everything else asks.
+// Discuss or Decide (SIGNOFF-35): in Discuss the session talks it through in chat and posts nothing. Per session, kept
+// with its autonomy; a session that never switched uses the default from Settings (Decide unless changed there).
+export const DISCUSS_BRIEF = 'Mode: Discuss. Talk it through in the chat: options, trade-offs, your recommendation, questions back. Do not post decisions, reviews, plans, splits or actions, and do not change files; reading code and searching is fine. The user switches to Decide when it is time to act; then post what is still open, citing what was agreed in the chat.'
+export const DECIDE_BRIEF = 'Mode: Decide. Work as usual: decisions, reviews and actions go on the board.'
+
+export function getDiscuss(db: Store, session: string, fallback: boolean): boolean {
+  const r = db.prepare('SELECT autonomy FROM sessions WHERE id = ?').get(session) as { autonomy: string | null } | undefined
+  if (!r) throw new BoardError(`no session ${session}`)
+  const d = r.autonomy ? (JSON.parse(r.autonomy) as Autonomy).discuss : undefined
+  return d ?? fallback
+}
+
+export function setDiscuss(db: Store, session: string, on: boolean, fallback: Autonomy): void {
+  const a = getAutonomy(db, session, fallback)
+  db.prepare('UPDATE sessions SET autonomy = ? WHERE id = ?').run(JSON.stringify({ ...a, discuss: on }), session)
+}
+
 export function autonomyBrief(a: Autonomy): string {
   const mode = a.mode === 'custom' ? 'Custom' : MODES[a.mode].label
   if (!a.items.length) return `Autonomy: ${mode}. Nothing is handed to you: every decision and action waits for the user.`

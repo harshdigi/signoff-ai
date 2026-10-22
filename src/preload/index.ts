@@ -83,7 +83,8 @@ const api = {
   autonomy: {
     get: (session: string) => ipcRenderer.invoke('autonomy:get', session),
     catalog: () => ipcRenderer.invoke('autonomy:catalog'),
-    set: (session: string, choice: { mode?: string; items?: string[] }) => ipcRenderer.invoke('autonomy:set', session, choice)
+    set: (session: string, choice: { mode?: string; items?: string[] }) => ipcRenderer.invoke('autonomy:set', session, choice),
+    discuss: (session: string, on: boolean) => ipcRenderer.invoke('discuss:set', session, on)
   },
   monitor: {
     forSession: (session: string) => ipcRenderer.invoke('monitor:forSession', session),

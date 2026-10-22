@@ -8,7 +8,7 @@ import { MODES, type Mode } from '../chat/modes'
 import { CodePre } from './CodeBlock'
 
 // Settings dialog. Values apply to sessions started after saving (the system prompt is set at start).
-type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode; tidyDecisions: boolean; speechLocale: string; speechAutoSend: boolean; autonomy: Autonomy }
+type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode; tidyDecisions: boolean; speechLocale: string; speechAutoSend: boolean; autonomy: Autonomy; discuss: boolean }
 
 // Voice input (🎤 in the chat): the language, and whether it sends when you stop. Only languages this Mac can
 // recognise offline can be picked; the others need their model downloaded in System Settings first.
@@ -107,6 +107,12 @@ export default function Settings({ close, catalog, openShortcuts }: { close: () 
               <div className="label">Autonomy for new sessions</div>
               <div className="meta">What Claude may decide on your behalf in every new session. Change it for one session from the settings icon in its chat box.</div>
               {autoCat ? <AutonomyEditor catalog={autoCat} value={s.autonomy} change={(c) => setS({ ...s, autonomy: resolve(autoCat, c) })} /> : <div className="meta">Loading…</div>}
+            </div>
+            <div className="field">
+              <div className="label">New sessions start in</div>
+              <label className="inline"><input type="radio" checked={!s.discuss} onChange={() => setS({ ...s, discuss: false })} /> Decide: decisions and reviews go on the board</label>
+              <label className="inline"><input type="radio" checked={s.discuss} onChange={() => setS({ ...s, discuss: true })} /> Discuss: talk it through in the chat first; nothing is posted</label>
+              <div className="meta">Switch one session from Discuss | Decide on its tab bar.</div>
             </div>
             <VoiceInput s={s} setS={setS} />
             <div className="field">

@@ -154,6 +154,18 @@ describe('decide CLI', () => {
     expect(out.parent_id).toBe('lead-session-1')
   })
 
+  it('Discuss: post and propose refuse and nothing is posted; Decide posts again', () => {
+    decide([...S, 'register'])
+    const db = openStore(join(dir, 'board.db'))
+    db.prepare("UPDATE sessions SET autonomy = ? WHERE id = 's1'").run(JSON.stringify({ mode: 'ask', items: [], plan: false, discuss: true }))
+    const r = decide([...S, 'post', '--ticket', 'ABC-1', '--id', 'D1', '--question', 'Q?', '--option', 'A', '--option', 'B'])
+    expect([r.code === 0, r.err]).toEqual([false, expect.stringContaining('this session is in Discuss mode: nothing is posted')])
+    expect(decide([...S, 'autonomy']).out).toContain('Mode: Discuss.')
+    expect(db.prepare('SELECT COUNT(*) AS n FROM decisions').get()).toEqual({ n: 0 })
+    db.prepare("UPDATE sessions SET autonomy = ? WHERE id = 's1'").run(JSON.stringify({ mode: 'ask', items: [], plan: false, discuss: false }))
+    expect(decide([...S, 'post', '--ticket', 'ABC-1', '--id', 'D1', '--question', 'Q?', '--option', 'A', '--option', 'B']).out).toContain('ABC-1/D1')
+  })
+
   it('autonomy: an item handed to Claude is settled at once and recorded; others wait; locked ones always ask', () => {
     decide([...S, 'register'])
     const post = (...extra: string[]): string => decide([...S, 'post', '--ticket', 'ABC-1', ...extra]).out

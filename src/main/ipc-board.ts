@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { BrowserWindow, ipcMain } from 'electron'
 import * as b from '../shared/board'
-import { autonomyBrief, getAutonomy, LOCKED, MODES, PHASES, setAutonomy } from '../shared/autonomy'
+import { autonomyBrief, DECIDE_BRIEF, DISCUSS_BRIEF, getAutonomy, getDiscuss, LOCKED, MODES, PHASES, setAutonomy, setDiscuss } from '../shared/autonomy'
 import { getSettings } from './settings'
 import { changeStamp, readBoard } from './board-state'
 import type { Store } from './store'
@@ -45,12 +45,18 @@ export function registerBoardIpc(db: Store, window: () => BrowserWindow | null, 
   // Autonomy (SIGNOFF-24): the session's checklist, and a change to it, told to the session at once.
   const catalog = (): object => ({ phases: PHASES, locked: LOCKED, modes: Object.fromEntries(Object.entries(MODES).map(([k, v]) => [k, { label: v.label, items: [...v.items], plan: v.plan }])) })
   ipcMain.handle('autonomy:catalog', catalog)
-  ipcMain.handle('autonomy:get', (_e, session: string) => ({ autonomy: getAutonomy(db, session, getSettings(db).autonomy), claudeMode: (db.prepare('SELECT mode FROM sessions WHERE id = ?').get(session) as { mode: string | null } | undefined)?.mode ?? null, ...catalog() }))
+  ipcMain.handle('autonomy:get', (_e, session: string) => ({ autonomy: getAutonomy(db, session, getSettings(db).autonomy), discuss: getDiscuss(db, session, getSettings(db).discuss), claudeMode: (db.prepare('SELECT mode FROM sessions WHERE id = ?').get(session) as { mode: string | null } | undefined)?.mode ?? null, ...catalog() }))
   ipcMain.handle('autonomy:set', (_e, session: string, choice: { mode?: string; items?: string[] }) => {
     const a = setAutonomy(db, session, choice)
     b.queueMessage(db, session, `The user changed your autonomy. ${autonomyBrief(a)}`, 'board')
     tryWake(session)
     return a
+  })
+  // Discuss or Decide (SIGNOFF-35), per session; the session is told at once.
+  ipcMain.handle('discuss:set', (_e, session: string, on: boolean) => {
+    setDiscuss(db, session, on, getSettings(db).autonomy)
+    b.queueMessage(db, session, `The user switched you to ${on ? 'Discuss' : 'Decide'}. ${on ? DISCUSS_BRIEF : DECIDE_BRIEF}`, 'board')
+    tryWake(session)
   })
   ipcMain.handle('board:verdict', (_e, rid: string, cid: string, verdict: b.Verdict, comment?: string) => tryWake(b.setVerdict(db, rid, cid, verdict, comment)))
   ipcMain.handle('board:dismissReview', (_e, rid: string) => tryWake(b.dismissReview(db, rid)))

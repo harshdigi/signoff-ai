@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { openStore, type Store } from '../../main/store'
 import { answer, postDecision, touchSession } from '../board'
 import { getSettings, saveSettings } from '../../main/settings'
-import { allows, ASK, delegate, getAutonomy, ITEMS, MODES, modeOf, normalize, PLAN_ITEM, planApproved, setAutonomy } from '../autonomy'
+import { allows, ASK, delegate, getAutonomy, getDiscuss, ITEMS, MODES, modeOf, normalize, PLAN_ITEM, planApproved, setAutonomy, setDiscuss } from '../autonomy'
 
 let db: Store
 beforeEach(() => {
@@ -30,6 +30,19 @@ describe('autonomy', () => {
     expect(normalize({ items: [...plan].reverse(), plan: true }).mode).toBe('planFirst')
     expect(normalize({ items: [...plan] }).mode).toBe('custom') // same boxes without the plan switch
     expect(modeOf([])).toBe('ask')
+  })
+
+  it('Discuss or Decide: the default from Settings until switched; the switch survives a checklist change', () => {
+    touchSession(db, 'd1', {})
+    expect(getDiscuss(db, 'd1', false)).toBe(false)
+    expect(getDiscuss(db, 'd1', true)).toBe(true)
+    setDiscuss(db, 'd1', true, ASK)
+    expect(getDiscuss(db, 'd1', false)).toBe(true)
+    setAutonomy(db, 'd1', { mode: 'full' })
+    expect(getDiscuss(db, 'd1', false)).toBe(true)
+    expect(getAutonomy(db, 'd1').mode).toBe('full')
+    setDiscuss(db, 'd1', false, ASK)
+    expect(getDiscuss(db, 'd1', true)).toBe(false)
   })
 
   it('refuses locked and unknown items, and unknown modes', () => {
