@@ -61,7 +61,7 @@ describe('openStore', () => {
     db.prepare("INSERT INTO reviews (id, ticket, session_id, title, status, created_at, updated_at) VALUES ('R-1', 'K-1', 's1', 'x', 'open', 't', 't')").run()
     db.prepare("INSERT INTO review_changes (review_id, change_id, file, diff, verdict) VALUES ('R-1', 'C1', 'a.rb', '+a', 'accept')").run()
     db.prepare("INSERT INTO review_thread (review_id, change_id, who, text, at) VALUES ('R-1', 'C1', 'you', 'ok', 't')").run()
-    db.exec('DROP TABLE monitor_events; DROP TABLE monitors; DROP TABLE repo_setups; ALTER TABLE sessions DROP COLUMN autonomy; ALTER TABLE decisions DROP COLUMN autonomy_item; DROP TABLE stories; ALTER TABLE tickets DROP COLUMN closed_at; DROP TABLE review_requests') // added by v22 to v25, which run again
+    db.exec('DROP TABLE monitor_events; DROP TABLE monitors; DROP TABLE repo_setups; ALTER TABLE sessions DROP COLUMN autonomy; ALTER TABLE decisions DROP COLUMN autonomy_item; DROP TABLE stories; ALTER TABLE tickets DROP COLUMN closed_at; DROP TABLE review_requests; ALTER TABLE sessions DROP COLUMN base_pin') // added by v22 to v27, which run again
     db.pragma('user_version = 20')
     db.close()
     const up = openStore(path)
@@ -90,7 +90,8 @@ describe('v26: monitors without a pull request', () => {
         merge_sha TEXT, deployed_at TEXT, firefight_session TEXT REFERENCES sessions(id), note TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
       CREATE TABLE monitor_events (id INTEGER PRIMARY KEY, monitor_id TEXT NOT NULL REFERENCES monitors(id), at TEXT NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL);
       INSERT INTO monitors (id, session_id, repo, pr, stage, window_minutes, check_minutes, created_at, updated_at) VALUES ('M-1', 's1', 'a/b', 7, 'merge', 60, 15, 't', 't');
-      INSERT INTO monitor_events (monitor_id, at, kind, text) VALUES ('M-1', 't', 'started', 'Watching a/b#7')`)
+      INSERT INTO monitor_events (monitor_id, at, kind, text) VALUES ('M-1', 't', 'started', 'Watching a/b#7');
+      ALTER TABLE sessions DROP COLUMN base_pin`)
     db.pragma('user_version = 25')
     db.close()
     const up = openStore(path)
@@ -191,14 +192,7 @@ describe('copy before an upgrade', () => {
     const path = join(dir, 'board.db')
     const db = openStore(path)
     db.prepare("INSERT INTO sessions (id, state, started_at, updated_at) VALUES ('s1', 'working', 't', 't')").run()
-    // The newest migration's change (v26): monitors as v22 made them (pr required, no kind).
-    db.exec(`DROP TABLE monitor_events; DROP TABLE monitors;
-      CREATE TABLE monitors (id TEXT PRIMARY KEY, session_id TEXT REFERENCES sessions(id), repo TEXT NOT NULL, pr INTEGER NOT NULL, ticket TEXT,
-        stage TEXT NOT NULL, window_minutes INTEGER NOT NULL, check_minutes INTEGER NOT NULL, notify INTEGER NOT NULL DEFAULT 0, recipients TEXT,
-        merge_sha TEXT, deployed_at TEXT, firefight_session TEXT REFERENCES sessions(id), note TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
-      CREATE TABLE monitor_events (id INTEGER PRIMARY KEY, monitor_id TEXT NOT NULL REFERENCES monitors(id), at TEXT NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL);
-      INSERT INTO monitors (id, session_id, repo, pr, stage, window_minutes, check_minutes, created_at, updated_at) VALUES ('M-1', 's1', 'a/b', 7, 'ci', 60, 15, 't', 't');
-      INSERT INTO monitor_events (monitor_id, at, kind, text) VALUES ('M-1', 't', 'started', 'Watching a/b#7')`)
+    db.exec('ALTER TABLE sessions DROP COLUMN base_pin') // the newest migration's change (v27)
     db.pragma(`user_version = ${SCHEMA_VERSION - 1}`)
     db.close()
     return path

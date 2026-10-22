@@ -32,6 +32,7 @@ import { getApproval, leaveToTerminal, requestApproval } from '../shared/approva
 const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_CODE_SESSION_ID; decide is the same command)
   register  [--ticket K] [--title T] [--description D]   [--parent SESSION-ID: nest under that session; its first 8+ characters are enough]
             [--cwd DIR: move this session to that folder, e.g. a repo or worktree, so a team can start from it]
+            [--base REF: Files changed diffs against this ref; --base auto goes back to the automatic pick]
   autonomy                       what this session may settle itself, and what waits for the user
   plan      --ticket K --id Dn --file PLAN [--question Q]   Plan first: the whole plan as one approval card
   monitor   [--window MIN] [--every MIN]   start the monitor on this branch's PR (only when after.monitor is handed over)
@@ -256,7 +257,7 @@ function main(argv: string[]): number {
   const { values: o, positionals } = parseArgs({
     args: rest, allowPositionals: cmd === 'recall' || cmd === 'ask' || cmd === 'docs', strict: true,
     options: {
-      session: { type: 'string' }, ticket: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' }, parent: { type: 'string' }, cwd: { type: 'string' },
+      session: { type: 'string' }, ticket: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' }, parent: { type: 'string' }, cwd: { type: 'string' }, base: { type: 'string' },
       state: { type: 'string' }, note: { type: 'string' }, id: { type: 'string', multiple: true }, question: { type: 'string' },
       option: { type: 'string', multiple: true }, recommend: { type: 'string' }, evidence: { type: 'string', multiple: true },
       ref: { type: 'string', multiple: true }, action: { type: 'string' }, command: { type: 'string' }, force: { type: 'boolean' },
@@ -322,6 +323,12 @@ function main(argv: string[]): number {
       if (o.cwd && !existsSync(resolve(o.cwd))) throw new Usage(`no folder ${o.cwd}`)
       register(db, sid(), o, o.cwd ? resolve(o.cwd) : undefined)
       if (o.parent) b.setParent(db, sid(), b.sessionByPrefix(db, o.parent))
+      // --base: pin the base Files changed diffs against (SIGNOFF-36-DIFF-BASE/D2); it must exist in the session's folder.
+      if (o.base) {
+        const { cwd } = db.prepare('SELECT cwd FROM sessions WHERE id = ?').get(sid()) as { cwd: string }
+        if (o.base !== 'auto' && !run('git', ['-C', cwd, 'rev-parse', '--verify', '--quiet', `${o.base}^{commit}`])) throw new Usage(`no ref ${o.base} in ${cwd}`)
+        db.prepare('UPDATE sessions SET base_pin = ? WHERE id = ?').run(o.base === 'auto' ? null : o.base, sid())
+      }
       console.log(JSON.stringify(db.prepare('SELECT * FROM sessions WHERE id = ?').get(sid())))
       return 0
     case 'status': {
