@@ -119,8 +119,10 @@ export function parseApprovals(out: string): Approval[] {
 }
 
 export async function checkApprovals(db: Store, m: Monitor, run: (args: string[]) => Promise<{ code: number; out: string }>, url: string): Promise<Approval[]> {
+  const pr = m.pr
+  if (pr === null) return [] // a change watch has no pull request
   const apps = getSetup<Setup>(db, m.repo)?.found.messaging ?? []
-  const open = requestsOf(db, m.repo, m.pr).filter((r) => r.app !== 'GitHub' && r.state !== 'approved')
+  const open = requestsOf(db, m.repo, pr).filter((r) => r.app !== 'GitHub' && r.state !== 'approved')
   const reads = open.flatMap((r) => {
     const a = apps.find((x) => x.app === r.app)
     return a?.threadTool ? [{ app: r.app, place: r.place, message: r.message, threadTool: a.threadTool, searchTool: a.searchTool ?? null }] : []
@@ -136,7 +138,7 @@ export async function checkApprovals(db: Store, m: Monitor, run: (args: string[]
   if (r.code !== 0) throw new Error(`the thread check failed: ${r.out.slice(0, 200)}`)
   const approvals = parseApprovals(r.out)
   for (const a of approvals.filter((x) => x.approved)) {
-    recordRequest(db, { repo: m.repo, pr: m.pr, app: a.app, place: a.place, state: 'approved', by: a.by ?? null })
+    recordRequest(db, { repo: m.repo, pr, app: a.app, place: a.place, state: 'approved', by: a.by ?? null })
     addEvent(db, m.id, 'approved', `Approved in ${raisedKey(a.place, a.app)}${a.by ? ` by ${a.by}` : ''}${a.when ? ` · ${a.when}` : ''}`)
   }
   return approvals
@@ -147,9 +149,11 @@ export async function sendReviewRequest(db: Store, m: Monitor, deps: {
   pr: (repo: string, pr: number) => Promise<Pr>
   run: (args: string[]) => Promise<{ code: number; out: string }>
 }): Promise<Sent[]> {
+  const n = m.pr
+  if (n === null) return [] // a change watch has no pull request
   const planned = plan(db, m)
   for (const u of planned.unknown) addEvent(db, m.id, 'notify-failed', `Review request not sent to ${u.where}: ${u.app} is not in this repo's setup (Re-scan apps in Ship)`)
-  const raised = requestsOf(db, m.repo, m.pr)
+  const raised = requestsOf(db, m.repo, n)
   const sends = planned.sends.filter((s) => {
     const before = raised.find((r) => r.app === s.app && r.place === s.where.trim())
     if (before) addEvent(db, m.id, 'notify-skipped', `Review request already raised in ${raisedKey(s.where, s.app)} at ${before.at}; not sent again`)
@@ -157,7 +161,7 @@ export async function sendReviewRequest(db: Store, m: Monitor, deps: {
   })
   for (const s of sends.filter((x) => !x.searchTool)) addEvent(db, m.id, 'notify-note', `${raisedKey(s.where, s.app)} was not searched for an earlier request: no search tool in this repo's setup (Re-scan apps in Ship)`)
   if (!sends.length) return []
-  const pr = await deps.pr(m.repo, m.pr)
+  const pr = await deps.pr(m.repo, n)
   const line = reviewLine(m, pr)
   const tools = [...new Set(sends.flatMap((s) => [s.sendTool, ...(s.searchTool ? [s.searchTool] : [])]))]
   const r = await deps.run(headlessArgs(notifyPrompt(line, pr.url, sends), { allow: tools, disallow: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash'] }))
@@ -171,10 +175,10 @@ export async function sendReviewRequest(db: Store, m: Monitor, deps: {
   }
   for (const s of sent) {
     if (s.found) {
-      recordRequest(db, { repo: m.repo, pr: m.pr, app: s.app, place: s.where, state: 'found', message: where(s.in, s.where, [s.found]) })
+      recordRequest(db, { repo: m.repo, pr: n, app: s.app, place: s.where, state: 'found', message: where(s.in, s.where, [s.found]) })
       addEvent(db, m.id, 'notify-found', `Review request already in ${raisedKey(s.in ?? s.where, s.app)}, not sent again: ${s.found}`)
     } else if (s.ok) {
-      recordRequest(db, { repo: m.repo, pr: m.pr, app: s.app, place: s.where, state: 'sent', message: s.message ?? null })
+      recordRequest(db, { repo: m.repo, pr: n, app: s.app, place: s.where, state: 'sent', message: s.message ?? null })
       addEvent(db, m.id, 'notified', `Review request sent to ${raisedKey(s.where, s.app)}`)
     } else addEvent(db, m.id, 'notify-failed', `Review request not sent to ${raisedKey(s.where, s.app)}: ${s.error ?? 'no reason given'}`)
   }

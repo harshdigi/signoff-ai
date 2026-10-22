@@ -525,6 +525,12 @@ button.ref { all: unset; cursor: pointer; color: var(--accent, #3b82f6); text-de
 .ship .ship-actions { margin-top: 12px; }
 /* Monitor (Ship): setup, the watch form and its live timeline. */
 .monitor { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+.view > .monitor:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.monitor.mon-status { display: flex; gap: 8px; align-items: center; }
+.monitor .mon-change { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+.monitor .mon-change-form { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+.monitor .mon-change-form > input { width: 100%; }
+.monitor .mon-form { align-items: center; }
 .monitor .mon-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; }
 .monitor .mon-block { margin: 8px 0; }
 .monitor .mon-form { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }

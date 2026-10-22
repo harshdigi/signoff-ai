@@ -91,7 +91,8 @@ const api = {
     checkAsked: (session: string, recipients: { app: string; where: string; tags: string[] }[]) => ipcRenderer.invoke('monitor:checkAsked', session, recipients),
     choose: (repo: string, chosen: unknown) => ipcRenderer.invoke('monitor:choose', repo, chosen),
     start: (o: { session: string; owner?: string; windowMinutes: number; checkMinutes: number; notify: boolean; recipients: { app: string; where: string; tags: string[] }[] }) => ipcRenderer.invoke('monitor:start', o),
-    stop: (id: string, why: string) => ipcRenderer.invoke('monitor:stop', id, why)
+    stop: (id: string, why: string) => ipcRenderer.invoke('monitor:stop', id, why),
+    startChange: (o: { session: string; subject: string; focus?: string; since: string; windowMinutes: number; checkMinutes: number }) => ipcRenderer.invoke('monitor:startChange', o)
   },
   tickets: {
     start: (key: string, title: string, description: string) => ipcRenderer.invoke('ticket:start', key, title, description),

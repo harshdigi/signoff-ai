@@ -17,6 +17,17 @@ beforeEach(() => {
 const base = { repo: 'glomopay/glomopay_service', pr: 5152, windowMinutes: 60, checkMinutes: 15 }
 
 describe('monitors', () => {
+  it('a change watch has no PR, starts watching at the change time, and needs a description', () => {
+    const w = m.startChange(db, { session: 'impl', repo: base.repo, subject: 'merchant X: instant payout on', focus: 'merchant X', since: '2026-10-01T09:00:00Z', windowMinutes: 60, checkMinutes: 15 })
+    expect([w.kind, w.pr, w.stage, w.deployed_at, w.subject, w.focus]).toEqual(['change', null, 'stable', '2026-10-01T09:00:00.000Z', 'merchant X: instant payout on', 'merchant X'])
+    expect(m.monitorEvents(db, w.id).map((e) => e.text)).toEqual(['Watching a change: merchant X: instant payout on (focus: merchant X); errors every 15 min for 60 min from 2026-10-01T09:00:00.000Z'])
+    expect(() => m.startChange(db, { session: 'impl', repo: base.repo, subject: '  ', since: '2026-10-01T09:00:00Z', windowMinutes: 60, checkMinutes: 15 })).toThrow('say what changed')
+    // Two change watches in one repo are fine; a PR monitor alongside them too.
+    m.startChange(db, { session: 'impl', repo: base.repo, subject: 'merchant Y', since: '2026-10-01T09:00:00Z', windowMinutes: 60, checkMinutes: 15 })
+    m.startMonitor(db, { ...base, session: 'impl' })
+    expect(m.changeWatches(db, 'impl').map((x) => x.subject)).toEqual(['merchant Y', 'merchant X: instant payout on'])
+  })
+
   it('one live monitor per pull request; a stopped one frees it', () => {
     const a = m.startMonitor(db, { ...base, session: 'impl', ticket: 'KAN-9321' })
     expect([a.id, a.stage, a.notify, a.recipients]).toEqual(['M-1', 'ci', 0, null])
