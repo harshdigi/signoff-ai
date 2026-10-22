@@ -55,7 +55,7 @@ export default function Ship({ s, b, ask: send, openChat }: { s: Session; b: Boa
       </div>
       <AskStatus state={a.state} openChat={openChat} reset={a.reset} />
       <p className="meta">Each step comes back as an approval card before it happens.</p>
-      <MonitorPanel session={s.id} />
+      <MonitorPanel key={s.id} session={s.id} />
     </div>
   )
 }

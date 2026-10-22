@@ -70,6 +70,9 @@ export function stopMonitor(db: Store, id: string, why: string): Monitor {
   return setStage(db, id, 'stopped', why.trim())
 }
 
+// "#reviews (Slack)": a destination as the timeline names it.
+export const raisedKey = (where: string, app: string): string => `${where} (${app})`
+
 export function addEvent(db: Store, id: string, kind: string, text: string): void {
   db.prepare('INSERT INTO monitor_events (monitor_id, at, kind, text) VALUES (?, ?, ?, ?)').run(id, now(), kind, text)
 }

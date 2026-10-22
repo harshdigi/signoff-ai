@@ -36,7 +36,7 @@ import { deployWorkflowOf, gh, MonitorWatcher } from './monitor-watch'
 import { registerMonitorIpc } from './ipc-monitor'
 import { registerStoryIpc } from './ipc-story'
 import { writeStory } from './story'
-import { sendReviewRequest } from './monitor-notify'
+import { checkApprovals, sendReviewRequest } from './monitor-notify'
 import { checkErrors } from './monitor-errors'
 import { startFirefight } from './monitor-firefight'
 import { runHeadless } from './headless'
@@ -188,6 +188,11 @@ app.whenReady().then(() => {
       if (!cwd) return
       void writeStory(store, m.ticket, cwd, (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 240_000 }))
         .catch((e: unknown) => addEvent(store, m.id, 'error', `Could not write the Story: ${(e as Error).message.slice(0, 200)}`))
+    },
+    checkApproval: async (m) => {
+      const cwd = (store.prepare('SELECT cwd FROM sessions WHERE id = ?').get(m.session_id) as { cwd: string | null } | undefined)?.cwd ?? homedir()
+      const { url } = JSON.parse(await gh(['pr', 'view', String(m.pr), '-R', m.repo, '--json', 'url'])) as { url: string }
+      return checkApprovals(store, m, (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 180_000 }), url)
     },
     checkErrors: (m) => {
       const cwd = (store.prepare('SELECT cwd FROM sessions WHERE id = ?').get(m.session_id) as { cwd: string | null } | undefined)?.cwd ?? homedir()

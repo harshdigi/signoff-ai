@@ -535,6 +535,33 @@ button.ref { all: unset; cursor: pointer; color: var(--accent, #3b82f6); text-de
 .monitor .mon-events li { margin: 2px 0; }
 .monitor .mon-events li.incident, .monitor .mon-events li.ci-red, .monitor .mon-events li.error { color: var(--warn); }
 .monitor .pill.incident { background: var(--warn); color: #fff; }
+.monitor .mon-steps { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.monitor .mon-step { display: flex; gap: 10px; align-items: flex-start; }
+.monitor .step-n { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: var(--quiet); }
+.monitor .mon-step.done .step-n { border-color: var(--ok); color: var(--ok); }
+.monitor .step-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.monitor .step-title { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.monitor .step-body p { margin: 0; }
+.monitor .mon-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.monitor .chip { font-size: 11px; padding: 1px 7px; border-radius: 10px; border: 1px solid var(--line); }
+.monitor .chip.ok { border-color: var(--ok); color: var(--ok); }
+.monitor .chip.todo { color: var(--quiet); }
+.monitor .mon-details > summary { cursor: pointer; }
+.monitor .mon-details label { display: flex; gap: 6px; align-items: center; margin: 6px 0 2px; }
+.monitor .mon-details input { flex: 1; min-width: 0; }
+.monitor .mon-notes { margin: 4px 0 0; padding-left: 18px; }
+.monitor .mon-default { white-space: nowrap; font-size: 11px; }
+.monitor .mon-row { flex-wrap: wrap; }
+.monitor .mon-asked { flex-basis: 100%; font-size: 11px; padding-left: 2px; }
+.monitor .mon-asked.found { color: var(--ok); }
+.monitor .mon-asked.none, .monitor .mon-asked.err { color: var(--quiet); }
+.monitor .mon-track { display: flex; flex-wrap: wrap; gap: 4px; }
+.monitor .chip.on { border-color: var(--accent); background: var(--accent-tint); color: var(--ink); }
+.monitor .mon-raised { list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--ok); }
+.monitor .mon-raised li.approved { font-weight: 600; }
+.monitor .mon-team { margin-top: 14px; }
+.monitor .mon-team-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.monitor .mon-team-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bp-dot { background: #d14d41; border-radius: 50%; width: 9px !important; height: 9px !important; margin: 5px 0 0 4px; }
 
 /* Code comments (ide/Comments.tsx) */
