@@ -8,6 +8,7 @@ import TestPlan from './TestPlan'
 import Ship from './Ship'
 import Story from './Story'
 import AutonomyPanel from '../chat/AutonomyPanel'
+import DiscussSwitch from '../chat/DiscussSwitch'
 import { toRows, toolSummary, type ToolRow } from '../chat/transcript'
 import { errText, type Term, type Workflow } from './types'
 import { Icon } from './icons'
@@ -52,7 +53,7 @@ export default function SessionPage({ session: s, board, refresh, tab, setTab, c
         {tabs.map(([k, name, n]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{name}{n !== null && <span className={k === 'decisions' ? 'count' : 'n'}>{n}</span>}</button>
         ))}
-        <span className="tabs-right"><AutonomyPanel session={s?.id ?? null} place="down" /></span>
+        <span className="tabs-right"><DiscussSwitch session={s?.id ?? null} /><AutonomyPanel session={s?.id ?? null} place="down" /></span>
         {err && <span className="err">{err}</span>}
       </div>
       <div className="session-body">

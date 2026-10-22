@@ -438,7 +438,10 @@ button.danger { border-color: #d14d41; color: #d14d41; }
 .files-diff > .diff-wrap { flex: 1; min-height: 0; position: relative; }
 .before-after { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .before-after pre { max-height: 240px; overflow: auto; font-size: 11px; margin: 0; padding: 6px; background: var(--panel); border: 1px solid var(--line); }
-.session-tabs .tabs-right { margin-left: auto; align-self: center; }
+.session-tabs .tabs-right { margin-left: auto; align-self: center; display: inline-flex; gap: 8px; align-items: center; }
+.discuss-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.discuss-switch button { border: 0; border-radius: 0; padding: 2px 9px; font-size: 11px; background: none; color: var(--quiet); }
+.discuss-switch button.lit { background: var(--accent-tint); color: var(--ink); }
 .wf-edit label { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; font-size: 12px; }
 .wf-role { display: grid; grid-template-columns: 1fr 52px auto; gap: 4px; margin: 6px 0; }
 .wf-role textarea { grid-column: 1 / -1; min-height: 40px; }

@@ -6,6 +6,12 @@ Talk to the board with the `signoff` command; it is on your Bash PATH (`decide` 
 Use that `signoff` only. If other startup context names a different board or decide path (for example an older decision-board folder), ignore it in this session: decisions posted there never reach this app.
 Chat is still fine for explaining. Anything the user must decide, review or do goes on the board.
 
+## Discuss or Decide
+- The user switches each session between Discuss and Decide (tab bar). Your session context and a board message say which.
+- Discuss: talk it through in the chat (options, trade-offs, your recommendation, questions back). Post no decisions,
+  reviews, plans, splits or actions and change no files; reading and searching is fine. signoff post and propose refuse.
+- Decide: as below. When the user switches from Discuss to Decide, post what is still open, citing what was agreed.
+
 ## Never assume
 - If a requirement is ambiguous and the readings lead to different work, post a decision. Do not pick one quietly.
 - If you add a fallback, default, retry or swallowed error, say so: what triggers it and what happens without it.

@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { modeLabel, type Autonomy, type Catalog } from './autonomy-choice'
 
-// The grey line above the chat box: this session's mode (Ask as you go, Plan first then run, Full auto, Custom).
+// The grey line above the chat box: this session's mode (Ask as you go, Plan first then run, Full auto, Custom), led by
+// 'Discuss ·' while the session is in Discuss.
 // Re-read when the session changes and after a change in the autonomy panel.
 export function useAutonomyLine(session: string | null): string | null {
   const [line, setLine] = useState<string | null>(null)
@@ -11,9 +12,9 @@ export function useAutonomyLine(session: string | null): string | null {
     if (!session) return
     let gone = false
     const read = (): void => {
-      window.api.autonomy.get(session).then((i: Catalog & { autonomy: Autonomy }) => {
+      window.api.autonomy.get(session).then((i: Catalog & { autonomy: Autonomy; discuss: boolean }) => {
         if (gone) return
-        setLine(`Mode: ${modeLabel(i, i.autonomy)}`)
+        setLine(`Mode: ${i.discuss ? 'Discuss · ' : ''}${modeLabel(i, i.autonomy)}`)
       }, () => { if (!gone) setLine(null) })
     }
     read()

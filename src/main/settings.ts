@@ -25,12 +25,13 @@ export type Settings = {
   speechLocale: string               // default empty: voice input listens in the Mac's own language; else e.g. 'en-IN'
   speechAutoSend: boolean            // default false: voice input fills the box; true: it also sends when you stop
   autonomy: Autonomy                 // default ask everything: what new sessions let Claude decide alone (SIGNOFF-24)
+  discuss: boolean                   // new sessions start in Discuss (true) or Decide (false, the default) (SIGNOFF-35)
 }
 
 // A skill on the top bar. key = catalog kind:name; label = what the button says (e.g. "Start my day").
 export type Pin = { key: string; label: string }
 
-export const DEFAULTS: Settings = { profile: 'developer', preferences: '', autoHandoff: true, handoffAt: 75, branching: 'main', branchTemplate: '{KEY}-{slug}', flowDocs: '', nearbySkills: true, pins: [], onOpen: null, askTicket: true, maxChildren: 3, docsOffered: [], defaultMode: 'default', tidyDecisions: true, speechLocale: '', speechAutoSend: false, autonomy: ASK }
+export const DEFAULTS: Settings = { profile: 'developer', preferences: '', autoHandoff: true, handoffAt: 75, branching: 'main', branchTemplate: '{KEY}-{slug}', flowDocs: '', nearbySkills: true, pins: [], onOpen: null, askTicket: true, maxChildren: 3, docsOffered: [], defaultMode: 'default', tidyDecisions: true, speechLocale: '', speechAutoSend: false, autonomy: ASK, discuss: false }
 const KEY = 'app'
 
 export function getSettings(db: Store): Settings {

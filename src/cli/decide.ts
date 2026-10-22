@@ -12,7 +12,7 @@ import * as tk from '../shared/tickets'
 import { search } from '../shared/memory'
 import { syncBoard } from '../main/store/import-board'
 import { getSettings } from '../main/settings'
-import { acceptByClaude, autonomyBrief, delegate, getAutonomy, PLAN_ITEM } from '../shared/autonomy'
+import { acceptByClaude, autonomyBrief, delegate, DISCUSS_BRIEF, getAutonomy, getDiscuss, PLAN_ITEM } from '../shared/autonomy'
 import { startMonitor } from '../shared/monitors'
 import { repoOfFolder } from '../main/monitor-setup'
 import { anchorsFor, docsBrief, findDocs, indexDocs, touchedDocs, verifyDocs } from '../main/flows'
@@ -172,6 +172,7 @@ function hook(db: Store, event: string | undefined, terminal = false): number {
     } else lines.push('Ticket: none (the branch has no issue key). Set one before posting: signoff register --ticket <KEY>')
     lines.push(...teamBrief(db, input.session_id))
     lines.push('', autonomyBrief(getAutonomy(db, input.session_id, getSettings(db).autonomy)))
+    if (getDiscuss(db, input.session_id, getSettings(db).discuss)) lines.push('', DISCUSS_BRIEF)
     // Flow docs (Settings): every session is told to look there first.
     const flow = getSettings(db).flowDocs
     if (flow) lines.push('', ...docsBrief(flow))
@@ -287,6 +288,10 @@ function main(argv: string[]): number {
   // --text-file keeps an answer's line breaks (points, paragraphs); --text is one shell argument.
   const text = (): string => (o['text-file'] ? readFileSync(o['text-file'], 'utf8') : req('text'))
 
+  // Discuss mode (SIGNOFF-35): nothing is posted while the user is discussing; the session talks in the chat instead.
+  if (['post', 'propose', 'plan', 'split'].includes(cmd ?? '') && db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(sid()) && getDiscuss(db, sid(), getSettings(db).discuss)) {
+    throw new Usage('this session is in Discuss mode: nothing is posted. Talk it through in the chat; the user switches to Decide when it is time to act.')
+  }
   switch (cmd) {
     case 'plan': {
       // Plan first: the whole plan as one approval card. Once approved, the session settles its handed-over items alone.
@@ -315,6 +320,7 @@ function main(argv: string[]): number {
     }
     case 'autonomy':
       console.log(autonomyBrief(getAutonomy(db, sid(), getSettings(db).autonomy)))
+      if (getDiscuss(db, sid(), getSettings(db).discuss)) console.log(DISCUSS_BRIEF)
       return 0
     case 'register':
       // --parent: nest this session under another one (its id, or the first characters of it).
