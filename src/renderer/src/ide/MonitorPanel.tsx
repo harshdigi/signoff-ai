@@ -24,6 +24,7 @@ type View = {
   setup: { found: Found; foundAt: string; chosen: Chosen | null } | null
   monitor: Mon | null
   requests: Request[]
+  changes: (Mon & { subject: string; focus: string | null; deployed_at: string })[]
   team: { session: string; title: string | null; repo: string | null; pr: Pr | null; monitor: Mon | null }[]
 }
 const WINDOWS = [[60, '1 hour'], [240, '4 hours'], [1440, '24 hours']] as const
@@ -89,7 +90,7 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
   )
   return (
     <div className="monitor">
-      <div className="mon-head"><b>After the PR: monitor</b>{v.repo && <span className="meta">{v.repo}{v.pr ? ` #${v.pr.number}` : ''}</span>}</div>
+      <div className="mon-head"><b>After a PR</b>{v.repo && <span className="meta">{v.repo}{v.pr ? ` #${v.pr.number}` : ''}</span>}</div>
       {v.problem && <div className="meta">{v.problem}</div>}
       {err && <div className="err">{err}</div>}
 
@@ -199,6 +200,65 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
           ))}
         </div>
       )}
+      {v.repo && v.setup && <ChangeWatch session={session} changes={v.changes} reload={load} />}
+    </div>
+  )
+}
+
+// Watch a change (SIGNOFF-34/D2): production errors after a change made outside a PR, e.g. a merchant config change.
+// What changed and its focus steer each error check; a problem notifies you and asks the session to propose undoing it.
+function ChangeWatch({ session, changes, reload }: { session: string; changes: View['changes']; reload: () => void }): React.JSX.Element {
+  const local = (d: Date): string => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+  const [subject, setSubject] = useState('')
+  const [focus, setFocus] = useState('')
+  const [since, setSince] = useState(() => local(new Date()))
+  const [win, setWin] = useState(60)
+  const [every, setEvery] = useState(15)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const start = (): void => {
+    setBusy(true); setErr(null)
+    window.api.monitor.startChange({ session, subject, focus, since: new Date(since).toISOString(), windowMinutes: win, checkMinutes: every })
+      .then(() => { setSubject(''); setFocus(''); setSince(local(new Date())); reload() }, (e: unknown) => setErr(errText(e))).finally(() => setBusy(false))
+  }
+  return (
+    <div className="mon-change">
+      <div className="mon-head"><b>Watch a change</b><span className="meta">no PR needed, e.g. a config change for a merchant</span></div>
+      <div className="mon-change-form">
+        <input placeholder="What changed, e.g. merchant X: enabled instant payout" value={subject} onChange={(e) => setSubject(e.target.value)} />
+        <input placeholder="Focus (optional), e.g. a merchant id or an endpoint" value={focus} onChange={(e) => setFocus(e.target.value)} />
+        <div className="mon-form">
+          <label>Changed at <input type="datetime-local" value={since} onChange={(e) => setSince(e.target.value)} /></label>
+          <label>Watch for <select value={win} onChange={(e) => setWin(Number(e.target.value))}>{WINDOWS.map(([m, l]) => <option key={m} value={m}>{l}</option>)}</select></label>
+          <label>Check errors <select value={every} onChange={(e) => setEvery(Number(e.target.value))}>{CHECKS.filter(([m]) => m <= win).map(([m, l]) => <option key={m} value={m}>{l}</option>)}</select></label>
+          <button className="primary sm" disabled={busy || !subject.trim()} onClick={start}>{busy ? 'Starting…' : 'Start watching'}</button>
+        </div>
+        <div className="meta">Each check compares errors since the change with the same time before it. On a problem: a notification, and this session proposes undoing the change (it asks you first).</div>
+      </div>
+      {err && <div className="err">{err}</div>}
+      {changes.map((m) => (
+        <div key={m.id} className="mon-block">
+          <div className="mon-stage"><span className={'pill ' + m.stage}>{m.stage === 'stable' ? 'Watching' : STAGE[m.stage] ?? m.stage}</span>
+            <b>{m.subject}</b>{m.focus && <span className="meta">focus: {m.focus}</span>}<span className="grow" />
+            {m.stage === 'stable' && <button className="sm" onClick={() => void window.api.monitor.stop(m.id, 'stopped from the Monitor tab').then(reload, (e: unknown) => setErr(errText(e)))}>Stop</button>}</div>
+          <ol className="mon-events">{m.events.map((e, i) => <li key={i} className={e.kind}><span className="meta">{time(e.at)}</span> {e.text}</li>)}</ol>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Ship's one line about monitoring (SIGNOFF-34/D1): the full panel is in the Monitor tab.
+export function MonitorStatus({ session, open }: { session: string; open: () => void }): React.JSX.Element {
+  const [v, setV] = useState<View | null>(kept.get(session)?.v ?? null)
+  useEffect(() => { window.api.monitor.forSession(session).then(setV, () => {}) }, [session])
+  const live = (v?.changes ?? []).filter((m) => m.stage === 'stable').length
+  return (
+    <div className="monitor mon-status">
+      <b>Monitor</b>
+      <span className="meta">{v?.monitor ? `PR: ${STAGE[v.monitor.stage] ?? v.monitor.stage}` : 'PR: not watched'}{live ? ` · ${live} change watch${live > 1 ? 'es' : ''} running` : ''}</span>
+      <span className="grow" />
+      <button className="sm" onClick={open}>Open Monitor</button>
     </div>
   )
 }

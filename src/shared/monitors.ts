@@ -7,11 +7,14 @@ import type { Store } from '../main/store'
 // window. The app's watcher moves the stage; a failure opens a fire-fighting session.
 // - Never two live monitors on the same pull request (the board refuses; a unique index backs it up).
 // - A lead can watch its team's pull requests: it starts one monitor per pull request, so the rule above still holds.
+// - A change watch (SIGNOFF-34) has no pull request: it watches production errors after a change made outside a PR
+//   (a merchant config change), from the time of the change, for its window.
 export const STAGES = ['ci', 'merge', 'deploy', 'stable', 'done', 'incident', 'stopped'] as const
 export type Stage = (typeof STAGES)[number]
 export type Recipient = { app: string; where: string; tags: string[] }
 export interface Monitor {
-  id: string; session_id: string | null; repo: string; pr: number; ticket: string | null; stage: Stage
+  id: string; session_id: string | null; kind: 'pr' | 'change'; repo: string; pr: number | null; ticket: string | null; stage: Stage
+  subject: string | null; focus: string | null
   window_minutes: number; check_minutes: number; notify: number; recipients: string | null
   merge_sha: string | null; deployed_at: string | null; firefight_session: string | null
   note: string | null; created_at: string; updated_at: string
@@ -44,6 +47,27 @@ export function startMonitor(db: Store, p: { session: string | null; repo: strin
     return getMonitor(db, id)
   })()
 }
+
+// A change watch (SIGNOFF-34/D2): starts in the stability window at once, from the time of the change.
+export function startChange(db: Store, p: { session: string; repo: string; subject: string; focus?: string | null; since: string; ticket?: string | null; windowMinutes: number; checkMinutes: number }): Monitor {
+  need(/^[\w.-]+\/[\w.-]+$/.test(p.repo), `repo must be owner/name: ${p.repo}`)
+  need(p.subject.trim(), 'say what changed')
+  need(!Number.isNaN(Date.parse(p.since)), `not a time: ${p.since}`)
+  need(Date.parse(p.since) <= Date.now() + 60_000, 'the change time is in the future')
+  need(p.windowMinutes >= 5 && p.windowMinutes <= 7 * 24 * 60, 'the window is 5 minutes to 7 days')
+  need(p.checkMinutes >= 5 && p.checkMinutes <= p.windowMinutes, 'the check interval is at least 5 minutes and no longer than the window')
+  const id = nextId(db, 'monitors', 'M')
+  const t = now()
+  const since = new Date(Date.parse(p.since)).toISOString()
+  db.prepare(`INSERT INTO monitors (id, session_id, kind, repo, pr, ticket, subject, focus, stage, window_minutes, check_minutes, deployed_at, created_at, updated_at)
+    VALUES (?, ?, 'change', ?, NULL, ?, ?, ?, 'stable', ?, ?, ?, ?, ?)`)
+    .run(id, p.session, p.repo, p.ticket ?? null, p.subject.trim(), p.focus?.trim() || null, p.windowMinutes, p.checkMinutes, since, t, t)
+  addEvent(db, id, 'started', `Watching a change: ${p.subject.trim()}${p.focus?.trim() ? ` (focus: ${p.focus.trim()})` : ''}; errors every ${p.checkMinutes} min for ${p.windowMinutes} min from ${since}`)
+  return getMonitor(db, id)
+}
+
+export const changeWatches = (db: Store, session: string): Monitor[] =>
+  db.prepare("SELECT * FROM monitors WHERE kind = 'change' AND session_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 10").all(session) as Monitor[]
 
 export function getMonitor(db: Store, id: string): Monitor {
   const m = db.prepare('SELECT * FROM monitors WHERE id = ?').get(id) as Monitor | undefined

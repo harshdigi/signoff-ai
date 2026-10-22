@@ -6,8 +6,8 @@ import { join } from 'path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { openStore, type Store } from '../store'
 import { touchSession } from '../../shared/board'
-import { saveSetup, startMonitor } from '../../shared/monitors'
-import { checkErrors, errorTool, fullTool, parseVerdict } from '../monitor-errors'
+import { saveSetup, startChange, startMonitor } from '../../shared/monitors'
+import { checkErrors, errorPrompt, errorTool, fullTool, parseVerdict } from '../monitor-errors'
 
 const REPO = 'acme/shop'
 let db: Store
@@ -19,6 +19,14 @@ beforeEach(() => {
 })
 
 describe('error checks', () => {
+  it('a change watch asks about the described change and its focus, since the change', () => {
+    const w = startChange(db, { session: 's', repo: REPO, subject: 'merchant X: instant payout on', focus: 'merchant X', since: '2026-10-01T09:00:00Z', windowMinutes: 60, checkMinutes: 15 })
+    const p = errorPrompt(w, { app: 'Scout', services: ['shop-api'] }, '2026-10-01T09:30:00Z')
+    expect(p).toContain('A change was made at 2026-10-01T09:00:00.000Z: merchant X: instant payout on. Look first at what concerns: merchant X.')
+    expect(p).toContain('Compare the time since the change with the same length of time just before it')
+    expect(p).not.toContain('deploy')
+  })
+
   it('names tools as Claude Code does, and uses your chosen tool and services, else the first found', () => {
     expect(fullTool('claude.ai Sentry', 'issues')).toBe('mcp__claude_ai_Sentry__issues')
     expect(errorTool(db, REPO)).toBeNull()

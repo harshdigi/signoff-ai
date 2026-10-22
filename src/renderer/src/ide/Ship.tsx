@@ -6,7 +6,7 @@ import { ordered } from './review-order'
 import type { Scoped } from './types'
 import { useAsk } from './useAsk'
 import AskStatus from './AskStatus'
-import MonitorPanel from './MonitorPanel'
+import { MonitorStatus } from './MonitorPanel'
 
 // Ship (session page): how ready the change is (review, test plan, open decisions), then Commit / Push / Open PR.
 // The buttons ask the session; it posts each step for your approval before doing it.
@@ -18,7 +18,7 @@ const prPrompt = (ticket: string | null): string => [
   'Use a create-pr skill if one is available. Show me the final title and description for approval (signoff post --action consent) before creating it.'
 ].join(' ')
 
-export default function Ship({ s, b, ask: send, openChat }: { s: Session; b: BoardState; ask: (text: string) => void; openChat: () => void }): React.JSX.Element {
+export default function Ship({ s, b, ask: send, openChat, openMonitor }: { s: Session; b: BoardState; ask: (text: string) => void; openChat: () => void; openMonitor: () => void }): React.JSX.Element {
   const a = useAsk(s.id, send)
   // Readiness always looks at the whole ticket (the Ticket scope), whatever the Files changed tab shows.
   const [ticket, setTicket] = useState<Scoped | null>(null)
@@ -55,7 +55,7 @@ export default function Ship({ s, b, ask: send, openChat }: { s: Session; b: Boa
       </div>
       <AskStatus state={a.state} openChat={openChat} reset={a.reset} />
       <p className="meta">Each step comes back as an approval card before it happens.</p>
-      <MonitorPanel key={s.id} session={s.id} />
+      <MonitorStatus key={s.id} session={s.id} open={openMonitor} />
     </div>
   )
 }

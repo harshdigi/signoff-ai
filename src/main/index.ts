@@ -199,6 +199,12 @@ app.whenReady().then(() => {
       return checkErrors(store, m, (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 240_000 }), new Date().toISOString())
     },
     incident: (m, what) => {
+      // A change watch (SIGNOFF-34/D2): no PR to revert, so no fire-fighting session; the session proposes undoing it.
+      if (m.kind === 'change') {
+        tell(m, `Monitor ${m.id}, production: ${what} (after: ${m.subject}${m.focus ? `; focus: ${m.focus}` : ''}). Look into it and propose undoing the change; ask the user before changing anything.`)
+        if (Notification.isSupported()) new Notification({ title: `Production problem after: ${m.subject}`, body: what }).show()
+        return
+      }
       const ff = startFirefight(store, chat, m, what)
       tell(m, `Monitor ${m.id}, production: ${what} (${m.repo}#${m.pr}).${ff ? ` Fire fighting runs in session ${ff.slice(0, 8)}; it prepares the fix and the rollback for the user's approval.` : ''}`)
       if (Notification.isSupported()) new Notification({ title: `Production incident: ${m.repo}#${m.pr}`, body: what }).show()

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { ipcMain } from 'electron'
 import type { Store } from './store'
-import { getSetup, liveMonitor, monitorEvents, saveSetup, startMonitor, stopMonitor, type Monitor, type Recipient } from '../shared/monitors'
+import { changeWatches, getSetup, liveMonitor, startChange, monitorEvents, saveSetup, startMonitor, stopMonitor, type Monitor, type Recipient } from '../shared/monitors'
 import { repoOfFolder, runSetup, type Setup } from './monitor-setup'
 import { ghIn } from './monitor-watch'
 import { checkAsked } from './monitor-notify'
@@ -55,6 +55,7 @@ export function registerMonitorIpc(db: Store, env: NodeJS.ProcessEnv): void {
       repo, problem, pr, setup: repo ? getSetup<Setup>(db, repo) : null,
       monitor: repo && pr ? withEvents(db, liveMonitor(db, repo, pr.number)) : null,
       requests: repo && pr ? requestsOf(db, repo, pr.number) : [],
+      changes: changeWatches(db, id).map((m) => withEvents(db, m)),
       team
     }
   })
@@ -82,4 +83,11 @@ export function registerMonitorIpc(db: Store, env: NodeJS.ProcessEnv): void {
     return startMonitor(db, { session: o.owner ?? o.session, repo, pr: pr.number, ticket, windowMinutes: o.windowMinutes, checkMinutes: o.checkMinutes, notify: o.notify, recipients: o.recipients })
   })
   ipcMain.handle('monitor:stop', (_e, id: string, why: string) => stopMonitor(db, id, why))
+  // Watch a change (SIGNOFF-34): production errors after a change made outside a PR, in this session's repo.
+  ipcMain.handle('monitor:startChange', (_e, o: { session: string; subject: string; focus?: string; since: string; windowMinutes: number; checkMinutes: number }) => {
+    const s = sessionOf(db, o.session)
+    const repo = repoOfFolder(s.cwd!)
+    if (!getSetup<Setup>(db, repo)) throw new Error(`run the setup check for ${repo} first (Monitor tab, Set up)`)
+    return startChange(db, { session: o.session, repo, subject: o.subject, focus: o.focus, since: o.since, ticket: (db.prepare('SELECT ticket FROM sessions WHERE id = ?').get(o.session) as { ticket: string | null }).ticket, windowMinutes: o.windowMinutes, checkMinutes: o.checkMinutes })
+  })
 }
