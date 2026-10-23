@@ -4,7 +4,7 @@ import { BrowserWindow, ipcMain } from 'electron'
 import * as b from '../shared/board'
 import { autonomyBrief, DECIDE_BRIEF, DISCUSS_BRIEF, getAutonomy, getDiscuss, LOCKED, MODES, PHASES, setAutonomy, setDiscuss } from '../shared/autonomy'
 import { getSettings } from './settings'
-import { changeStamp, readBoard } from './board-state'
+import { changeStamp, decisionThread, readBoard } from './board-state'
 import type { Store } from './store'
 import { sendTo } from './window-send'
 
@@ -23,6 +23,7 @@ export function registerBoardIpc(db: Store, window: () => BrowserWindow | null, 
     }
   }
   ipcMain.handle('board:state', () => readBoard(db))
+  ipcMain.handle('board:thread', (_e, id: string) => decisionThread(db, id))
   ipcMain.handle('board:reviewDiff', (_e, review: string, change: string) =>
     (db.prepare('SELECT diff FROM review_changes WHERE review_id = ? AND change_id = ?').get(review, change) as { diff: string } | undefined)?.diff ?? '')
   ipcMain.handle('board:answer', (_e, id: string, text: string) => tryWake(b.answerFromBoard(db, id, text)))
@@ -66,7 +67,7 @@ export function registerBoardIpc(db: Store, window: () => BrowserWindow | null, 
     return status
   })
 
-  // Tell the window when the board changed, once a second at most:
+  // Tell the window when the board changed, every 2 s at most (SIGNOFF-38-PERF/D1: each push re-reads the board):
   // - data_version moves when another connection commits (decide, a session, the MCP server);
   // - total_changes moves when this connection writes (the app's own actions: remove, rename, ticket steps…).
   // Without the second, the app's own changes did not show until something else wrote.
@@ -77,6 +78,6 @@ export function registerBoardIpc(db: Store, window: () => BrowserWindow | null, 
       seen = v
       sendTo(window(), 'board:changed')
     }
-  }, 1000)
+  }, 2000)
   return () => clearInterval(timer)
 }

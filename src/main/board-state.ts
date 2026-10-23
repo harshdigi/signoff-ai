@@ -17,7 +17,8 @@ export interface Decision {
   later_at: string | null                                 // set aside for later (shared/board.ts setAside)
   status: 'open' | 'answered' | 'applied' | 'withdrawn'; answer: string | null; answered_by: string | null; answered_at: string | null
   withdrawn_reason: string | null; withdrawn_by: string | null; withdrawn_at: string | null; created_at: string; updated_at: string
-  thread: ThreadEntry[]
+  // Only how many: the messages are fetched when the thread is opened (board:thread), so the board stays small.
+  thread_count: number
 }
 // diff: null for closed reviews (fetched when opened: board:reviewDiff), so the board stays small; lines: its size.
 export interface Change { id: string; file: string; diff: string | null; lines: number; verdict: 'pending' | 'accept' | 'reject' | 'question'; comment: string | null; thread: ThreadEntry[] }
@@ -50,17 +51,21 @@ const group = <T extends Row>(rows: T[], key: string): Map<string, T[]> => {
 export const changeStamp = (db: Store): string =>
   `${db.pragma('data_version', { simple: true })}:${(db.prepare('SELECT total_changes() AS n').get() as { n: number }).n}`
 
+// A decision's messages (questions you asked under it and the session's answers), for its opened thread.
+export const decisionThread = (db: Store, id: string): ThreadEntry[] =>
+  db.prepare('SELECT who, text, at FROM decision_thread WHERE decision_id = ? ORDER BY id').all(id) as ThreadEntry[]
+
 export function readBoard(db: Store): BoardState {
   return db.transaction((): BoardState => {
     const pending = new Map((db.prepare('SELECT session_id, count(*) AS n FROM messages WHERE delivered_at IS NULL GROUP BY session_id').all() as { session_id: string; n: number }[]).map((r) => [r.session_id, r.n]))
     const sessions = (db.prepare('SELECT * FROM sessions ORDER BY updated_at DESC').all() as Row[]).map((s) => ({
       ...(s as unknown as Session), archived: Boolean(s.archived), pending: pending.get(String(s.id)) || 0
     }))
-    const dThreads = group(db.prepare('SELECT decision_id, who, text, at FROM decision_thread ORDER BY id').all() as Row[], 'decision_id')
+    const dThreads = new Map((db.prepare('SELECT decision_id, count(*) AS n FROM decision_thread GROUP BY decision_id').all() as { decision_id: string; n: number }[]).map((r) => [r.decision_id, r.n]))
     const decisions = (db.prepare('SELECT * FROM decisions ORDER BY created_at, rowid').all() as Row[]).map((d) => ({
       ...(d as unknown as Decision), session: (d.session_id as string) ?? null,
       options: parse(d.options), evidence: parse(d.evidence), refs: parse(d.refs), context: parse(d.context),
-      thread: (dThreads.get(String(d.id)) || []).map(({ who, text, at }) => ({ who, text, at }) as ThreadEntry)
+      thread_count: dThreads.get(String(d.id)) ?? 0
     }))
     const rThreads = group(db.prepare("SELECT review_id || '/' || change_id AS k, who, text, verdict, at FROM review_thread ORDER BY id").all() as Row[], 'k')
     const changes = group(db.prepare('SELECT * FROM review_changes ORDER BY rowid').all() as Row[], 'review_id')

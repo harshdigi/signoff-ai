@@ -73,6 +73,11 @@ export default function SessionPage({ session: s, board, refresh, tab, setTab, c
   )
 }
 
+// A chat line that starts a helper agent or carries a tool result (maybe an agent's): the Agents tab reloads for these.
+const touchesAgent = (e: { type?: string; message?: { content?: unknown } }): boolean =>
+  Array.isArray(e.message?.content) && (e.message!.content as { type: string; name?: string }[]).some((b) =>
+    (b.type === 'tool_use' && (b.name === 'Agent' || b.name === 'Task')) || (e.type === 'user' && b.type === 'tool_result'))
+
 // Agents: helper agents Claude starts inside this session (Agent / Task tool calls), and child sessions.
 function AgentsTab({ s, subs, open }: { s: Session | null; subs: Session[]; open: (id: string) => void }): React.JSX.Element {
   const [loaded, setAgents] = useState<{ session: string; rows: ToolRow[] } | null>(null)
@@ -80,10 +85,11 @@ function AgentsTab({ s, subs, open }: { s: Session | null; subs: Session[]; open
   const agents = s && loaded?.session === s.id ? loaded.rows : []
   useEffect(() => {
     if (!s) return
-    const load = (): void => void window.api.chat.history(s.id).then((ev: never[]) =>
+    const load = (): void => void window.api.chat.agents(s.id).then((ev: never[]) =>
       setAgents({ session: s.id, rows: toRows(ev).filter((r): r is ToolRow => r.kind === 'tool' && (r.name === 'Agent' || r.name === 'Task')) }))
     load()
-    return window.api.chat.onEvent((e: { session: string }) => e.session === s.id && load())
+    // Reloaded only when a helper agent starts or returns, not on every chat line (SIGNOFF-38-PERF/D1).
+    return window.api.chat.onEvent((e: { session: string; event: { type?: string; message?: { content?: unknown } } }) => e.session === s.id && touchesAgent(e.event) && load())
   }, [s])
   return (
     <div className="view">

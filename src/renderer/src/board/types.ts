@@ -8,7 +8,7 @@ export interface Decision {
   context: string[]; if_wrong: string | null; draft: string | null
   product_note: string | null; product_at: string | null; later_at: string | null
   status: 'open' | 'answered' | 'applied' | 'withdrawn'; answer: string | null; answered_by: string | null; answered_at: string | null
-  withdrawn_reason: string | null; withdrawn_by: string | null; withdrawn_at: string | null; created_at: string; thread: ThreadEntry[]
+  withdrawn_reason: string | null; withdrawn_by: string | null; withdrawn_at: string | null; created_at: string; thread_count: number
   level: 'ask' | 'inform' | 'auto'
 }
 // diff: null for closed reviews (fetched when opened: board:reviewDiff), so the board stays small; lines: its size.

@@ -765,3 +765,4 @@ button.file-head:hover { background: var(--sel); }
 .story .dg-why { margin: 0 0 14px; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
 .story .dg-why ul { margin: 3px 0 0; padding-left: 18px; color: var(--ink); line-height: 1.45; }
 .story .story-flow { margin: 6px 0 10px; padding-left: 18px; line-height: 1.5; }
+.chat-earlier { align-self: center; font-size: 12px; }
