@@ -129,7 +129,7 @@ export async function checkApprovals(db: Store, m: Monitor, run: (args: string[]
   })
   // Said once per monitor, not every 15 minutes.
   for (const r of open.filter((x) => !reads.some((y) => y.app === x.app && y.place === x.place))) {
-    const text = `${raisedKey(r.place, r.app)}: its thread is not checked for approval: no thread tool in this repo's setup (Re-scan apps in Ship)`
+    const text = `${raisedKey(r.place, r.app)}: its thread is not checked for approval: no thread tool in this repo's setup (Re-scan in the Monitor tab)`
     if (!db.prepare('SELECT 1 FROM monitor_events WHERE monitor_id = ? AND text = ?').get(m.id, text)) addEvent(db, m.id, 'notify-note', text)
   }
   if (!reads.length) return []
@@ -152,14 +152,14 @@ export async function sendReviewRequest(db: Store, m: Monitor, deps: {
   const n = m.pr
   if (n === null) return [] // a change watch has no pull request
   const planned = plan(db, m)
-  for (const u of planned.unknown) addEvent(db, m.id, 'notify-failed', `Review request not sent to ${u.where}: ${u.app} is not in this repo's setup (Re-scan apps in Ship)`)
+  for (const u of planned.unknown) addEvent(db, m.id, 'notify-failed', `Review request not sent to ${u.where}: ${u.app} is not in this repo's setup (Re-scan in the Monitor tab)`)
   const raised = requestsOf(db, m.repo, n)
   const sends = planned.sends.filter((s) => {
     const before = raised.find((r) => r.app === s.app && r.place === s.where.trim())
     if (before) addEvent(db, m.id, 'notify-skipped', `Review request already raised in ${raisedKey(s.where, s.app)} at ${before.at}; not sent again`)
     return !before
   })
-  for (const s of sends.filter((x) => !x.searchTool)) addEvent(db, m.id, 'notify-note', `${raisedKey(s.where, s.app)} was not searched for an earlier request: no search tool in this repo's setup (Re-scan apps in Ship)`)
+  for (const s of sends.filter((x) => !x.searchTool)) addEvent(db, m.id, 'notify-note', `${raisedKey(s.where, s.app)} was not searched for an earlier request: no search tool in this repo's setup (Re-scan in the Monitor tab)`)
   if (!sends.length) return []
   const pr = await deps.pr(m.repo, n)
   const line = reviewLine(m, pr)

@@ -163,6 +163,21 @@ describe('monitor watcher', () => {
     expect(getMonitor(db, w.id).stage).toBe('incident')
   })
 
+  it('Check now runs one error check at once, shares a running one, and refuses before production', async () => {
+    const w = startChange(db, { session: 'impl', repo: REPO, subject: 'merchant X', since: new Date().toISOString(), windowMinutes: 60, checkMinutes: 15 })
+    let ran = 0
+    let release = (): void => {}
+    const gate = new Promise<void>((r) => { release = r })
+    const watcher = new MonitorWatcher(db, fake({}), { ciGreen: () => {}, ciRed: () => {}, incident: () => {}, checkErrors: async () => { ran++; await gate; return { newErrors: false, summary: 'nothing new' } } }, () => 'deploy.yml')
+    const one = watcher.checkNow(getMonitor(db, w.id))
+    const two = watcher.checkNow(getMonitor(db, w.id))
+    expect(two).toBe(one) // one at a time per monitor
+    release(); await one
+    expect(ran).toBe(1)
+    expect(monitorEvents(db, w.id).at(-1)!.text).toBe('Errors checked: nothing new')
+    expect(() => watcher.checkNow(getMonitor(db, 'M-1'))).toThrow('M-1 is not watching production (ci)')
+  })
+
   it('started fires once per monitor (the Story is written then)', async () => {
     const seen: string[] = []
     const w = new MonitorWatcher(db, fake({ pr: { state: 'OPEN', mergeCommit: null, statusCheckRollup: [] } }), { ciGreen: () => {}, ciRed: () => {}, incident: () => {}, started: (m) => seen.push(m.id) }, () => 'deploy.yml')

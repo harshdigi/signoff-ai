@@ -49,7 +49,7 @@ export function parseVerdict(out: string): Verdict {
 
 export async function checkErrors(db: Store, m: Monitor, run: (args: string[]) => Promise<{ code: number; out: string }>, nowIso: string): Promise<Verdict> {
   const t = errorTool(db, m.repo)
-  if (!t) throw new Error('no error tool is set up for this repo (Re-scan apps in Ship)')
+  if (!t) throw new Error('no error tool is set up for this repo (Re-scan in the Monitor tab)')
   const r = await run(headlessArgs(errorPrompt(m, t, nowIso), { allow: t.tools, disallow: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash'] }))
   if (r.code !== 0) throw new Error(`the error check failed: ${r.out.slice(0, 200)}`)
   return parseVerdict(r.out)

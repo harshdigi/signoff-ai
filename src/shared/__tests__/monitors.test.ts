@@ -28,6 +28,15 @@ describe('monitors', () => {
     expect(m.changeWatches(db, 'impl').map((x) => x.subject)).toEqual(['merchant Y', 'merchant X: instant payout on'])
   })
 
+  it('extend adds time to a live watch, up to 7 days; a finished one is refused', () => {
+    const a = m.startMonitor(db, { ...base, session: 'impl' })
+    expect(m.extendMonitor(db, a.id, 240).window_minutes).toBe(300)
+    expect(m.monitorEvents(db, a.id).at(-1)!.text).toBe('Window extended by 240 min; now 300 min')
+    expect(() => m.extendMonitor(db, a.id, 7 * 24 * 60)).toThrow('the window is at most 7 days')
+    m.stopMonitor(db, a.id, 'done here')
+    expect(() => m.extendMonitor(db, a.id, 60)).toThrow(`${a.id} is stopped`)
+  })
+
   it('one live monitor per pull request; a stopped one frees it', () => {
     const a = m.startMonitor(db, { ...base, session: 'impl', ticket: 'KAN-9321' })
     expect([a.id, a.stage, a.notify, a.recipients]).toEqual(['M-1', 'ci', 0, null])

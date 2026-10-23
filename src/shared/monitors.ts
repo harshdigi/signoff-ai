@@ -89,6 +89,20 @@ export function setStage(db: Store, id: string, stage: Stage, text: string, fiel
   return getMonitor(db, id)
 }
 
+// Extend (SIGNOFF-34-WATCH/D5): more time on a live watch's window, still at most 7 days.
+export function extendMonitor(db: Store, id: string, minutes: number): Monitor {
+  need(Number.isInteger(minutes) && minutes > 0, `not a number of minutes: ${minutes}`)
+  return db.transaction(() => {
+    const m = getMonitor(db, id)
+    need(m.stage !== 'done' && m.stage !== 'stopped', `${id} is ${m.stage}`)
+    const next = m.window_minutes + minutes
+    need(next <= 7 * 24 * 60, 'the window is at most 7 days')
+    db.prepare('UPDATE monitors SET window_minutes = ?, updated_at = ? WHERE id = ?').run(next, now(), id)
+    addEvent(db, id, 'extended', `Window extended by ${minutes} min; now ${next} min`)
+    return getMonitor(db, id)
+  })()
+}
+
 export function stopMonitor(db: Store, id: string, why: string): Monitor {
   need(why.trim(), 'say why it stops')
   return setStage(db, id, 'stopped', why.trim())

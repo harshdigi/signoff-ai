@@ -211,7 +211,7 @@ app.whenReady().then(() => {
     }
   }, (repo) => deployWorkflowOf(store, repo))
   const watchTimer = setInterval(() => void watcher.tick(), 120_000)
-  registerMonitorIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
+  registerMonitorIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, watcher)
   registerStoryIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
   app.on('before-quit', () => clearInterval(watchTimer))
   const stopIde = registerIdeIpc(store, chat, terminals, new TestRunner(terminals), pipeline, new Teams(store, chat), () => mainWindow)

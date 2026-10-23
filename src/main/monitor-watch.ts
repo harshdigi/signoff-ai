@@ -171,6 +171,18 @@ export class MonitorWatcher {
     this.startErrorCheck(m)
   }
 
+  // Check now (SIGNOFF-34-WATCH/D5): an error check at once, outside the timer. One at a time per monitor: a check
+  // already running is returned instead. Only while watching production; before the deploy there is no "after".
+  checkNow(m: Monitor): Promise<void> {
+    if (!this.on.checkErrors) throw new Error('no error check is set up')
+    if (m.stage !== 'stable') throw new Error(`${m.id} is not watching production (${m.stage})`)
+    const running = this.checking.get(m.id)
+    if (running) return running
+    const run = this.errorCheck(m, this.on.checkErrors)
+    this.checking.set(m.id, run)
+    return run
+  }
+
   // Runs the error check when one is due: the first at one interval after the deploy, then every interval.
   private startErrorCheck(m: Monitor): void {
     if (!this.on.checkErrors || this.checking.has(m.id)) return

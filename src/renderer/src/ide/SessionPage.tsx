@@ -61,7 +61,7 @@ export default function SessionPage({ session: s, board, refresh, tab, setTab, c
         <div className="session-pane" hidden={tab !== 'files'}>{files}</div>
         {tab === 'decisions' && (s ? <SessionView s={s} b={board} refresh={refresh} terminal={null} /> : <p className="empty pad">Decisions show here once the chat has started.</p>)}
         {tab === 'tests' && (s ? <TestPlan s={s} b={board} ask={ask} openChat={() => setTab('chat')} /> : <p className="empty pad">The test plan starts once the chat has.</p>)}
-        {tab === 'ship' && (s ? <Ship s={s} b={board} ask={ask} openChat={() => setTab('chat')} openMonitor={() => setTab('monitor')} /> : <p className="empty pad">Nothing to ship yet.</p>)}
+        {tab === 'ship' && (s ? <Ship s={s} b={board} ask={ask} openChat={() => setTab('chat')} /> : <p className="empty pad">Nothing to ship yet.</p>)}
         {tab === 'monitor' && (s ? <div className="view"><MonitorPanel key={s.id} session={s.id} /></div> : <p className="empty pad">No session.</p>)}
         {tab === 'story' && (s ? <Story session={s.id} /> : <p className="empty pad">The story starts once the chat has.</p>)}
         {tab === 'agents' && <AgentsTab s={s} subs={children} open={open} />}
