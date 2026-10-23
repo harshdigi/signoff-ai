@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom'
 // - closes on a pick (a row that is not a heading or greyed out), a click outside, Escape, leaving the window,
 //   or the page scrolling or resizing under it;
 // - drawn on top of the page (a portal at the button's position), so a row or panel that clips its overflow, such as
-//   a session row, cannot hide it.
+//   a session row, cannot hide it; near the bottom of the window it opens upward.
 export function Menu({ trigger, align = 'left', className = '', children }: {
   trigger: (m: { open: boolean; toggle: () => void }) => ReactNode
   align?: 'left' | 'right'
@@ -42,7 +42,13 @@ export function Menu({ trigger, align = 'left', className = '', children }: {
   const toggle = (): void => {
     if (open || !box) return setAt(null)
     const r = box.getBoundingClientRect()
-    setAt(align === 'right' ? { top: r.bottom + 4, right: window.innerWidth - r.right } : { top: r.bottom + 4, left: r.left })
+    // Opens upward when the button is low in the window and there is more room above; either way it is no taller than
+    // that room (it scrolls), so no row ends up off-screen.
+    const below = window.innerHeight - r.bottom - 12
+    const above = r.top - 12
+    const up = below < 240 && above > below
+    const v: CSSProperties = up ? { bottom: window.innerHeight - r.top + 4, top: 'auto', maxHeight: Math.min(above, window.innerHeight * 0.6) } : { top: r.bottom + 4, maxHeight: Math.min(below, window.innerHeight * 0.6) }
+    setAt({ ...v, ...(align === 'right' ? { right: window.innerWidth - r.right } : { left: r.left }) })
   }
   const picked = (e: React.MouseEvent): void => {
     const row = (e.target as HTMLElement).closest('.dropdown > div')
