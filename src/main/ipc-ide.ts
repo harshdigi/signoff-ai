@@ -1,5 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
+import { agentEvents, chatPoints } from './chat-digest'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
@@ -353,7 +354,10 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
     return f ? { on: getSettings(db).nearbySkills, ...skillDirs(f) } : { on: getSettings(db).nearbySkills, dirs: [], skipped: [] }
   })
 
-  ipcMain.handle('chat:history', (_e, session: string) => chat.history(session))
+  // A chat's end, and the parts some views need, instead of the whole conversation (SIGNOFF-38-PERF/D1).
+  ipcMain.handle('chat:tail', (_e, session: string, n: number) => chat.tail(session, n))
+  ipcMain.handle('chat:agents', (_e, session: string) => agentEvents(chat.history(session)))
+  ipcMain.handle('chat:points', (_e, session: string) => chatPoints(chat.history(session)))
   ipcMain.handle('chat:status', (_e, session: string) => chat.status(session))
   ipcMain.handle('chat:send', (_e, session: string | null, text: string, images: ChatImage[] = [], choice?: RouteChoice, files: string[] = []) => chat.routeAndSend(session, text, trusted(), images, choice, files))
   // A new session with a team setup (IDE/D21); its Claude terminal starts with the first message, like any chat.

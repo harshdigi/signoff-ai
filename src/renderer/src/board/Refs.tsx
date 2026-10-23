@@ -20,27 +20,12 @@ type Point = { anchor: string; text: string }
 // time). Re-read at most every 30 s.
 const points = new Map<string, { at: number; map: Map<number, Point> }>()
 const loading = new Map<string, Promise<void>>()
-const HEADING = /^\s*(?:#{1,4}\s*|\*\*)?(?:point|step)\s+(\d+)\b\s*(?:\*\*)?\s*[:.)(—–-]/i
 const loadPoints = (session: string): Promise<void> => {
   const busy = loading.get(session)
   if (busy) return busy
-  const p = window.api.chat.history(session).then((events: { type?: string; message?: { content?: { type: string; text?: string }[] } }[]) => {
-    const map = new Map<number, Point>()
-    for (const e of events) {
-      if (e.type !== 'assistant' || !Array.isArray(e.message?.content)) continue
-      for (const b of e.message!.content) {
-        if (b.type !== 'text' || !b.text) continue
-        const lines = b.text.split('\n')
-        lines.forEach((l, i) => {
-          const m = HEADING.exec(l)
-          if (!m) return
-          const para = [l, ...lines.slice(i + 1, i + 6)]
-          const end = para.findIndex((x, j) => j > 0 && (!x.trim() || HEADING.test(x)))
-          map.set(Number(m[1]), { anchor: l.replace(/[#*]/g, '').trim(), text: (end > 0 ? para.slice(0, end) : para).join('\n').replace(/[#*`]/g, '').trim() })
-        })
-      }
-    }
-    points.set(session, { at: Date.now(), map })
+  // Worked out in the app (SIGNOFF-38-PERF/D1): the window gets the headings, not the whole conversation.
+  const p = window.api.chat.points(session).then((rows: [number, Point][]) => {
+    points.set(session, { at: Date.now(), map: new Map(rows) })
   }).finally(() => loading.delete(session))
   loading.set(session, p)
   return p

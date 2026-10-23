@@ -12,7 +12,7 @@ import type { Settings } from './settings'
 import type { Store } from './store'
 import { SESSION_VARS, type TerminalManager } from './terminals'
 import type { Tmux } from './tmux'
-import { findTranscript, readNew, toChatLines, type ChatLine } from './transcript'
+import { chatLinesOf, endOfLines, findTranscript, readNew, toChatLines, type ChatLine } from './transcript'
 import { keysToChoose, terminalMenu, type TerminalMenu } from './terminal-menu'
 
 // Chats are real Claude Code terminal sessions. Each chat runs the normal `claude` screen in a tmux session named
@@ -156,10 +156,17 @@ export class ChatManager {
   history(session: string): Record<string, unknown>[] {
     const s = this.db.prepare('SELECT transcript FROM sessions WHERE id = ?').get(session) as { transcript: string | null } | undefined
     const path = findTranscript(session, s?.transcript ?? null)
-    const lines = path ? toChatLines(readNew(path, 0).lines).filter((l) => 'at' in l) : []
+    const lines = path ? chatLinesOf(path) : []
     const notes = (this.db.prepare('SELECT event, created_at FROM chat_events WHERE session_id = ? ORDER BY seq').all(session) as { event: string; created_at: string }[])
       .map((r) => ({ ...JSON.parse(r.event), at: r.created_at }))
     return [...lines, ...notes].sort((x, y) => Date.parse(String(x.at)) - Date.parse(String(y.at))) as Record<string, unknown>[]
+  }
+
+  // The last n events, and how many come before them (SIGNOFF-38-PERF/D1): the window shows the end of a chat and
+  // asks for more on Load earlier, instead of receiving every line of a long conversation (56 MB for one session).
+  tail(session: string, n: number): { events: Record<string, unknown>[]; earlier: number } {
+    const all = this.history(session)
+    return { events: all.slice(-n), earlier: Math.max(0, all.length - n) }
   }
 
   status(session: string): ChatStatus {
@@ -316,7 +323,7 @@ export class ChatManager {
       })
     }
     this.db.prepare('UPDATE sessions SET tmux = ? WHERE id = ?').run(name, session)
-    const c: Chat = { name, owned: !live || live === session, terminal: '', busy: false, menu: null, transcript: saved, offset: saved ? readNew(saved, 0).offset : 0, lastOutput: 0, modeReadAt: 0, started: Date.now(), queue: [], trustNoted: false, slowNoted: false, stand_in: null }
+    const c: Chat = { name, owned: !live || live === session, terminal: '', busy: false, menu: null, transcript: saved, offset: saved ? endOfLines(saved) : 0, lastOutput: 0, modeReadAt: 0, started: Date.now(), queue: [], trustNoted: false, slowNoted: false, stand_in: null }
     this.chats.set(session, c)
     this.attach(session, c)
     return c

@@ -23,11 +23,12 @@ type Raw = {
   origin?: { kind?: string }
 }
 
-export function toChatLines(lines: Raw[]): ChatLine[] {
+// start: how many lines came before these (a transcript read in parts), so a made-up uuid stays unique.
+export function toChatLines(lines: Raw[], start = 0): ChatLine[] {
   const out: ChatLine[] = []
   for (const e of lines) {
     const at = e.timestamp ?? ''
-    const uuid = e.uuid ?? `${e.type}:${at}:${out.length}`
+    const uuid = e.uuid ?? `${e.type}:${at}:${start + out.length}`
     if (e.type === 'ai-title' && e.aiTitle) out.push({ type: 'title', title: e.aiTitle })
     else if (e.type === 'system' && e.subtype === 'turn_duration') out.push({ type: 'turn_end', ms: typeof e.durationMs === 'number' ? e.durationMs : null, at, uuid })
     else if (e.isMeta || e.isSidechain) continue
@@ -53,6 +54,27 @@ export function toChatLines(lines: Raw[]): ChatLine[] {
     }
   }
   return out
+}
+
+// Where the last complete line ends: a chat started on an existing transcript reads on from there. Only the file's tail
+// is read (SIGNOFF-38-PERF/D1); reading it all just to learn this took seconds on a long transcript.
+export function endOfLines(path: string): number {
+  if (!existsSync(path)) return 0
+  const fd = openSync(path, 'r')
+  try {
+    const size = fstatSync(fd).size
+    for (let from = size; from > 0; ) {
+      const start = Math.max(0, from - 65536)
+      const buf = Buffer.alloc(from - start)
+      readSync(fd, buf, 0, buf.length, start)
+      const nl = buf.lastIndexOf(0x0a)
+      if (nl >= 0) return start + nl + 1
+      from = start
+    }
+    return 0
+  } finally {
+    closeSync(fd)
+  }
 }
 
 // Incremental read: only bytes after `offset`, and only complete lines (a line being written stays for next time).
@@ -135,6 +157,27 @@ const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
 // Only commands that change files count (patch, git apply/commit/add, cp, mv, rm, sed -i, tee, a > redirect), so a
 // repo the session only looked into is left out. Only absolute or ~ paths; a variable or glob is skipped.
 const WRITES = /\b(git\s+(apply|commit|add|am|cherry-pick|mv|rm|restore|stash\s+pop|worktree\s+add)|patch|cp|mv|rm|tee)\b|\bsed\s+-i|[^>&2]>{1,2}\s*[^&\s]/
+
+// A transcript's chat lines, kept per file and read on from where the last read stopped (SIGNOFF-38-PERF/D1). A full
+// read of a 200 MB transcript blocked the app for 8 s, and the chat, the Agents tab and asks all asked for it.
+// Only the last few files are kept (each can hold tens of MB of lines); one dropped is read again in full when asked.
+const KEEP_CHATS = 4
+type Kept = { offset: number; lines: ChatLine[] }
+const chats = new Map<string, Kept>()
+export function chatLinesOf(path: string): ChatLine[] {
+  let c = chats.get(path)
+  const size = existsSync(path) ? statSync(path).size : 0
+  if (!c || size < c.offset) c = { offset: 0, lines: [] } // new, or replaced: read from the start
+  if (size !== c.offset) {
+    const r = readNew(path, c.offset)
+    for (const l of toChatLines(r.lines, c.lines.length)) if ('at' in l) c.lines.push(l)
+    c.offset = r.offset
+  }
+  chats.delete(path) // re-inserted last: the Map's order is the order of use
+  chats.set(path, c)
+  for (const old of chats.keys()) if (chats.size > KEEP_CHATS) chats.delete(old)
+  return c.lines
+}
 
 // What Files changed needs from a transcript, kept per file and read on from where the last read stopped. Transcripts
 // grow past 100 MB, Files changed asks every 5 s, and a full read blocks the app for over a second each time.
