@@ -28,12 +28,12 @@ const setup = (): { repo: string; db: ReturnType<typeof openStore> } => {
   return { repo, db: openStore(join(top, 'b.db')) }
 }
 const files = async (db: ReturnType<typeof openStore>, repo: string, scope: Scope, commit?: string): Promise<string[]> =>
-  (await scoped(db, { folder: repo, sessionFiles: [join(repo, 'new.rb'), join(repo, 'wip.rb')], scope, commit, sessionBase: () => 'main' })).groups.flatMap((g) => g.files.map((f) => f.path))
+  (await scoped(db, { folder: repo, sessionFiles: [join(repo, 'new.rb'), join(repo, 'wip.rb')], scope, commit, sessionBase: () => ({ base: 'main', pin: null }) })).groups.flatMap((g) => g.files.map((f) => f.path))
 
 describe('review scopes', () => {
   it('a repo changed only through shell commands shows its whole branch in the session scope', async () => {
     const { repo, db } = setup()
-    const r = await scoped(db, { folder: repo, sessionFiles: null, scope: 'session', sessionBase: () => 'main', shellRoots: [realpathSync(repo)] })
+    const r = await scoped(db, { folder: repo, sessionFiles: null, scope: 'session', sessionBase: () => ({ base: 'main', pin: null }), shellRoots: [realpathSync(repo)] })
     expect(r.groups.flatMap((g) => g.files.map((f) => f.path))).toEqual(['new.rb', 'old.rb', 'wip.rb'])
   })
 
@@ -43,7 +43,7 @@ describe('review scopes', () => {
     expect(await files(db, repo, 'session')).toEqual(['new.rb', 'wip.rb'])
     expect(await files(db, repo, 'today')).toEqual(['new.rb', 'wip.rb'])
     expect(await files(db, repo, 'uncommitted')).toEqual(['wip.rb'])
-    const s = await scoped(db, { folder: repo, sessionFiles: [join(repo, 'new.rb')], scope: 'commit', sessionBase: () => 'main' })
+    const s = await scoped(db, { folder: repo, sessionFiles: [join(repo, 'new.rb')], scope: 'commit', sessionBase: () => ({ base: 'main', pin: null }) })
     expect(s.commits.map((c) => c.subject)).toEqual(['today work', 'yesterday work'])
     expect(await files(db, repo, 'commit', s.commits[1].id)).toEqual(['old.rb'])
   }, 20_000) // about 1 s alone; many git runs, slower when the whole suite runs in parallel
@@ -51,7 +51,7 @@ describe('review scopes', () => {
   it('a session that edited only through Bash still shows its repo; in its own worktree the whole branch is its work', async () => {
     const { repo, db } = setup()
     const shown = async (scope: Scope, own: { root: string; whole: boolean }): Promise<string[]> =>
-      (await scoped(db, { folder: join(repo, '..'), sessionFiles: null, scope, sessionBase: () => 'main', own })).groups.flatMap((g) => g.files.map((f) => f.path))
+      (await scoped(db, { folder: join(repo, '..'), sessionFiles: null, scope, sessionBase: () => ({ base: 'main', pin: null }), own })).groups.flatMap((g) => g.files.map((f) => f.path))
     expect(await shown('ticket', { root: repo, whole: false })).toEqual(['new.rb', 'old.rb', 'wip.rb'])
     expect(await shown('session', { root: repo, whole: false })).toEqual([])
     expect(await shown('session', { root: repo, whole: true })).toEqual(['new.rb', 'old.rb', 'wip.rb'])
@@ -59,9 +59,9 @@ describe('review scopes', () => {
 
   it('a reviewed file shows as done, and as changed once it is edited again', async () => {
     const { repo, db } = setup()
-    const set = (await scoped(db, { folder: repo, sessionFiles: null, scope: 'ticket', sessionBase: () => 'main' })).groups[0]
+    const set = (await scoped(db, { folder: repo, sessionFiles: null, scope: 'ticket', sessionBase: () => ({ base: 'main', pin: null }) })).groups[0]
     await markReviewed(db, set, set.files.find((f) => f.path === 'wip.rb')!, true)
-    const state = async (): Promise<unknown> => (await scoped(db, { folder: repo, sessionFiles: null, scope: 'ticket', sessionBase: () => 'main' })).groups[0].files.find((f) => f.path === 'wip.rb')!.reviewed
+    const state = async (): Promise<unknown> => (await scoped(db, { folder: repo, sessionFiles: null, scope: 'ticket', sessionBase: () => ({ base: 'main', pin: null }) })).groups[0].files.find((f) => f.path === 'wip.rb')!.reviewed
     expect(await state()).toBe('done')
     writeFileSync(join(repo, 'wip.rb'), 'edited after review\n')
     expect(await state()).toBe('changed')

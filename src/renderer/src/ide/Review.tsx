@@ -88,7 +88,7 @@ export default function ReviewView({ board, view, setView, scoped, active, openT
         const tests = set.files.filter((f) => isTest(f.path))
         return (
           <div key={set.root} className="rv-repo">
-            <div className="side-group" title={set.root}>{base(set.root)}{set.branch ? ` · ⎇ ${set.branch}` : ''}</div>
+            <div className="side-group" title={set.root}>{base(set.root)}{set.branch ? ` · ⎇ ${set.branch}` : ''}{set.base ? ` · ${set.files.length} files vs ${set.base}` : ''}</div>
             {code.length > 0 && <Section title="Code" files={code}><Files files={code} set={set} open={open} active={active} /></Section>}
             {tests.length > 0 && <Section title="Tests" files={tests}><Files files={tests} set={set} open={open} active={active} /></Section>}
           </div>

@@ -26,9 +26,14 @@ export function errorTool(db: Store, repo: string): { app: string; mcp: string; 
 export function errorPrompt(m: Monitor, t: { app: string; services: string[] }, nowIso: string): string {
   return [
     `Check production errors in ${t.app} for the services ${t.services.join(', ')}. READ-ONLY: do not change, acknowledge or send anything.`,
-    `A change (${m.repo}#${m.pr}${m.ticket ? `, ${m.ticket}` : ''}) was deployed at ${m.deployed_at}. Now it is ${nowIso}.`,
-    'Compare the time since the deploy with the same length of time just before it: new error types, error rate, failing',
-    'endpoints or jobs. Count something only if it started or clearly rose after the deploy; ignore what was already there.',
+    ...(m.kind === 'change'
+      // A change watch (SIGNOFF-34/D2): about the described change and its focus, not the whole service.
+      ? [`A change was made at ${m.deployed_at}: ${m.subject}.${m.focus ? ` Look first at what concerns: ${m.focus}.` : ''} Now it is ${nowIso}.`,
+        'Compare the time since the change with the same length of time just before it: new error types, error rate, failing',
+        'requests or jobs, related to this change. Count something only if it started or clearly rose after the change; ignore what was already there.']
+      : [`A change (${m.repo}#${m.pr}${m.ticket ? `, ${m.ticket}` : ''}) was deployed at ${m.deployed_at}. Now it is ${nowIso}.`,
+        'Compare the time since the deploy with the same length of time just before it: new error types, error rate, failing',
+        'endpoints or jobs. Count something only if it started or clearly rose after the deploy; ignore what was already there.']),
     'Reply with ONLY this JSON between <verdict> and </verdict>:',
     '{ "newErrors": true|false, "summary": "one line", "evidence": ["what you saw, with counts and names"] }'
   ].join('\n')
@@ -44,7 +49,7 @@ export function parseVerdict(out: string): Verdict {
 
 export async function checkErrors(db: Store, m: Monitor, run: (args: string[]) => Promise<{ code: number; out: string }>, nowIso: string): Promise<Verdict> {
   const t = errorTool(db, m.repo)
-  if (!t) throw new Error('no error tool is set up for this repo (Re-scan apps in Ship)')
+  if (!t) throw new Error('no error tool is set up for this repo (Re-scan in the Monitor tab)')
   const r = await run(headlessArgs(errorPrompt(m, t, nowIso), { allow: t.tools, disallow: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash'] }))
   if (r.code !== 0) throw new Error(`the error check failed: ${r.out.slice(0, 200)}`)
   return parseVerdict(r.out)

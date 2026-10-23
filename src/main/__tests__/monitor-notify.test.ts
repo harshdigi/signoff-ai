@@ -44,8 +44,8 @@ describe('review request', () => {
     expect(args.slice(args.indexOf('--allowedTools'), args.indexOf('--allowedTools') + 2)).toEqual(['--allowedTools', 'mcp__slack__send_message,mcp__slack__search,mcp__teams__post'])
     expect(args[args.indexOf('--disallowedTools') + 1]).toContain('Bash')
     expect(texts()).toEqual([
-      'Review request not sent to dev: Zoho is not in this repo\'s setup (Re-scan apps in Ship)',
-      'Releases (Teams) was not searched for an earlier request: no search tool in this repo\'s setup (Re-scan apps in Ship)',
+      'Review request not sent to dev: Zoho is not in this repo\'s setup (Re-scan in the Monitor tab)',
+      'Releases (Teams) was not searched for an earlier request: no search tool in this repo\'s setup (Re-scan in the Monitor tab)',
       'Review request sent to #reviews (Slack)',
       'Review request not sent to Releases (Teams): no access'
     ])
@@ -84,7 +84,7 @@ describe('review request', () => {
     expect(args[args.indexOf('--allowedTools') + 1]).toBe('mcp__slack__read_thread,mcp__slack__search')
     expect(args.join(' ')).toContain('A question or a request for changes is not an approval.')
     expect(texts()).toEqual([
-      "Releases (Teams): its thread is not checked for approval: no thread tool in this repo's setup (Re-scan apps in Ship)"
+      "Releases (Teams): its thread is not checked for approval: no thread tool in this repo's setup (Re-scan in the Monitor tab)"
     ])
     expect(monitorEvents(db, m.id).filter((e) => e.kind === 'approved').map((e) => e.text)).toEqual(['Approved in #reviews (Slack) by Asha · 12:40'])
     recordRequest(db, { repo: REPO, pr: 7, app: 'Slack', place: '#reviews', state: 'sent' })
