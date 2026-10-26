@@ -6,6 +6,7 @@ import { autonomyBrief, DECIDE_BRIEF, DISCUSS_BRIEF, getAutonomy, getDiscuss, LO
 import { getSettings } from './settings'
 import { changeStamp, decisionThread, readBoard } from './board-state'
 import type { Store } from './store'
+import { onBack, onScreen } from './visibility'
 import { sendTo } from './window-send'
 
 // What the window may do to the board. Every write goes through the shared board operations (same rules as decide).
@@ -71,13 +72,20 @@ export function registerBoardIpc(db: Store, window: () => BrowserWindow | null, 
   // - data_version moves when another connection commits (decide, a session, the MCP server);
   // - total_changes moves when this connection writes (the app's own actions: remove, rename, ticket steps…).
   // Without the second, the app's own changes did not show until something else wrote.
+  // Off screen, nothing is sent; a change made meanwhile is sent when the window is back (SIGNOFF-38-PERF/D5).
   let seen = changeStamp(db)
-  const timer = setInterval(() => {
+  const check = (): void => {
+    if (!onScreen()) return
     const v = changeStamp(db)
     if (v !== seen) {
       seen = v
       sendTo(window(), 'board:changed')
     }
-  }, 2000)
-  return () => clearInterval(timer)
+  }
+  const timer = setInterval(check, 2000)
+  const offBack = onBack(check)
+  return () => {
+    clearInterval(timer)
+    offBack()
+  }
 }

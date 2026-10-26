@@ -11,6 +11,7 @@ export type AskState =
   | { phase: 'error'; label: string; error: string }
 
 import { answerAfter, type Ev } from './answer'
+import { pollWhileShown } from './hooks'
 
 const ASK_TAIL = 300 // chat events looked at for the answer
 
@@ -37,8 +38,8 @@ export function useAsk(session: string | null, send: (text: string) => void): { 
       })
     }
     const offStatus = window.api.chat.onStatus((st: { session: string; busy: boolean }) => st.session === session && !st.busy && check())
-    const t = setInterval(check, 5000) // a turn can end without a status change reaching us (e.g. the window reloaded)
-    return () => { alive = false; offStatus(); clearInterval(t) }
+    const stop = pollWhileShown(check, 5000) // a turn can end without a status change reaching us (e.g. the window reloaded)
+    return () => { alive = false; offStatus(); stop() }
   }, [state, session])
   return { state, ask, reset: () => setState({ phase: 'idle' }) }
 }

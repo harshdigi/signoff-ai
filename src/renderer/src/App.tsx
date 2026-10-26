@@ -48,6 +48,13 @@ export default function App(): React.JSX.Element {
     if (folder) window.api.flows.touched().then(setDocs, () => setDocs([]))
   }, [folder, changes])
   const { tasks, catalog, reloadCatalog, reloadTasks } = useFolderData(folder)
+  // Tell main whether the window is on screen: its background checks pause while it is not (SIGNOFF-38-PERF/D5).
+  useEffect(() => {
+    const report = (): void => window.api.visible(!document.hidden)
+    report()
+    document.addEventListener('visibilitychange', report)
+    return () => document.removeEventListener('visibilitychange', report)
+  }, [])
   const chat = useRef<ChatHandle>(null)
 
   const [view, setView] = useState<View>('sessions')

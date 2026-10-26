@@ -11,6 +11,15 @@ export function useWorkspace(): { ws: Workspace | null; setWs: (w: Workspace) =>
   return { ws, setWs }
 }
 
+// Runs load every ms while the window is on screen, and once when it comes back (SIGNOFF-38-PERF/D5).
+// Hidden, minimised, covered or locked: no reads, so the Mac can rest.
+export function pollWhileShown(load: () => void, ms: number): () => void {
+  const shown = (): void => { if (!document.hidden) load() }
+  const t = setInterval(shown, ms)
+  document.addEventListener('visibilitychange', shown)
+  return () => { clearInterval(t); document.removeEventListener('visibilitychange', shown) }
+}
+
 // Git changes for the open folder; main pushes ws:changed when git status differs.
 export function useChanges(folder: string | null, mode: DiffMode): { changes: Changes | null; error: string | null } {
   const [changes, setChanges] = useState<Changes | null>(null)
@@ -46,9 +55,9 @@ export function useScoped(view: ReviewView | null, live: boolean): { scoped: Sco
       setData({ key, s })
     }, (e: unknown) => setError({ key, text: e instanceof Error ? e.message : String(e) }))
     load()
-    const t = setInterval(load, 5000)
+    const stop = pollWhileShown(load, 5000)
     const off = window.api.workspace.onChanged(load)
-    return () => { clearInterval(t); off() }
+    return () => { stop(); off() }
   }, [key, tick, live])
   return { scoped: key && data?.key === key ? data.s : null, error: key && error?.key === key ? error.text : null, reload: () => setTick((n) => n + 1) }
 }

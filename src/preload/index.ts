@@ -149,6 +149,7 @@ const api = {
     adopt: (decision: string): Promise<string> => ipcRenderer.invoke('workflows:adopt', decision)
   },
   reset: () => ipcRenderer.invoke('app:reset'),
+  visible: (v: boolean) => ipcRenderer.send('app:visible', v),
   comments: {
     add: (c: { session: string; root: string; path: string; start: number; end: number; code: string; text: string }) => ipcRenderer.invoke('comments:add', c),
     edit: (id: number, text: string) => ipcRenderer.invoke('comments:edit', id, text),

@@ -10,6 +10,7 @@ import { join } from 'path'
 import { answerApproval, leaveToTerminal, type Answer } from '../shared/approvals'
 import { deleteSession, renameSession, setParent, setRemoved } from '../shared/board'
 import { readCatalog } from './catalog'
+import { onBack, onScreen, setOnScreen } from './visibility'
 import { search } from '../shared/memory'
 import { getSettings, saveSettings, type Settings } from './settings'
 import { skillDirs } from './skilldirs'
@@ -382,6 +383,7 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   ipcMain.handle('chat:resume', (_e, id: string, title: string) => chat.resume(id, trusted(), title))
   // Reset (Settings): ends the app's sessions, empties the store (a backup copy is kept), deletes pasted images,
   // then restarts the app. Claude Code's own conversations, your code and terminal integration are not touched.
+  ipcMain.on('app:visible', (_e, v: boolean) => setOnScreen(v))
   ipcMain.handle('app:reset', () => {
     chat.stopAll()
     const data = app.getPath('userData')
@@ -448,12 +450,15 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
 
   // Changes view: re-read git every 2 s after the previous read finished (a big repo can take seconds),
   // and tell the window only when something differs.
+  // Off screen, no git runs; one runs as soon as the window is back (SIGNOFF-38-PERF/D5).
   let last = ''
   let stopped = false
+  let running = false
   let timer: NodeJS.Timeout
   const poll = async (): Promise<void> => {
+    running = true
     const cur = getWorkspace(db).current
-    if (cur) {
+    if (cur && onScreen()) {
       try {
         const snap = JSON.stringify(await review(cur, 'branch', sessionBase))
         if (snap !== last) {
@@ -464,12 +469,19 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
         console.error('reading git changes failed:', (e as Error).message)
       }
     }
+    running = false
     if (!stopped) timer = setTimeout(poll, 2000)
   }
   timer = setTimeout(poll, 0)
+  const offBack = onBack(() => {
+    if (running || stopped) return
+    clearTimeout(timer)
+    void poll()
+  })
   return () => {
     stopped = true
     clearTimeout(timer)
+    offBack()
     offEvent()
     offStatus()
     offHandoff()
