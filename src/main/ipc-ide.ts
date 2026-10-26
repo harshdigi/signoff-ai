@@ -89,15 +89,18 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   // - opening a diff or marking reviewed only checks the file against a list up to CHECK_MS old.
   const LIST_MS = 2500
   const CHECK_MS = 60_000
-  const scopeCache = new Map<string, { at: number; p: Promise<Scoped> }>()
+  // A view whose list is still being worked out waits for that run instead of starting another (SIGNOFF-38-PERF/D3):
+  // a run can take longer than the 5 s between asks, and overlapping runs slowed each other until none finished.
+  const scopeCache = new Map<string, { at: number; p: Promise<Scoped>; running: boolean }>()
   const scopedFor = (v: View, maxAge = LIST_MS): Promise<Scoped> => {
     const key = JSON.stringify({ session: v.session, scope: v.scope, commit: v.commit ?? null })
     const hit = scopeCache.get(key)
-    if (hit && Date.now() - hit.at < maxAge) return hit.p
-    const p = computeScoped(v)
-    scopeCache.set(key, { at: Date.now(), p })
-    p.catch(() => scopeCache.delete(key))
-    return p
+    if (hit && (hit.running || Date.now() - hit.at < maxAge)) return hit.p
+    const entry = { at: Date.now(), p: computeScoped(v), running: true }
+    scopeCache.set(key, entry)
+    // Fresh from when it finished, so a slow run is reused for LIST_MS after it, not already stale on arrival.
+    entry.p.then(() => { entry.running = false; entry.at = Date.now() }, () => scopeCache.delete(key))
+    return entry.p
   }
   const computeScoped = async (v: View): Promise<Scoped> => {
     const s = v.session ? db.prepare('SELECT transcript, cwd, base_branch FROM sessions WHERE id = ?').get(v.session) as { transcript: string | null; cwd: string | null; base_branch: string | null } | undefined : undefined

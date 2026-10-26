@@ -67,7 +67,7 @@ export default function App(): React.JSX.Element {
   const reviewView: ReviewView = { session: chatId, scope: chatId || scope.scope !== 'session' ? scope.scope : 'ticket', commit: scope.commit ?? null }
   // Only while the review list or a diff opened from it is on screen.
   const reviewing = (active === 'session' && sessionTab === 'files') || tabs.some((t) => t.kind === 'diff' && !!t.view && tabKey(t) === active)
-  const { scoped, reload: reloadScoped } = useScoped(folder ? reviewView : null, reviewing)
+  const { scoped, error: scopedError, reload: reloadScoped } = useScoped(folder ? reviewView : null, reviewing)
   const [terms, setTerms] = useState<Term[]>([])
   // The bottom panel has terminals that belong to no session (shells, tasks); a session's own are in its Terminals tab.
   const [activeTerm, setActiveTerm] = useState<string | null>(null)
@@ -442,7 +442,7 @@ export default function App(): React.JSX.Element {
                                   openChat={(id) => openSession(id)} go={(e) => setFileDiff({ root: e.set.root, path: e.file.path, view: fileDiff.view })} />
                               </div>
                             ) : (
-                            <ReviewList board={board} view={reviewView} setView={(v) => setScope({ scope: v.scope, commit: v.commit })} scoped={scoped} active={active}
+                            <ReviewList board={board} view={reviewView} setView={(v) => setScope({ scope: v.scope, commit: v.commit })} scoped={scoped} error={scopedError} retry={reloadScoped} active={active}
                               openTab={(t) => (t.kind === 'diff' && t.view ? setFileDiff({ root: t.root, path: t.path, view: t.view }) : openTab(t))} docs={docs} updateDocs={updateDocs} />
                             )}
                             {!fileDiff && <details className="rv-kind rv-run">
