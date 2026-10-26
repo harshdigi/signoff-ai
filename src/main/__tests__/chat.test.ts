@@ -11,6 +11,7 @@ import { openStore, type Store } from '../store'
 import { TerminalManager } from '../terminals'
 import { proposeSplit } from '../../shared/team'
 import { Teams } from '../teams'
+import { saveWorkflow } from '../workflows'
 import { Tmux } from '../tmux'
 import { execFileSync } from 'child_process'
 import { mkdirSync, realpathSync } from 'fs'
@@ -232,6 +233,21 @@ describe('terminal chats', () => {
     for (const k of kids) hookRuns(k)
     await until(() => said(kids[0]).length === 2)
     expect(said(kids[0])[0]).toBe('> Your piece: API\n\nadd the endpoint')
+  })
+
+  it('a team of reads-only roles starts in a folder that is not a git repo; a role that edits still needs one (SIGNOFF-40-TEAMS)', async () => {
+    mkdirSync(join(dir, 'plain'))
+    const plain = realpathSync(join(dir, 'plain'))
+    saveWorkflow(db, { id: 'oncall', name: 'Oncall', description: '', team: [{ role: 'investigator', count: null, does: 'Reads prod', readsOnly: true }, { role: 'fixer', count: null, does: 'Writes the fix' }] })
+    const lead = chat.create(plain, { workflow: 'oncall', ticket: 'ONCALL' })
+    const teams = new Teams(db, chat)
+    const fix = proposeSplit(db, { session: lead, ticket: 'ONCALL', number: 'D1', pieces: [{ title: 'Patch', task: 'fix it' }], role: 'fixer' })
+    await expect(teams.start(fix, [0])).rejects.toThrow(`${plain} is not a git repository; "Patch" edit code and need their own worktrees (mark a role reads only in its team setup if it does not edit)`)
+    const d = proposeSplit(db, { session: lead, ticket: 'ONCALL', number: 'D2', pieces: [{ title: 'CAMS 4xx', task: 'find the cause' }] })
+    await teams.start(d, [0])
+    expect(db.prepare('SELECT title, role, cwd, branch, base_branch FROM sessions WHERE parent_id = ?').all(lead)).toEqual([
+      { title: 'CAMS 4xx', role: 'investigator', cwd: plain, branch: null, base_branch: null }
+    ])
   })
 
   it('a board message for an idle session is typed in once', async () => {

@@ -27,14 +27,21 @@ describe('workflow guide', () => {
     expect(flowSteps([builder, reviewer]).join(' ')).toContain('The reviewer reads each finished piece')
   })
 
+  it('a reads-only first role works in the lead\'s folder: no worktree, nothing to merge (SIGNOFF-40-TEAMS/D1)', () => {
+    const steps = flowSteps([{ role: 'investigator', count: null, does: 'reads prod', readsOnly: true }])
+    expect(steps.join(' ')).toContain('Each investigator reads only: it works in the lead\'s folder, with no branch or worktree')
+    expect(steps.join(' ')).not.toContain('merges each branch')
+  })
+
   it('warns about setups that will not run the way they read', () => {
     expect(warnings([], 3)).toEqual([])
     expect(warnings([builder, reviewer], 3)).toEqual([])
     expect(warnings([builder], 3)).toEqual(['No reviewer: nobody reads the diffs before you do.'])
     expect(warnings([builder, { ...reviewer, role: 'code reviewer' }], 3)).toEqual([
       'No reviewer: nobody reads the diffs before you do.',
-      'Only a role named exactly "reviewer" gets the implementers\' reports and works without its own worktree. "code reviewer" will act as an implementer.'
+      'Only a role named exactly "reviewer" gets the implementers\' reports. "code reviewer" will not get them, and it edits code in its own worktree unless you mark it reads only.'
     ])
+    expect(warnings([builder, { ...reviewer, role: 'code reviewer', readsOnly: true }], 3)[1]).toBe('Only a role named exactly "reviewer" gets the implementers\' reports. "code reviewer" will not get them.')
     expect(warnings([{ ...builder, count: 3 }, reviewer], 3)).toEqual(['This starts at least 4 sessions under the lead, but Settings allows 3. The start will be refused: lower the counts or raise the cap.'])
     expect(warnings([reviewer, builder], 3)).toContain('The reviewer is the first role, so the lead would give each piece to a reviewer, which never edits code. Put the builders first.')
   })

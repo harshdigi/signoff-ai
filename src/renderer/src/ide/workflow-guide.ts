@@ -6,7 +6,11 @@ import type { Role } from './types'
 // and what in a custom setup will not work the way it reads. Mirrors how shared/team.ts and main/teams.ts run a team:
 // - the first role gets one session per piece the lead proposes;
 // - every other role with a count joins once per count; one with no count only starts if the lead picks it;
-// - only a role named exactly "reviewer" works in the lead's folder and gets the implementers' reports.
+// - a reads-only role works in the lead's folder with no worktree; only a role named exactly "reviewer" gets the
+//   implementers' reports.
+
+// Mirrors readsOnly in main/workflows.ts: setups saved before the flag treat "reviewer" as reads only.
+export const readsOnly = (r: { role: string; readsOnly?: boolean }): boolean => r.readsOnly ?? r.role === 'reviewer'
 
 export type Answers = { size: 'small' | 'feature' | 'large'; parts: 'one' | 'independent'; risk: 'low' | 'high' }
 export type Pick = { id: 'solo' | 'implement-review' | 'parallel'; why: string }
@@ -38,11 +42,13 @@ export function flowSteps(team: Role[]): string[] {
     'You start the lead session and give it the task.',
     `Once the task is clear, the lead proposes a split: one ${first.role} per piece${first.count !== null ? ` (this setup expects ${first.count})` : ''}. You approve it and can drop pieces.`,
     ...fixed.map((r) => `${plural(r.count, r.role)} also join${r.count === 1 ? 's' : ''}: ${r.does || 'no description yet'}`),
-    `Each ${first.role} works on its own branch and worktree, cut from the lead's branch, so no one overwrites anyone.`,
+    readsOnly(first)
+      ? `Each ${first.role} reads only: it works in the lead's folder, with no branch or worktree, and suggests changes as diffs.`
+      : `Each ${first.role} works on its own branch and worktree, cut from the lead's branch, so no one overwrites anyone.`,
     reviewer
       ? `The reviewer reads each finished piece and posts findings. A good piece is passed, which tells the lead to merge it.`
       : `There is no reviewer, so finished pieces go straight to the lead.`,
-    'The lead merges each branch into its own after asking you (merging makes a commit), then removes the worktree.'
+    ...(team.some((r) => !readsOnly(r)) ? ['The lead merges each branch into its own after asking you (merging makes a commit), then removes the worktree.'] : [])
   ]
 }
 
@@ -55,7 +61,7 @@ export function warnings(team: Role[], cap: number): string[] {
   if (!names.includes('reviewer')) out.push('No reviewer: nobody reads the diffs before you do.')
   for (const r of team) {
     const n = r.role.trim().toLowerCase()
-    if (n !== 'reviewer' && /review/.test(n)) out.push(`Only a role named exactly "reviewer" gets the implementers' reports and works without its own worktree. "${r.role}" will act as an implementer.`)
+    if (n !== 'reviewer' && /review/.test(n)) out.push(`Only a role named exactly "reviewer" gets the implementers' reports. "${r.role}" will not get them${readsOnly(r) ? '' : ', and it edits code in its own worktree unless you mark it reads only'}.`)
   }
   const reviewers = team.find((r) => r.role === 'reviewer')
   if (reviewers && reviewers.count !== null && reviewers.count > 1) out.push(`${reviewers.count} reviewers each review every piece: more cost, rarely more value.`)

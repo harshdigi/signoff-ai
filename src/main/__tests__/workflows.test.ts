@@ -5,7 +5,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
 import { openStore } from '../store'
-import { deleteWorkflow, getWorkflow, listWorkflows, saveWorkflow, teamLine } from '../workflows'
+import { deleteWorkflow, getWorkflow, listWorkflows, readsOnly, saveWorkflow, teamLine } from '../workflows'
 
 const store = () => openStore(join(mkdtempSync(join(tmpdir(), 'wf-')), 'b.db'))
 
@@ -42,5 +42,12 @@ describe('workflows', () => {
   it('describes a team in one line', () => {
     const db = store()
     expect(listWorkflows(db).map(teamLine)).toEqual(['one session', '1 implementer + 1 reviewer', 'N implementers + 1 reviewer'])
+  })
+
+  it('reads only: the flag when set; setups saved before it treat only "reviewer" as reads only (SIGNOFF-40-TEAMS/D1)', () => {
+    expect([readsOnly({ role: 'reviewer' }), readsOnly({ role: 'investigator' }), readsOnly({ role: 'investigator', readsOnly: true }), readsOnly({ role: 'reviewer', readsOnly: false })]).toEqual([true, false, true, false])
+    expect(getWorkflow(openStore(join(mkdtempSync(join(tmpdir(), 'wf-')), 'b.db')), 'parallel').team.map(readsOnly)).toEqual([false, true])
+    const db = openStore(join(mkdtempSync(join(tmpdir(), 'wf-')), 'b.db'))
+    expect(() => saveWorkflow(db, { id: 'x1', name: 'X', description: '', team: [{ role: 'a', count: 1, does: 'b', readsOnly: 'yes' as unknown as boolean }] })).toThrow('a: readsOnly is true or false')
   })
 })

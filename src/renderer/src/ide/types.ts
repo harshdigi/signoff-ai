@@ -23,7 +23,7 @@ export type CatalogItem = {
 export const itemKey = (c: { kind: string; name: string }): string => `${c.kind}:${c.name}`
 export type Pin = { key: string; label: string }
 // workflows.ts; line: the team in one line, e.g. "1 implementer + 1 reviewer".
-export type Role = { role: string; count: number | null; does: string }
+export type Role = { role: string; count: number | null; does: string; readsOnly?: boolean }
 export type Workflow = { id: string; name: string; description: string; team: Role[]; goodFor: string[]; notFor: string[]; builtIn: boolean; line: string }
 export type TerminalMenu = { question: string; detail: string[]; options: string[]; selected: number }
 export type ChatStatus = { session: string; running: boolean; busy: boolean; menu?: TerminalMenu | null }
