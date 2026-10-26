@@ -150,6 +150,10 @@ const api = {
   },
   reset: () => ipcRenderer.invoke('app:reset'),
   visible: (v: boolean) => ipcRenderer.send('app:visible', v),
+  background: {
+    list: () => ipcRenderer.invoke('bg:list'),
+    stop: (stop: { server: string } | { session: string }) => ipcRenderer.invoke('bg:stop', stop)
+  },
   comments: {
     add: (c: { session: string; root: string; path: string; start: number; end: number; code: string; text: string }) => ipcRenderer.invoke('comments:add', c),
     edit: (id: number, text: string) => ipcRenderer.invoke('comments:edit', id, text),

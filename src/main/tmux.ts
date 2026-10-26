@@ -8,7 +8,7 @@ import { execFileSync } from 'child_process'
 export const SOCKET = 'decision-ide'
 
 export class Tmux {
-  constructor(private conf: string, private socket = SOCKET) {}
+  constructor(private conf: string, readonly socket = SOCKET) {}
 
   private run(args: string[], input?: string): string {
     try {
@@ -67,6 +67,19 @@ export class Tmux {
   screenWithoutDim(name: string): string[] {
     const raw = this.run(['capture-pane', '-p', '-e', '-t', `=${name}:`])
     return raw.replace(/\x1b\[2m[\s\S]*?(?=\x1b\[(?:0|22)?m)/g, '').replace(/\x1b\[[0-9;:?]*[A-Za-z]/g, '').split('\n')
+  }
+
+  // Each session's pane: the session name and the pid of the program in it (its claude). None when no server runs.
+  panes(): { name: string; pid: number }[] {
+    try {
+      return this.run(['list-panes', '-a', '-F', '#{session_name} #{pane_pid}']).split('\n').filter(Boolean).map((l) => {
+        const [name, pid] = l.split(' ')
+        return { name, pid: Number(pid) }
+      })
+    } catch (e) {
+      if ((e as { status?: number }).status === 1) return [] // no server yet
+      throw e
+    }
   }
 
   stop(name: string): void {

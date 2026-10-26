@@ -38,7 +38,7 @@ export function useAsk(session: string | null, send: (text: string) => void): { 
       })
     }
     const offStatus = window.api.chat.onStatus((st: { session: string; busy: boolean }) => st.session === session && !st.busy && check())
-    const stop = pollWhileShown(check, 5000) // a turn can end without a status change reaching us (e.g. the window reloaded)
+    const stop = pollWhileShown(check, 5000, 'Ask: waiting for an answer') // a turn can end without a status change reaching us (e.g. the window reloaded)
     return () => { alive = false; offStatus(); stop() }
   }, [state, session])
   return { state, ask, reset: () => setState({ phase: 'idle' }) }

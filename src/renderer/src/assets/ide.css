@@ -99,6 +99,10 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .sess-term { flex: none; font: 11px ui-monospace, Menlo, monospace; color: var(--quiet); }
 .add-panel { border-bottom: 1px solid var(--edge); padding-bottom: 8px; margin-bottom: 4px; }
 .side-empty { color: var(--quiet); padding: 2px 8px 6px; font-size: 12px; }
+.bg-total { color: var(--quiet); font-size: 12px; padding: 2px 6px 0; }
+.bg-row .name { flex: 1; min-width: 0; }
+.bg-row .dir { flex: none; }
+.bg-row.plain { cursor: default; }
 .side-search { width: 100%; margin: 2px 0 4px; }
 .side-item { display: flex; align-items: baseline; gap: 6px; padding: 3px 6px; border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; }
 .side-item:hover { background: var(--line); }

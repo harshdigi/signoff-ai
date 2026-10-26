@@ -23,6 +23,8 @@ import { skillDirs } from './skilldirs'
 import { appFiles, pinUserData } from './paths'
 import { parseDeepLink, type DeepLink } from './deeplink'
 import { registerBoardIpc } from './ipc-board'
+import { registerBackgroundIpc } from './ipc-background'
+import { defineCheck } from './checks'
 
 // The prototype's data, imported once into an empty store (Phase 1, D4).
 
@@ -157,14 +159,16 @@ app.whenReady().then(() => {
   }
   registerTerminalIpc(terminals, () => mainWindow, claude, () => getWorkspace(store).current)
   // chat is made just below; a wake only happens later, from the window.
+  const tmux = new Tmux(join(files.resources, 'tmux.conf'))
   const stopBoardWatch = registerBoardIpc(store, () => mainWindow, (s) => chat.wake(s))
   app.on('before-quit', stopBoardWatch)
   const chat = new ChatManager(store, (cwd) => ({ ...claude(cwd), decide: join(files.resources, 'decision-protocol/bin/decide') }), {
     settings: () => getSettings(store),
     files: (cwd) => changes(cwd).files.map((f) => f.path),
     attachments: join(app.getPath('userData'), 'attachments'),
-    tmux: new Tmux(join(files.resources, 'tmux.conf'))
+    tmux
   }, terminals)
+  registerBackgroundIpc(store, tmux, terminals)
   const pipeline = new Pipeline(store, chat, () => getSettings(store))
   // Monitors (SIGNOFF-23): GitHub is checked every 2 minutes with gh, at no token cost.
   const tell = (m: Monitor, text: string): void => {
@@ -204,7 +208,11 @@ app.whenReady().then(() => {
       if (Notification.isSupported()) new Notification({ title: `Production incident: ${m.repo}#${m.pr}`, body: what }).show()
     }
   }, (repo) => deployWorkflowOf(store, repo))
-  const watchTimer = setInterval(() => void watcher.tick(), 120_000)
+  const monitorsRan = defineCheck('monitors', 'Monitors: GitHub CI and deploys (gh)', '2 min', false)
+  const watchTimer = setInterval(() => {
+    monitorsRan()
+    void watcher.tick()
+  }, 120_000)
   registerMonitorIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
   registerStoryIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
   app.on('before-quit', () => clearInterval(watchTimer))

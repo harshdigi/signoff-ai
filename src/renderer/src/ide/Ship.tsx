@@ -30,7 +30,9 @@ export default function Ship({ s, b, ask: send, openChat }: { s: Session; b: Boa
       if (json !== last) { last = json; setTicket(t) }
     })
     load()
-    return pollWhileShown(load, 5000)
+    const stop = pollWhileShown(load, 60_000, 'Ship: ticket readiness')
+    const off = window.api.workspace.onChanged(load)
+    return () => { stop(); off() }
   }, [s.id])
   const files = ordered(ticket)
   const reviewed = files.filter((e) => e.file.reviewed === 'done').length
