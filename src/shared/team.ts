@@ -3,7 +3,7 @@
 import { answer, BoardError, postDecision, queueMessage, touchSession } from './board'
 import type { Store } from '../main/store'
 import { getSettings } from '../main/settings'
-import { checkWorkflow, getWorkflow, listWorkflows, saveWorkflow, teamLine, type WorkflowInput } from '../main/workflows'
+import { checkWorkflow, getWorkflow, listWorkflows, readsOnly, saveWorkflow, teamLine, type WorkflowInput } from '../main/workflows'
 
 // Teams (IDE/D22): a session started with a team setup splits its task into child sessions.
 // - The lead proposes the split as a decision (kind 'split'); you approve it, optionally dropping pieces.
@@ -67,6 +67,17 @@ export function recordStarted(db: Store, decision: string, started: { session: s
   answer(db, decision, `Started ${started.length}:\n${lines.join('\n')}`, 'user (app)')
 }
 
+// Whether a role reads only, from the lead's setup as it is now (so a split proposed before the role was marked
+// still follows the mark). A setup that no longer exists falls back to the name rule (readsOnly, workflows.ts).
+export function roleReadsOnly(db: Store, workflow: string | null, role: string): boolean {
+  try {
+    if (workflow) return readsOnly(getWorkflow(db, workflow).team.find((r) => r.role === role) ?? { role })
+  } catch {
+    // deleted setup: name rule
+  }
+  return readsOnly({ role })
+}
+
 // The first message a child gets.
 export const pieceMessage = (p: Piece): string => `Your piece: ${p.title}\n\n${p.task}`
 
@@ -87,6 +98,12 @@ export function teamBrief(db: Store, id: string): string[] {
         `Review a piece with: git -C <folder> diff ${lead.branch ?? '<lead branch>'}...HEAD (committed) and git -C <folder> diff (not yet committed). Never edit code yourself.`,
         'When a piece is good: signoff pass --of <its session id> --summary "<why>". That tells the lead to merge it. Otherwise post your findings as decisions or a review, and message nothing else.'
       )
+    } else if (!s.base_branch && roleReadsOnly(db, lead.workflow, s.role)) {
+      lines.push(
+        `Your role reads only (SIGNOFF-40-TEAMS/D1): you work in the lead's folder, ${s.cwd}, with no branch of your own. Do not edit files there.`,
+        'To suggest a code change, write it as a diff in a temp file and post it with signoff propose.',
+        'When your piece is finished, run: signoff done --summary "<what you found>". That tells the lead and the reviewer.'
+      )
     } else {
       if (s.base_branch) lines.push(`You work in your own worktree, ${s.cwd}, on branch ${s.branch}, cut from ${s.base_branch}. Other team members cannot see your changes until they are merged.`)
       lines.push('When your piece is finished and checked, commit it on your branch (ask first, as for any commit), then run: signoff done --summary "<what you did>". That tells the lead and the reviewer.')
@@ -97,10 +114,10 @@ export function teamBrief(db: Store, id: string): string[] {
     const w = getWorkflow(db, s.workflow)
     return [
       `## Your team: ${w.name} (${teamLine(w)})`,
-      ...w.team.map((r) => `- ${r.role}${r.count === null ? ' (you propose how many)' : ` x${r.count}`}: ${r.does}`),
+      ...w.team.map((r) => `- ${r.role}${r.count === null ? ' (you propose how many)' : ` x${r.count}`}${readsOnly(r) ? ' (reads only)' : ''}: ${r.does}`),
       'You lead. Once the task is clear, propose the split: signoff split --ticket <KEY> --id D<n> --piece "Title :: what to do" (one --piece per piece of work).',
       `The user approves it and the app starts one session per piece (at most ${getSettings(db).maxChildren} at once). Do not start sessions yourself. Their reports reach you as board messages.`,
-      'Implementers work in their own worktrees and branches, cut from yours. When the reviewer passes a piece, merge its branch into yours: merging makes a commit, so ask first (signoff post --action consent). After the merge, remove its worktree: git worktree remove <folder>.'
+      'Roles that edit code work in their own worktrees and branches, cut from yours; reads-only roles work in your folder. When the reviewer passes a piece, merge its branch into yours: merging makes a commit, so ask first (signoff post --action consent). After the merge, remove its worktree: git worktree remove <folder>.'
     ]
   }
   return []

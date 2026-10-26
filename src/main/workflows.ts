@@ -7,7 +7,11 @@ import type { Store } from './store'
 // - A session started with one records its id (sessions.workflow). Splitting the work into child sessions is IDE/D22.
 
 // count: how many sessions of this role; null = the parent proposes the number once it knows the task.
-export type Role = { role: string; count: number | null; does: string }
+// readsOnly: the role never edits code, so it works in the lead's folder with no branch or worktree (SIGNOFF-40-TEAMS/D1).
+export type Role = { role: string; count: number | null; does: string; readsOnly?: boolean }
+
+// Setups saved before readsOnly existed: a role named "reviewer" reads only, as it always did; any other edits code.
+export const readsOnly = (r: Pick<Role, 'role' | 'readsOnly'>): boolean => r.readsOnly ?? r.role === 'reviewer'
 // goodFor / notFor: when to pick it, shown in the Workflows tab so a setup explains itself.
 export type Workflow = { id: string; name: string; description: string; team: Role[]; goodFor: string[]; notFor: string[]; builtIn: boolean }
 
@@ -22,7 +26,7 @@ export const BUILT_IN: Workflow[] = [
     description: 'One session builds, another reads every change and reports problems before you see it.',
     team: [
       { role: 'implementer', count: 1, does: 'Builds the change on its own branch and worktree.' },
-      { role: 'reviewer', count: 1, does: 'Reads each diff from the implementers and posts findings as a review. Never edits code.' }
+      { role: 'reviewer', count: 1, does: 'Reads each diff from the implementers and posts findings as a review. Never edits code.', readsOnly: true }
     ],
     goodFor: ['One feature where mistakes are costly: payments, auth, data migrations, money movement', 'Changes you want checked before you spend time reviewing them'],
     notFor: ['Quick fixes: three sessions cost more than the check is worth', 'Folders that are not git repos: implementers need worktrees']
@@ -32,7 +36,7 @@ export const BUILT_IN: Workflow[] = [
     description: 'The parent splits the task into independent pieces; each piece gets its own implementer, one reviewer checks all.',
     team: [
       { role: 'implementer', count: null, does: 'Builds one piece on its own branch and worktree.' },
-      { role: 'reviewer', count: 1, does: 'Reads each diff from the implementers and posts findings as a review. Never edits code.' }
+      { role: 'reviewer', count: 1, does: 'Reads each diff from the implementers and posts findings as a review. Never edits code.', readsOnly: true }
     ],
     goodFor: ['Tasks with independent parts: an API, its frontend page and the specs', 'One change repeated across several services or modules', 'Large tickets where waiting on one session is the bottleneck'],
     notFor: ['Parts that edit the same files: the merges conflict', 'Tasks whose design is not settled yet: settle it in a Solo session first', 'Folders that are not git repos: implementers need worktrees']
@@ -64,6 +68,7 @@ export function checkWorkflow(w: WorkflowInput): void {
   for (const r of w.team) {
     if (!r.role.trim() || !r.does.trim()) throw new Error('each role needs a name and what it does')
     if (r.count !== null && !(Number.isInteger(r.count) && r.count >= 1 && r.count <= 10)) throw new Error(`${r.role}: count is 1-10, or empty for "the parent proposes"`)
+    if (r.readsOnly !== undefined && typeof r.readsOnly !== 'boolean') throw new Error(`${r.role}: readsOnly is true or false`)
   }
 }
 

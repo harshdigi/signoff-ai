@@ -445,6 +445,7 @@ button.danger { border-color: #d14d41; color: #d14d41; }
 .wf-edit label { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; font-size: 12px; }
 .wf-role { display: grid; grid-template-columns: 1fr 52px auto; gap: 4px; margin: 6px 0; }
 .wf-role textarea { grid-column: 1 / -1; min-height: 40px; }
+.wf-role .wf-reads { grid-column: 1 / -1; font-size: 12px; color: var(--quiet); display: flex; align-items: center; gap: 4px; }
 .split-pick { margin: 8px 0; }
 .split-piece { display: flex; gap: 6px; align-items: baseline; margin: 4px 0; }
 .session-row .tag { font-size: 10px; padding: 0 4px; border: 1px solid var(--line); border-radius: 3px; color: var(--quiet); }

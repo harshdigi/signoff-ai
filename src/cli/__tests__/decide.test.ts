@@ -52,6 +52,15 @@ describe('decide CLI', () => {
     expect(decide(['team', 'propose', '--ticket', 'KA-1', '--id', 'D10', '--name', 'X', '--role', 'implementer :: many :: x', ...S]).err).toBe('signoff: --role count is a number or N: implementer :: many :: x')
   })
 
+  it('team propose --reads-only marks a role that never edits code (SIGNOFF-40-TEAMS/D1)', () => {
+    decide(['register', '--ticket', 'KA-1', ...S])
+    expect(decide(['team', 'propose', '--ticket', 'KA-1', '--id', 'D11', '--name', 'Oncall', '--role', 'investigator :: N :: Reads prod', '--reads-only', 'investigator', ...S])).toMatchObject({ code: 0, out: 'KA-1/D11' })
+    const db = openStore(join(dir, 'board.db'))
+    expect(JSON.parse((db.prepare('SELECT item FROM decisions WHERE id = ?').get('KA-1/D11') as { item: string }).item).team).toEqual([{ role: 'investigator', count: null, does: 'Reads prod', readsOnly: true }])
+    db.close()
+    expect(decide(['team', 'propose', '--ticket', 'KA-1', '--id', 'D12', '--name', 'Y', '--role', 'a :: 1 :: x', '--reads-only', 'b', ...S]).err).toBe('signoff: --reads-only names no --role: b')
+  })
+
   it('post, list, answer, ack keep the prototype output', () => {
     expect(decide([...S, 'post', '--ticket', 'abc-1', '--id', 'd1', '--question', 'Q?', '--ref', 'abc-1/d0'])).toMatchObject({ code: 0, out: 'ABC-1/D1' })
     expect(decide(['list', '--ticket', 'ABC-1']).out).toBe('ABC-1/D1 [open] Q?  (refs ABC-1/D0)')
