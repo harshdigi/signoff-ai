@@ -70,8 +70,11 @@ const storedFold = (session: string): boolean => {
   }
 }
 
+const CHAT_PAGE = 400 // chat events loaded at a time
+
 const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refresh, folder, trusted, session, setSession, catalog, terminalFor, showTerminal }, ref) {
   const [events, setEvents] = useState<Record<string, unknown>[]>([])
+  const [earlier, setEarlier] = useState(0) // events before the ones loaded (Load earlier)
   const [live, setLive] = useState('')
   const [status, setStatus] = useState<ChatStatus | null>(null)
   const [input, setInput] = useState('')
@@ -134,10 +137,12 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
 
   useEffect(() => {
     setEvents([])
+    setEarlier(0)
     setLive('')
     if (!session || queued) return setStatus(null)
     let alive = true
-    window.api.chat.history(session).then((h: Record<string, unknown>[]) => alive && setEvents(h))
+    // The chat's end only (SIGNOFF-38-PERF/D1); Load earlier asks for more.
+    window.api.chat.tail(session, CHAT_PAGE).then((h: { events: Record<string, unknown>[]; earlier: number }) => { if (alive) { setEvents(h.events); setEarlier(h.earlier) } })
     window.api.chat.status(session).then((s: ChatStatus) => alive && setStatus(s))
     const offEvent = window.api.chat.onEvent(({ session: s, event }) => {
       if (s !== session) return
@@ -343,6 +348,11 @@ const ChatPanel = forwardRef<ChatHandle, Props>(function ChatPanel({ board, refr
         }
       }} /> : null}
       <div className="chat-log" ref={scroller}>
+        {session && earlier > 0 && (
+          <button className="link chat-earlier" onClick={() => window.api.chat.tail(session, events.length + CHAT_PAGE).then((h: { events: Record<string, unknown>[]; earlier: number }) => { setEvents(h.events); setEarlier(h.earlier) })}>
+            Load earlier ({earlier} more)
+          </button>
+        )}
         {!session && (
           <div className="chat-empty">
             <h3>Ask Claude</h3>

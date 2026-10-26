@@ -52,11 +52,11 @@ function Section({ title, files, children }: { title: string; files: ScopedFile[
 }
 
 type Props = {
-  board: BoardState; view: ReviewView; setView: (v: ReviewView) => void; scoped: Scoped | null; active: string
+  board: BoardState; view: ReviewView; setView: (v: ReviewView) => void; scoped: Scoped | null; error: string | null; retry: () => void; active: string
   openTab: (t: EditorTab) => void; docs: { doc: string; files: string[] }[]; updateDocs: () => void
 }
 
-export default function ReviewView({ board, view, setView, scoped, active, openTab, docs, updateDocs }: Props): React.JSX.Element {
+export default function ReviewView({ board, view, setView, scoped, error, retry, active, openTab, docs, updateDocs }: Props): React.JSX.Element {
   const reviews = board.reviews.filter((r) => r.status === 'open')
   const all = ordered(scoped)
   const done = all.filter((e) => e.file.reviewed === 'done').length
@@ -81,7 +81,8 @@ export default function ReviewView({ board, view, setView, scoped, active, openT
           <span>Reviewed {done} of {all.length}</span>
         </div>
       )}
-      {!scoped && <div className="side-empty">Loading…</div>}
+      {!scoped && !error && <div className="side-empty">Loading…</div>}
+      {error && <div className="err">Could not load the changes: {error} <button className="sm" onClick={retry}>Retry</button></div>}
       {scoped && all.length === 0 && <div className="side-empty">No changes in this scope{view.scope === 'session' ? ' yet: files this session edits show here' : ''}.</div>}
       {scoped?.groups.map((set) => {
         const code = set.files.filter((f) => !isTest(f.path))

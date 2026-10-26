@@ -11,6 +11,9 @@ export type AskState =
   | { phase: 'error'; label: string; error: string }
 
 import { answerAfter, type Ev } from './answer'
+import { pollWhileShown } from './hooks'
+
+const ASK_TAIL = 300 // chat events looked at for the answer
 
 export function useAsk(session: string | null, send: (text: string) => void): { state: AskState; ask: (text: string, label: string) => void; reset: () => void } {
   const [state, setState] = useState<AskState>({ phase: 'idle' })
@@ -28,14 +31,15 @@ export function useAsk(session: string | null, send: (text: string) => void): { 
     const check = (): void => {
       const text = sent.current
       if (!text) return
-      void window.api.chat.history(session).then((events: Ev[]) => {
+      // The chat's end is enough: the prompt was sent moments ago (SIGNOFF-38-PERF/D1).
+      void window.api.chat.tail(session, ASK_TAIL).then(({ events }: { events: Ev[] }) => {
         const answer = answerAfter(events, text)
         if (alive && answer !== null) setState({ phase: 'done', label: state.label, answer })
       })
     }
     const offStatus = window.api.chat.onStatus((st: { session: string; busy: boolean }) => st.session === session && !st.busy && check())
-    const t = setInterval(check, 5000) // a turn can end without a status change reaching us (e.g. the window reloaded)
-    return () => { alive = false; offStatus(); clearInterval(t) }
+    const stop = pollWhileShown(check, 5000, 'Ask: waiting for an answer') // a turn can end without a status change reaching us (e.g. the window reloaded)
+    return () => { alive = false; offStatus(); stop() }
   }, [state, session])
   return { state, ask, reset: () => setState({ phase: 'idle' }) }
 }

@@ -1,5 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
+import { agentEvents, chatPoints } from './chat-digest'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
@@ -9,6 +10,9 @@ import { join } from 'path'
 import { answerApproval, leaveToTerminal, type Answer } from '../shared/approvals'
 import { deleteSession, renameSession, setParent, setRemoved } from '../shared/board'
 import { readCatalog } from './catalog'
+import { onBack, onScreen, setOnScreen } from './visibility'
+import { defineCheck } from './checks'
+import { RepoWatch } from './repo-watch'
 import { search } from '../shared/memory'
 import { getSettings, saveSettings, type Settings } from './settings'
 import { skillDirs } from './skilldirs'
@@ -88,15 +92,44 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   // - opening a diff or marking reviewed only checks the file against a list up to CHECK_MS old.
   const LIST_MS = 2500
   const CHECK_MS = 60_000
-  const scopeCache = new Map<string, { at: number; p: Promise<Scoped> }>()
+  // A view whose list is still being worked out waits for that run instead of starting another (SIGNOFF-38-PERF/D3):
+  // a run can take longer than the 5 s between asks, and overlapping runs slowed each other until none finished.
+  const scopeCache = new Map<string, { at: number; p: Promise<Scoped>; running: boolean; dirty: boolean }>()
+  // Each view's repos are watched for file changes while the view is in use (SIGNOFF-39-PROCS/D4):
+  // - a change expires that view's list and tells the window (ws:changed), instead of the window asking every 5 s;
+  // - 'folder' is the open folder's own repos (the status bar), kept while the folder is open;
+  // - a view not asked for in WATCH_MS stops being watched. The window still asks every 60 s, in case an event is missed.
+  const WATCH_MS = 3 * 60_000
+  const watched = new Map<string, { roots: string[]; at: number }>()
+  const watchRoots = (key: string, roots: string[]): void => {
+    watched.set(key, { roots, at: Date.now() })
+    for (const [k, w] of watched) if (k !== 'folder' && Date.now() - w.at > WATCH_MS) watched.delete(k)
+    repoWatch.set([...watched.values()].flatMap((w) => w.roots))
+  }
+  const gitRan = defineCheck('git', 'Git: Files changed and the status bar', 'on file change, else every 60 s', true)
+  const repoWatch = new RepoWatch((root) => {
+    // A list being worked out may have read the files before this change: it is marked, and redone when asked again.
+    for (const [k, e] of scopeCache) if (watched.get(k)?.roots.includes(root)) { e.at = 0; e.dirty = e.running }
+    if (!onScreen()) return // the window reloads its lists when it is back
+    gitRan()
+    sendTo(window(), 'ws:changed')
+  })
   const scopedFor = (v: View, maxAge = LIST_MS): Promise<Scoped> => {
     const key = JSON.stringify({ session: v.session, scope: v.scope, commit: v.commit ?? null })
     const hit = scopeCache.get(key)
-    if (hit && Date.now() - hit.at < maxAge) return hit.p
-    const p = computeScoped(v)
-    scopeCache.set(key, { at: Date.now(), p })
-    p.catch(() => scopeCache.delete(key))
-    return p
+    const w = watched.get(key)
+    if (w) w.at = Date.now()
+    if (hit && (hit.running || Date.now() - hit.at < maxAge)) return hit.p
+    const entry = { at: Date.now(), p: computeScoped(v), running: true, dirty: false }
+    scopeCache.set(key, entry)
+    // Fresh from when it finished, so a slow run is reused for LIST_MS after it, not already stale on arrival.
+    entry.p.then((s) => {
+      entry.running = false
+      entry.at = entry.dirty ? 0 : Date.now()
+      watchRoots(key, s.groups.map((g) => g.root))
+      if (entry.dirty) sendTo(window(), 'ws:changed')
+    }, () => scopeCache.delete(key))
+    return entry.p
   }
   const computeScoped = async (v: View): Promise<Scoped> => {
     const s = v.session ? db.prepare('SELECT transcript, cwd, base_branch FROM sessions WHERE id = ?').get(v.session) as { transcript: string | null; cwd: string | null; base_branch: string | null } | undefined : undefined
@@ -353,7 +386,10 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
     return f ? { on: getSettings(db).nearbySkills, ...skillDirs(f) } : { on: getSettings(db).nearbySkills, dirs: [], skipped: [] }
   })
 
-  ipcMain.handle('chat:history', (_e, session: string) => chat.history(session))
+  // A chat's end, and the parts some views need, instead of the whole conversation (SIGNOFF-38-PERF/D1).
+  ipcMain.handle('chat:tail', (_e, session: string, n: number) => chat.tail(session, n))
+  ipcMain.handle('chat:agents', (_e, session: string) => agentEvents(chat.history(session)))
+  ipcMain.handle('chat:points', (_e, session: string) => chatPoints(chat.history(session)))
   ipcMain.handle('chat:status', (_e, session: string) => chat.status(session))
   ipcMain.handle('chat:send', (_e, session: string | null, text: string, images: ChatImage[] = [], choice?: RouteChoice, files: string[] = []) => chat.routeAndSend(session, text, trusted(), images, choice, files))
   // A new session with a team setup (IDE/D21); its Claude terminal starts with the first message, like any chat.
@@ -375,6 +411,7 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   ipcMain.handle('chat:resume', (_e, id: string, title: string) => chat.resume(id, trusted(), title))
   // Reset (Settings): ends the app's sessions, empties the store (a backup copy is kept), deletes pasted images,
   // then restarts the app. Claude Code's own conversations, your code and terminal integration are not touched.
+  ipcMain.on('app:visible', (_e, v: boolean) => setOnScreen(v))
   ipcMain.handle('app:reset', () => {
     chat.stopAll()
     const data = app.getPath('userData')
@@ -439,16 +476,24 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   const offHandoff = chat.onHandoff((h) => sendTo(window(), 'chat:handoff', h))
   const offTests = tests.onResult((r) => sendTo(window(), 'tests:result', r))
 
-  // Changes view: re-read git every 2 s after the previous read finished (a big repo can take seconds),
-  // and tell the window only when something differs.
+  // Changes view: file changes in the folder's repos tell the window at once (repoWatch, above). This re-read is the
+  // safety net for a missed event: every 60 s after the previous read finished, telling the window only when
+  // something differs (SIGNOFF-39-PROCS/D4; it was every 2 s).
+  // Off screen, no git runs; one runs as soon as the window is back (SIGNOFF-38-PERF/D5).
+  const FALLBACK_MS = 60_000
   let last = ''
   let stopped = false
+  let running = false
   let timer: NodeJS.Timeout
   const poll = async (): Promise<void> => {
+    running = true
     const cur = getWorkspace(db).current
-    if (cur) {
+    if (cur && onScreen()) {
       try {
-        const snap = JSON.stringify(await review(cur, 'branch', sessionBase))
+        gitRan()
+        const r = await review(cur, 'branch', sessionBase)
+        watchRoots('folder', r.groups.map((g) => g.root))
+        const snap = JSON.stringify(r)
         if (snap !== last) {
           last = snap
           sendTo(window(), 'ws:changed')
@@ -457,12 +502,20 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
         console.error('reading git changes failed:', (e as Error).message)
       }
     }
-    if (!stopped) timer = setTimeout(poll, 2000)
+    running = false
+    if (!stopped) timer = setTimeout(poll, FALLBACK_MS)
   }
   timer = setTimeout(poll, 0)
+  const offBack = onBack(() => {
+    if (running || stopped) return
+    clearTimeout(timer)
+    void poll()
+  })
   return () => {
     stopped = true
     clearTimeout(timer)
+    repoWatch.close()
+    offBack()
     offEvent()
     offStatus()
     offHandoff()

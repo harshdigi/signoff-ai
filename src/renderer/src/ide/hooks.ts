@@ -11,6 +11,31 @@ export function useWorkspace(): { ws: Workspace | null; setWs: (w: Workspace) =>
   return { ws, setWs }
 }
 
+// The window's own timed reads, by label, for the Background view (SIGNOFF-39-PROCS/D1).
+const windowChecks = new Map<string, { everyMs: number; lastRun: number | null; users: number }>()
+export const listWindowChecks = (): { label: string; everyMs: number; lastRun: number | null }[] =>
+  [...windowChecks].map(([label, c]) => ({ label, everyMs: c.everyMs, lastRun: c.lastRun }))
+
+// Runs load every ms while the window is on screen, and once when it comes back (SIGNOFF-38-PERF/D5).
+// Hidden, minimised, covered or locked: no reads, so the Mac can rest.
+export function pollWhileShown(load: () => void, ms: number, label: string): () => void {
+  const c = windowChecks.get(label) ?? { everyMs: ms, lastRun: null, users: 0 }
+  c.users++
+  windowChecks.set(label, c)
+  const shown = (): void => {
+    if (document.hidden) return
+    c.lastRun = Date.now()
+    load()
+  }
+  const t = setInterval(shown, ms)
+  document.addEventListener('visibilitychange', shown)
+  return () => {
+    clearInterval(t)
+    document.removeEventListener('visibilitychange', shown)
+    if (--c.users === 0) windowChecks.delete(label)
+  }
+}
+
 // Git changes for the open folder; main pushes ws:changed when git status differs.
 export function useChanges(folder: string | null, mode: DiffMode): { changes: Changes | null; error: string | null } {
   const [changes, setChanges] = useState<Changes | null>(null)
@@ -26,28 +51,31 @@ export function useChanges(folder: string | null, mode: DiffMode): { changes: Ch
   return { changes, error }
 }
 
-// The review list for a view. Read again every 5 s and on folder changes, but only while it is on screen (live):
-// each read is real git work in the main process.
-export function useScoped(view: ReviewView | null, live: boolean): { scoped: Scoped | null; reload: () => void } {
+// The review list for a view. Read again when main reports a file change (ws:changed), and every 60 s in case it
+// missed one, but only while it is on screen (live): each read is real git work in the main process.
+export function useScoped(view: ReviewView | null, live: boolean): { scoped: Scoped | null; error: string | null; reload: () => void } {
   const key = view ? JSON.stringify(view) : null
   const [data, setData] = useState<{ key: string; s: Scoped } | null>(null)
+  // A failed load is shown (SIGNOFF-38-PERF/D3); before, the list stayed on Loading… forever. Cleared by the next success.
+  const [error, setError] = useState<{ key: string; text: string } | null>(null)
   const [tick, setTick] = useState(0)
   useEffect(() => {
     if (!key || !live) return
     // An identical result (the usual case between edits) changes nothing, so the window does not re-render for it.
     let last = ''
     const load = (): void => void window.api.workspace.scoped(JSON.parse(key)).then((s: Scoped) => {
+      setError(null)
       const json = JSON.stringify(s)
       if (json === last) return
       last = json
       setData({ key, s })
-    })
+    }, (e: unknown) => setError({ key, text: e instanceof Error ? e.message : String(e) }))
     load()
-    const t = setInterval(load, 5000)
+    const stop = pollWhileShown(load, 60_000, 'Files changed list')
     const off = window.api.workspace.onChanged(load)
-    return () => { clearInterval(t); off() }
+    return () => { stop(); off() }
   }, [key, tick, live])
-  return { scoped: key && data?.key === key ? data.s : null, reload: () => setTick((n) => n + 1) }
+  return { scoped: key && data?.key === key ? data.s : null, error: key && error?.key === key ? error.text : null, reload: () => setTick((n) => n + 1) }
 }
 
 // Tasks and skills are re-read when the folder changes (cheap file checks).

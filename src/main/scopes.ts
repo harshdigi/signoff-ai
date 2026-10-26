@@ -74,7 +74,9 @@ export async function scoped(db: Store, o: { folder: string; sessionFiles: strin
   const groups: ScopedSet[] = []
   const commits: Commit[] = []
   let shown: string | null = null
-  for (const [root, rels] of byRoot) {
+  // Each repo is worked out in parallel (SIGNOFF-38-PERF/D3): a session that touched many worktrees waited on each in
+  // turn (8 s for Today here). Results keep the repos' order.
+  const per = await Promise.all([...byRoot].map(async ([root, rels]) => {
     const head = await tryGit(root, ['rev-parse', '--abbrev-ref', 'HEAD'])
     const branch = head === 'HEAD' ? null : head
     // The branch's base, worked out once: ticket, session and today all start from it.
@@ -83,6 +85,7 @@ export async function scoped(db: Store, o: { folder: string; sessionFiles: strin
     const mergeBase = base && !onBase ? await tryGit(root, ['merge-base', base, 'HEAD']) : null
     const onBranch = async (): Promise<ChangeSet> => ({ ...(await changeSetAt(root, branch, mergeBase ?? 'HEAD')), base: mergeBase ? base : null })
     let set: ChangeSet | null = null
+    let list: Commit[] = []
     if (o.scope === 'ticket') set = await onBranch()
     else if (o.scope === 'session') {
       const all = await onBranch()
@@ -93,17 +96,21 @@ export async function scoped(db: Store, o: { folder: string; sessionFiles: strin
       // from where it left its base. Commits that came in from the base branch are not counted.
       const ownBefore = await tryGit(root, ['rev-list', '-1', `--before=${midnight()}`, ...(mergeBase ? [`${mergeBase}..HEAD`] : ['HEAD'])])
       set = await changeSetAt(root, branch, ownBefore || mergeBase || 'HEAD')
-    } else if (o.scope === 'commit') {
-      // Commits are listed only here; with none picked yet, the newest is shown.
-      const list = await commitsOf(root, mergeBase)
-      commits.push(...list)
-      const id = o.commit?.startsWith(root + '::') ? o.commit : !o.commit && !shown ? list[0]?.id : undefined
+    } else if (o.scope === 'commit') list = await commitsOf(root, mergeBase)
+    return { root, branch, set, list }
+  }))
+  for (const r of per) {
+    let set = r.set
+    if (o.scope === 'commit') {
+      // Commits are listed only here; with none picked yet, the newest of the first repo that has any is shown.
+      commits.push(...r.list)
+      const id = o.commit?.startsWith(r.root + '::') ? o.commit : !o.commit && !shown ? r.list[0]?.id : undefined
       if (id) {
         shown = id
-        const sha = id.slice(root.length + 2)
-        const files = parseNameStatus(await git(root, ['diff-tree', '--no-commit-id', '--name-status', '-r', '-M', '-z', '--root', sha]))
-        const parent = (await tryGit(root, ['rev-parse', '--verify', '--quiet', `${sha}^`])) ?? '4b825dc642cb6eb9a060e54bf8d69288fbee4904' // git's empty tree, for a first commit
-        set = { root, branch, base: null, ref: parent, to: sha, main: false, files: files.sort((a, b) => a.path.localeCompare(b.path)) }
+        const sha = id.slice(r.root.length + 2)
+        const files = parseNameStatus(await git(r.root, ['diff-tree', '--no-commit-id', '--name-status', '-r', '-M', '-z', '--root', sha]))
+        const parent = (await tryGit(r.root, ['rev-parse', '--verify', '--quiet', `${sha}^`])) ?? '4b825dc642cb6eb9a060e54bf8d69288fbee4904' // git's empty tree, for a first commit
+        set = { root: r.root, branch: r.branch, base: null, ref: parent, to: sha, main: false, files: files.sort((x, y) => x.path.localeCompare(y.path)) }
       }
     }
     if (set && set.files.length) groups.push(await withReviewed(db, set))

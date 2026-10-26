@@ -27,6 +27,10 @@ export type Role = { role: string; count: number | null; does: string }
 export type Workflow = { id: string; name: string; description: string; team: Role[]; goodFor: string[]; notFor: string[]; builtIn: boolean; line: string }
 export type TerminalMenu = { question: string; detail: string[]; options: string[]; selected: number }
 export type ChatStatus = { session: string; running: boolean; busy: boolean; menu?: TerminalMenu | null }
+// Background view (main/processes.ts, main/checks.ts).
+export type BgStop = { server: string } | { session: string }
+export type BgProc = { key: string; kind: 'app' | 'session' | 'terminal' | 'tool' | 'leftover'; name: string; detail: string; session: string | null; count: number; cpu: number; memMB: number; since: string; stop?: BgStop }
+export type BgCheck = { id: string; label: string; every: string; pausesWhenHidden: boolean; paused: boolean; lastRun: number | null; runs: number }
 export type Term = { id: string; title: string; exited: boolean; session: string | null }  // session: the Claude session in it, if any
 
 // Editor tabs in the middle area. Decisions and Session are always there; Session shows the selected session.

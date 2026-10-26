@@ -25,6 +25,7 @@ const api = {
   board: {
     state: () => ipcRenderer.invoke('board:state'),
     reviewDiff: (review: string, change: string): Promise<string> => ipcRenderer.invoke('board:reviewDiff', review, change),
+    thread: (id: string) => ipcRenderer.invoke('board:thread', id),
     answer: (id: string, text: string) => ipcRenderer.invoke('board:answer', id, text),
     deliver: (session: string): Promise<'running' | 'started' | 'turn-end'> => ipcRenderer.invoke('board:deliver', session),
     resend: (message: string): Promise<'running' | 'started' | 'turn-end'> => ipcRenderer.invoke('board:resend', message),
@@ -148,6 +149,11 @@ const api = {
     adopt: (decision: string): Promise<string> => ipcRenderer.invoke('workflows:adopt', decision)
   },
   reset: () => ipcRenderer.invoke('app:reset'),
+  visible: (v: boolean) => ipcRenderer.send('app:visible', v),
+  background: {
+    list: () => ipcRenderer.invoke('bg:list'),
+    stop: (stop: { server: string } | { session: string }) => ipcRenderer.invoke('bg:stop', stop)
+  },
   comments: {
     add: (c: { session: string; root: string; path: string; start: number; end: number; code: string; text: string }) => ipcRenderer.invoke('comments:add', c),
     edit: (id: number, text: string) => ipcRenderer.invoke('comments:edit', id, text),
@@ -177,7 +183,9 @@ const api = {
     save: (patch: Record<string, unknown>) => ipcRenderer.invoke('settings:save', patch)
   },
   chat: {
-    history: (session: string) => ipcRenderer.invoke('chat:history', session),
+    tail: (session: string, n: number) => ipcRenderer.invoke('chat:tail', session, n),
+    agents: (session: string) => ipcRenderer.invoke('chat:agents', session),
+    points: (session: string) => ipcRenderer.invoke('chat:points', session),
     status: (session: string) => ipcRenderer.invoke('chat:status', session),
     create: (workflow: string): Promise<string> => ipcRenderer.invoke('chat:create', workflow),
     startSplit: (decision: string, keep: number[]): Promise<string[]> => ipcRenderer.invoke('split:start', decision, keep),

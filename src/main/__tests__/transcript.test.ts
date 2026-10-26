@@ -4,12 +4,25 @@ import { appendFileSync, mkdirSync, mkdtempSync, realpathSync, utimesSync, write
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
-import { editedFiles, findTranscript, listConversations, readNew, shellDirs, toChatLines } from '../transcript'
+import { chatLinesOf, editedFiles, endOfLines, findTranscript, listConversations, readNew, shellDirs, toChatLines } from '../transcript'
 import { toRows, waitingInTerminal } from '../../renderer/src/chat/transcript'
 
 const T = '2026-10-07T10:00:00.000Z'
 
 describe("reading Claude Code's transcript", () => {
+  // SIGNOFF-38-PERF/D1: long transcripts are read once, then only what was added.
+  it('keeps a transcript\'s chat lines and reads on from where it stopped; a replaced file is read again', () => {
+    const p = join(mkdtempSync(join(tmpdir(), 'tr-')), 'a.jsonl')
+    const line = (text: string): string => JSON.stringify({ type: 'user', message: { role: 'user', content: text }, timestamp: T, uuid: text }) + '\n'
+    writeFileSync(p, line('one') + line('two'))
+    expect(chatLinesOf(p).map((l) => ('text' in l ? l.text : ''))).toEqual(['one', 'two'])
+    appendFileSync(p, line('three') + '{"type":"user","mess') // a line still being written
+    expect(chatLinesOf(p).map((l) => ('text' in l ? l.text : ''))).toEqual(['one', 'two', 'three'])
+    expect(endOfLines(p)).toBe(Buffer.byteLength(line('one') + line('two') + line('three')))
+    writeFileSync(p, line('new'))
+    expect(chatLinesOf(p).map((l) => ('text' in l ? l.text : ''))).toEqual(['new'])
+  })
+
   it('keeps prompts, replies, tool results, turn ends and the title; skips injected and subagent lines', () => {
     const lines = toChatLines([
       { type: 'permission-mode', permissionMode: 'acceptEdits' } as never,
