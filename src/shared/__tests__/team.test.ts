@@ -8,7 +8,7 @@ import { openStore, type Store } from '../../main/store'
 import { saveSettings } from '../../main/settings'
 import { pendingMessages, touchSession } from '../board'
 import { adoptTeam, finishPiece, passPiece, proposeSplit, proposeTeam, setupLines, startPlan, teamBrief, leadWith } from '../team'
-import { getWorkflow } from '../../main/workflows'
+import { getWorkflow, saveWorkflow } from '../../main/workflows'
 
 const setup = (workflow: string | null): Store => {
   const db = openStore(join(mkdtempSync(join(tmpdir(), 'team-')), 'b.db'))
@@ -72,6 +72,18 @@ describe('teams', () => {
     expect(teamBrief(db, 'rev')).toContain('Review a piece with: git -C <folder> diff KA-1-pay...HEAD (committed) and git -C <folder> diff (not yet committed). Never edit code yourself.')
     db.prepare("UPDATE sessions SET base_branch = 'KA-1-pay', cwd = '/repo/.claude/worktrees/KA-1-imp' WHERE id = 'imp'").run()
     expect(teamBrief(db, 'imp')).toContain('You work in your own worktree, /repo/.claude/worktrees/KA-1-imp, on branch KA-1-imp, cut from KA-1-pay. Other team members cannot see your changes until they are merged.')
+  })
+
+  it('a reads-only member is told to work in the lead\'s folder without editing; the lead sees which roles read only', () => {
+    const db = setup('oncall')
+    saveWorkflow(db, { id: 'oncall', name: 'Oncall', description: '', team: [{ role: 'investigator', count: null, does: 'Reads prod and docs', readsOnly: true }] })
+    expect(teamBrief(db, 'lead')[1]).toBe('- investigator (you propose how many) (reads only): Reads prod and docs')
+    child(db, 'inv', 'investigator', 'CAMS 4xx')
+    expect(teamBrief(db, 'inv').slice(3)).toEqual([
+      'Your role reads only (SIGNOFF-40-TEAMS/D1): you work in the lead\'s folder, /repo, with no branch of your own. Do not edit files there.',
+      'To suggest a code change, write it as a diff in a temp file and post it with signoff propose.',
+      'When your piece is finished, run: signoff done --summary "<what you found>". That tells the lead and the reviewer.'
+    ])
   })
 
   it('the reviewer passing a piece tells the lead to merge that branch', () => {
