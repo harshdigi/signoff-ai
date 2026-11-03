@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { useEffect, useState } from 'react'
 import { errText, type CatalogItem, type Role, type Workflow } from './types'
-import { flowSteps, recommend, sessionsLine, warnings, type Answers } from './workflow-guide'
+import { flowSteps, readsOnly, recommend, sessionsLine, warnings, type Answers } from './workflow-guide'
 import { SideHead } from './SideHead'
 import { Chev } from './icons'
 
@@ -35,7 +35,7 @@ export default function WorkflowsView({ workflows, reload, trusted, start, routi
   }, [])
   const remove = (id: string): void => void window.api.workflows.remove(id).then(reload, (e: unknown) => setErr(errText(e)))
   const [panel, setPanel] = useState<'how' | 'pick' | null>(null) // ⓘ how it works, ? which setup
-  const newSetup = (): void => setEditing({ id: '', name: '', description: '', team: [{ role: 'implementer', count: 1, does: '' }, { role: 'reviewer', count: 1, does: 'Reads each diff from the implementers and posts findings as a review. Never edits code.' }], goodFor: [], notFor: [] })
+  const newSetup = (): void => setEditing({ id: '', name: '', description: '', team: [{ role: 'implementer', count: 1, does: '' }, { role: 'reviewer', count: 1, does: 'Reads each diff from the implementers and posts findings as a review. Never edits code.', readsOnly: true }], goodFor: [], notFor: [] })
   if (editing) return <Editor w={editing} cap={cap} done={(saved) => { setEditing(null); if (saved) reload() }} />
   return (
     <div className="side-body">
@@ -47,7 +47,7 @@ export default function WorkflowsView({ workflows, reload, trusted, start, routi
       {panel === 'how' && (
         <div className="wf-how">
           <ol>{HOW.map((h) => <li key={h}>{h}</li>)}</ol>
-          <div className="meta">Every session uses its own tokens. Teams need a git repo on a branch: start a team from a session inside a repo.</div>
+          <div className="meta">Every session uses its own tokens. Roles that edit code need a git repo on a branch; reads-only roles work in any folder.</div>
         </div>
       )}
       {panel === 'pick' && <Picker workflows={workflows} reveal={(id) => { setOpen(id); setPanel(null) }} />}
@@ -93,7 +93,7 @@ export function Details({ w, cap }: { w: Pick<Workflow, 'description' | 'team' |
     <div className="wf-details">
       {w.description && <p>{w.description}</p>}
       {w.team.length > 0 && (
-        <><div className="ctx-h">Team</div><ul>{w.team.map((r) => <li key={r.role}><b>{r.count ?? 'N'} × {r.role}</b>: {r.does || <span className="meta">no description yet</span>}</li>)}</ul></>
+        <><div className="ctx-h">Team</div><ul>{w.team.map((r) => <li key={r.role}><b>{r.count ?? 'N'} × {r.role}</b>{readsOnly(r) ? ' (reads only)' : ''}: {r.does || <span className="meta">no description yet</span>}</li>)}</ul></>
       )}
       <div className="ctx-h">How it runs</div>
       <ol>{flowSteps(w.team).map((s) => <li key={s}>{s}</li>)}</ol>
@@ -145,7 +145,7 @@ function Editor({ w, cap, done }: { w: Draft; cap: number; done: (saved: boolean
       <label>Name <input autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
       <label>What it is for <input value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></label>
       <div className="side-group">Team</div>
-      <div className="meta">{'The first role gets one session per piece the lead proposes. A role named exactly "reviewer" reads the others\' diffs and never edits code.'}</div>
+      <div className="meta">{'The first role gets one session per piece the lead proposes. A role named exactly "reviewer" gets the others\' reports. Reads only: the role never edits code, so it gets no worktree.'}</div>
       {f.team.map((r, i) => (
         <div key={i} className="wf-role">
           <input value={r.role} placeholder="role, e.g. reviewer" onChange={(e) => setRole(i, { role: e.target.value })} />
@@ -153,6 +153,9 @@ function Editor({ w, cap, done }: { w: Draft; cap: number; done: (saved: boolean
             onChange={(e) => setRole(i, { count: e.target.value ? Number(e.target.value) : null })} />
           <button className="row-act" onClick={() => setF({ ...f, team: f.team.filter((_, j) => j !== i) })}>×</button>
           <textarea value={r.does} placeholder="What this role does" onChange={(e) => setRole(i, { does: e.target.value })} />
+          <label className="wf-reads" title="Works in the lead's folder, with no branch or worktree">
+            <input type="checkbox" checked={readsOnly(r)} onChange={(e) => setRole(i, { readsOnly: e.target.checked })} /> Reads only (no worktree)
+          </label>
         </div>
       ))}
       <button className="link" onClick={() => setF({ ...f, team: [...f.team, { role: '', count: 1, does: '' }] })}>＋ Add role</button>

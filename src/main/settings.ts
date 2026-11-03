@@ -26,12 +26,13 @@ export type Settings = {
   speechAutoSend: boolean            // default false: voice input fills the box; true: it also sends when you stop
   autonomy: Autonomy                 // default ask everything: what new sessions let Claude decide alone (SIGNOFF-24)
   discuss: boolean                   // new sessions start in Discuss (true) or Decide (false, the default) (SIGNOFF-35)
+  idleSuspendMinutes: number         // default 20: an app session idle this long is suspended to free memory; 0 = never (SIGNOFF-42-IDLE/D1)
 }
 
 // A skill on the top bar. key = catalog kind:name; label = what the button says (e.g. "Start my day").
 export type Pin = { key: string; label: string }
 
-export const DEFAULTS: Settings = { profile: 'developer', preferences: '', autoHandoff: true, handoffAt: 75, branching: 'main', branchTemplate: '{KEY}-{slug}', flowDocs: '', nearbySkills: true, pins: [], onOpen: null, askTicket: true, maxChildren: 3, docsOffered: [], defaultMode: 'default', tidyDecisions: true, speechLocale: '', speechAutoSend: false, autonomy: ASK, discuss: false }
+export const DEFAULTS: Settings = { profile: 'developer', preferences: '', autoHandoff: true, handoffAt: 75, branching: 'main', branchTemplate: '{KEY}-{slug}', flowDocs: '', nearbySkills: true, pins: [], onOpen: null, askTicket: true, maxChildren: 3, docsOffered: [], defaultMode: 'default', tidyDecisions: true, speechLocale: '', speechAutoSend: false, autonomy: ASK, discuss: false, idleSuspendMinutes: 20 }
 const KEY = 'app'
 
 export function getSettings(db: Store): Settings {
@@ -48,6 +49,7 @@ export function saveSettings(db: Store, patch: Partial<Settings>): Settings {
   if (patch.onOpen && !pins.some((p) => p.key === patch.onOpen)) throw new Error('only a pinned skill can run when the app opens')
   if (patch.handoffAt !== undefined && !(patch.handoffAt >= 40 && patch.handoffAt <= 95)) throw new Error('handoff point must be between 40 and 95 percent')
   if (patch.maxChildren !== undefined && !(Number.isInteger(patch.maxChildren) && patch.maxChildren >= 1 && patch.maxChildren <= 10)) throw new Error('child sessions per parent must be 1 to 10')
+  if (patch.idleSuspendMinutes !== undefined && !(Number.isInteger(patch.idleSuspendMinutes) && patch.idleSuspendMinutes >= 0 && patch.idleSuspendMinutes <= 240)) throw new Error('idle minutes must be 0 (never) to 240')
   if (patch.speechLocale !== undefined && !/^([a-z]{2,3}([-_][A-Za-z0-9]{2,8})*)?$/.test(patch.speechLocale)) throw new Error(`bad voice input language ${patch.speechLocale}`)
   if (patch.defaultMode !== undefined && !(SAFE_MODES as readonly string[]).includes(patch.defaultMode)) throw new Error(`bad default mode ${patch.defaultMode}`)
   const next = { ...getSettings(db), ...patch, ...(patch.autonomy ? { autonomy: normalize(patch.autonomy) } : {}) }

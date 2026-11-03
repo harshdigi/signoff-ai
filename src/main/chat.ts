@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { defineCheck } from './checks'
 import { randomUUID } from 'crypto'
-import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import * as b from '../shared/board'
 import { indexChatEvent } from '../shared/memory'
+import { idleVerdict, runningShells } from './idle'
+import type { Row } from './processes'
 import { checkClaudeArgs } from './security-rules'
 import { contextUsed, handoffNote, route, setContext, type RouteAsk, type RouteChoice } from './context'
 import type { ClaudeLaunch } from './protocol'
@@ -54,6 +56,15 @@ export const inputHasText = (screen: string[]): boolean => {
   if (rules.length < 2) return false
   const box = screen.slice(rules[rules.length - 2] + 1, rules[rules.length - 1])
   return box.some((l) => l.replace(/^\s*❯/, '').trim() !== '')
+}
+// When a transcript was last written (ms); 0 when there is none yet.
+const modified = (path: string | null): number => {
+  if (!path) return 0
+  try {
+    return statSync(path).mtimeMs
+  } catch {
+    return 0 // moved or deleted: the app start time counts instead (suspendIdle)
+  }
 }
 const READY_QUIET_MS = 800   // after the startup hook ran, the screen is ready once output is quiet this long
 const SLOW_START_MS = 20_000 // still not ready after this long: tell the user to look at the terminal
@@ -280,6 +291,32 @@ export class ChatManager {
       // the terminal was already closed
     }
     this.emitStatus(session)
+  }
+
+  // Idle sessions stop to free memory (SIGNOFF-42-IDLE); what counts as idle is in idle.ts.
+  // rows: `ps` now (processes.ts), for shell commands Claude is running. viewing: the session open on screen, or null.
+  // Returns the sessions it stopped.
+  suspendIdle(rows: Row[], minutes: number, viewing: string | null, now: number): string[] {
+    const pids = new Map(this.deps.tmux.panes().map((p) => [p.name, p.pid]))
+    const stopped: string[] = []
+    for (const [session, c] of [...this.chats]) {
+      const pid = pids.get(c.name)
+      const verdict = idleVerdict({
+        owned: c.owned, busy: c.busy, queued: c.queue.length, menu: !!c.menu, shown: session === viewing,
+        shells: pid ? runningShells(rows, pid) : 0, lastActive: Math.max(c.started, modified(c.transcript))
+      }, now, minutes)
+      if (!verdict.suspend) continue
+      try {
+        // Text typed into its terminal but not sent would be lost.
+        if (inputHasText(this.deps.tmux.screenWithoutDim(c.name))) continue
+      } catch {
+        continue // the session ended a moment ago; its view's exit removes the chat
+      }
+      this.stop(session)
+      this.note(session, { type: 'notice', text: `Suspended after ${minutes} min idle, to free memory. Send a message to resume it.` })
+      stopped.push(session)
+    }
+    return stopped
   }
 
   // App quits: sessions it started end; sessions started in a Terminal window keep running there.

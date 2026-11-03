@@ -10,7 +10,7 @@ import { join } from 'path'
 import { answerApproval, leaveToTerminal, type Answer } from '../shared/approvals'
 import { deleteSession, renameSession, setParent, setRemoved } from '../shared/board'
 import { readCatalog } from './catalog'
-import { onBack, onScreen, setOnScreen } from './visibility'
+import { onBack, onScreen, setOnScreen, setViewing } from './visibility'
 import { defineCheck } from './checks'
 import { RepoWatch } from './repo-watch'
 import { search } from '../shared/memory'
@@ -412,6 +412,7 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   // Reset (Settings): ends the app's sessions, empties the store (a backup copy is kept), deletes pasted images,
   // then restarts the app. Claude Code's own conversations, your code and terminal integration are not touched.
   ipcMain.on('app:visible', (_e, v: boolean) => setOnScreen(v))
+  ipcMain.on('app:viewing', (_e, session: string | null) => setViewing(session))
   ipcMain.handle('app:reset', () => {
     chat.stopAll()
     const data = app.getPath('userData')

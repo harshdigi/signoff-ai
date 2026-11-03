@@ -8,7 +8,7 @@ import { MODES, type Mode } from '../chat/modes'
 import { CodePre } from './CodeBlock'
 
 // Settings dialog. Values apply to sessions started after saving (the system prompt is set at start).
-type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode; tidyDecisions: boolean; speechLocale: string; speechAutoSend: boolean; autonomy: Autonomy; discuss: boolean }
+type S = { profile: 'developer' | 'product'; preferences: string; autoHandoff: boolean; handoffAt: number; branching: 'main' | 'stacked'; branchTemplate: string; flowDocs: string; nearbySkills: boolean; pins: Pin[]; onOpen: string | null; askTicket: boolean; maxChildren: number; defaultMode: Mode; tidyDecisions: boolean; speechLocale: string; speechAutoSend: boolean; autonomy: Autonomy; discuss: boolean; idleSuspendMinutes: number }
 
 // Voice input (🎤 in the chat): the language, and whether it sends when you stop. Only languages this Mac can
 // recognise offline can be picked; the others need their model downloaded in System Settings first.
@@ -124,6 +124,11 @@ export default function Settings({ close, catalog, openShortcuts }: { close: () 
               <div className="label">Team sessions</div>
               <label className="inline">At most <input type="number" min={1} max={10} value={s.maxChildren} onChange={(e) => setS({ ...s, maxChildren: Number(e.target.value) })} /> child sessions per lead session at once</label>
               <div className="meta">Each child is a full Claude Code session on your plan. A lead's proposed split cannot start more than this.</div>
+            </div>
+            <div className="field">
+              <div className="label">Idle sessions</div>
+              <label className="inline">Suspend a session after <input type="number" min={0} max={240} value={s.idleSuspendMinutes} onChange={(e) => setS({ ...s, idleSuspendMinutes: Number(e.target.value) })} /> minutes with nothing to do (0 = never)</label>
+              <div className="meta">Stops Claude and its tools to free memory; the conversation stays. Sending a message, answering one of its decisions or opening its terminal resumes it. Never while a turn or shell command runs, or while it is open on screen.</div>
             </div>
             <TerminalIntegration />
             <div className="field">
