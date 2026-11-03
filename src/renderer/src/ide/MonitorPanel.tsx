@@ -1,6 +1,7 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { useCallback, useEffect, useState } from 'react'
+import { pollWhileShown } from './hooks'
 import { errText } from './types'
 
 // Monitor tab (SIGNOFF-34-WATCH/D4): the watches running for this session first, as cards; then + New watch, for a
@@ -65,8 +66,7 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
   }, [session])
   useEffect(() => {
     load()
-    const t = setInterval(load, 10_000)
-    return () => clearInterval(t)
+    return pollWhileShown(load, 10_000)
   }, [load])
   const act = (what: string, p: Promise<unknown>): void => {
     setBusy(what)

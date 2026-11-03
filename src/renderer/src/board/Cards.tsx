@@ -24,6 +24,17 @@ function SessionLink({ b, id }: { b: BoardState; id: string | null }): React.JSX
 
 const who = (b: BoardState, t: ThreadEntry): string => (t.who === 'you' ? 'You' : t.who === 'board' ? 'Signoff AI' : label(b.sessions.find((s) => s.id === t.who)))
 
+// A decision's thread, fetched when opened and again when its count changes (the board sends only the count).
+function DecisionThread({ b, d }: { b: BoardState; d: Decision }): React.JSX.Element {
+  const [entries, setEntries] = useState<ThreadEntry[]>([])
+  useEffect(() => {
+    let alive = true
+    window.api.board.thread(d.id).then((t: ThreadEntry[]) => alive && setEntries(t))
+    return () => { alive = false }
+  }, [d.id, d.thread_count])
+  return <Thread b={b} entries={entries} session={d.session} />
+}
+
 function Thread({ b, entries, session }: { b: BoardState; entries: ThreadEntry[]; session: string | null }): React.JSX.Element {
   return <>{entries.map((t, i) => (
     <div key={i} className={t.who === 'you' ? 'msg' : 'reply'}>
@@ -181,13 +192,13 @@ export function DecisionCard({ d, b, refresh, onRun, startOpen }: { d: Decision;
       )}
       {panel === 'ask' && (
         <div className="file-ask">
-          <Thread b={b} entries={d.thread} session={d.session} />
+          <DecisionThread b={b} d={d} />
           <textarea autoFocus value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="Ask anything about this decision" />
           <div className="bar"><button className="sm primary" disabled={!ask.trim()} onClick={() => run(async () => { await window.api.board.ask(d.id, ask); setAsk('') })}>Ask</button>
             <button className="sm" onClick={() => setPanel(null)}>Close</button><span className="meta">The session answers here once it reads its board messages.</span></div>
         </div>
       )}
-      {panel !== 'ask' && d.thread.length > 0 && <button className="link thread-link" onClick={() => setPanel('ask')}>{d.thread.length} message{d.thread.length === 1 ? '' : 's'} about this</button>}
+      {panel !== 'ask' && d.thread_count > 0 && <button className="link thread-link" onClick={() => setPanel('ask')}>{d.thread_count} message{d.thread_count === 1 ? '' : 's'} about this</button>}
       {panel === 'product' && (
         <div className="file-ask">
           <div className="meta">What do you need from the product team? It stops counting as waiting on you; the session parks it.</div>

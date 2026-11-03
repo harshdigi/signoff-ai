@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { pollWhileShown } from './hooks'
 import { errText } from './types'
 
 // Story (SIGNOFF-24/D3, D16-D18): the ticket as a decision diagram and a numbered "why" list.
@@ -41,8 +42,7 @@ export default function Story({ session }: { session: string }): React.JSX.Eleme
   const load = useCallback(() => { window.api.story.get(session).then(setV, (e: unknown) => setErr(errText(e))) }, [session])
   useEffect(() => {
     load()
-    const t = setInterval(load, 10_000)
-    return () => clearInterval(t)
+    return pollWhileShown(load, 10_000)
   }, [load])
   if (!v) return <div className="view story"><p className="meta">{err ?? 'Loading…'}</p></div>
   if (!v.ticket || !v.diagram) return <div className="view story"><p className="empty pad">The story starts once this session has a ticket.</p></div>

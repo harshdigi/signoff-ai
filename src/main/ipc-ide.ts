@@ -1,5 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
+import { agentEvents, chatPoints } from './chat-digest'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
@@ -9,6 +10,7 @@ import { join } from 'path'
 import { answerApproval, leaveToTerminal, type Answer } from '../shared/approvals'
 import { deleteSession, renameSession, setParent, setRemoved } from '../shared/board'
 import { readCatalog } from './catalog'
+import { onBack, onScreen, setOnScreen } from './visibility'
 import { search } from '../shared/memory'
 import { getSettings, saveSettings, type Settings } from './settings'
 import { skillDirs } from './skilldirs'
@@ -88,15 +90,18 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   // - opening a diff or marking reviewed only checks the file against a list up to CHECK_MS old.
   const LIST_MS = 2500
   const CHECK_MS = 60_000
-  const scopeCache = new Map<string, { at: number; p: Promise<Scoped> }>()
+  // A view whose list is still being worked out waits for that run instead of starting another (SIGNOFF-38-PERF/D3):
+  // a run can take longer than the 5 s between asks, and overlapping runs slowed each other until none finished.
+  const scopeCache = new Map<string, { at: number; p: Promise<Scoped>; running: boolean }>()
   const scopedFor = (v: View, maxAge = LIST_MS): Promise<Scoped> => {
     const key = JSON.stringify({ session: v.session, scope: v.scope, commit: v.commit ?? null })
     const hit = scopeCache.get(key)
-    if (hit && Date.now() - hit.at < maxAge) return hit.p
-    const p = computeScoped(v)
-    scopeCache.set(key, { at: Date.now(), p })
-    p.catch(() => scopeCache.delete(key))
-    return p
+    if (hit && (hit.running || Date.now() - hit.at < maxAge)) return hit.p
+    const entry = { at: Date.now(), p: computeScoped(v), running: true }
+    scopeCache.set(key, entry)
+    // Fresh from when it finished, so a slow run is reused for LIST_MS after it, not already stale on arrival.
+    entry.p.then(() => { entry.running = false; entry.at = Date.now() }, () => scopeCache.delete(key))
+    return entry.p
   }
   const computeScoped = async (v: View): Promise<Scoped> => {
     const s = v.session ? db.prepare('SELECT transcript, cwd, base_branch FROM sessions WHERE id = ?').get(v.session) as { transcript: string | null; cwd: string | null; base_branch: string | null } | undefined : undefined
@@ -353,7 +358,10 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
     return f ? { on: getSettings(db).nearbySkills, ...skillDirs(f) } : { on: getSettings(db).nearbySkills, dirs: [], skipped: [] }
   })
 
-  ipcMain.handle('chat:history', (_e, session: string) => chat.history(session))
+  // A chat's end, and the parts some views need, instead of the whole conversation (SIGNOFF-38-PERF/D1).
+  ipcMain.handle('chat:tail', (_e, session: string, n: number) => chat.tail(session, n))
+  ipcMain.handle('chat:agents', (_e, session: string) => agentEvents(chat.history(session)))
+  ipcMain.handle('chat:points', (_e, session: string) => chatPoints(chat.history(session)))
   ipcMain.handle('chat:status', (_e, session: string) => chat.status(session))
   ipcMain.handle('chat:send', (_e, session: string | null, text: string, images: ChatImage[] = [], choice?: RouteChoice, files: string[] = []) => chat.routeAndSend(session, text, trusted(), images, choice, files))
   // A new session with a team setup (IDE/D21); its Claude terminal starts with the first message, like any chat.
@@ -375,6 +383,7 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   ipcMain.handle('chat:resume', (_e, id: string, title: string) => chat.resume(id, trusted(), title))
   // Reset (Settings): ends the app's sessions, empties the store (a backup copy is kept), deletes pasted images,
   // then restarts the app. Claude Code's own conversations, your code and terminal integration are not touched.
+  ipcMain.on('app:visible', (_e, v: boolean) => setOnScreen(v))
   ipcMain.handle('app:reset', () => {
     chat.stopAll()
     const data = app.getPath('userData')
@@ -441,12 +450,15 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
 
   // Changes view: re-read git every 2 s after the previous read finished (a big repo can take seconds),
   // and tell the window only when something differs.
+  // Off screen, no git runs; one runs as soon as the window is back (SIGNOFF-38-PERF/D5).
   let last = ''
   let stopped = false
+  let running = false
   let timer: NodeJS.Timeout
   const poll = async (): Promise<void> => {
+    running = true
     const cur = getWorkspace(db).current
-    if (cur) {
+    if (cur && onScreen()) {
       try {
         const snap = JSON.stringify(await review(cur, 'branch', sessionBase))
         if (snap !== last) {
@@ -457,12 +469,19 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
         console.error('reading git changes failed:', (e as Error).message)
       }
     }
+    running = false
     if (!stopped) timer = setTimeout(poll, 2000)
   }
   timer = setTimeout(poll, 0)
+  const offBack = onBack(() => {
+    if (running || stopped) return
+    clearTimeout(timer)
+    void poll()
+  })
   return () => {
     stopped = true
     clearTimeout(timer)
+    offBack()
     offEvent()
     offStatus()
     offHandoff()
