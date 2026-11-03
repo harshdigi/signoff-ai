@@ -38,7 +38,7 @@ import { adoptTeam } from '../shared/team'
 import { closeTicket, reopenTicket, updateSubtask, type SubtaskState } from '../shared/tickets'
 import { detectFramework, listSpecs, relatedSpecs, type TestRunner } from './testing'
 import { inUserShell, type TerminalManager } from './terminals'
-import { getWorkspace, isTrusted, openFolder, review, rootsOf, setFileDiff, setTrust, tryGit, type ChangeSet, type DiffMode } from './workspace'
+import { getWorkspace, isTrusted, openFolder, review, rootsOf, setFileDiff, setTrust, tryGit, type ChangeSet, type DiffMode, type SessionBase } from './workspace'
 import { markReviewed, scoped, SCOPES as REVIEW_SCOPES, type Scope as ReviewScope, type Scoped } from './scopes'
 import { sendTo } from './window-send'
 import { openExternalSafely } from './security'
@@ -68,9 +68,9 @@ export function registerIdeIpc(db: Store, chat: ChatManager, terms: TerminalMana
   })
   ipcMain.handle('ws:open', (_e, path: string) => openFolder(db, path))
   ipcMain.handle('ws:trust', (_e, path: string, yes: boolean) => setTrust(db, path, yes))
-  // A worktree's base comes from the session working in it, when one says (stacked branches).
-  const sessionBase = (root: string): string | null =>
-    (db.prepare('SELECT base_branch FROM sessions WHERE cwd = ? AND base_branch IS NOT NULL ORDER BY updated_at DESC').get(root) as { base_branch: string } | undefined)?.base_branch ?? null
+  // A worktree's base comes from the session working in it, when one says (stacked branches, or its own pin).
+  const sessionBase = (root: string): SessionBase | null =>
+    (db.prepare('SELECT base_branch AS base, base_pin AS pin FROM sessions WHERE cwd = ? AND (base_branch IS NOT NULL OR base_pin IS NOT NULL) ORDER BY updated_at DESC').get(root) as SessionBase | undefined) ?? null
   ipcMain.handle('ws:changes', (_e, mode: DiffMode = 'branch') => review(folder(), mode, sessionBase))
   // Code comments (review): drafts are saved here; send types them into the session's chat as one message.
   ipcMain.handle('comments:add', (_e, c: Parameters<typeof addComment>[1]) => addComment(db, c))

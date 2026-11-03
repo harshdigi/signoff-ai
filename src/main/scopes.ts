@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { execFile } from 'child_process'
 import type { Store } from './store'
-import { baseBranch, changeSetAt, listWorktrees, parseNameStatus, reposOf, tryGit, type Change, type ChangeSet } from './workspace'
+import { changeSetAt, diffBase, type SessionBase, listWorktrees, parseNameStatus, reposOf, tryGit, type Change, type ChangeSet } from './workspace'
 
 // Review scopes (Files changed): which changes to look at, and how far review has got.
 // - ticket: everything on the branch against its base; session: only the files this session edited (on the branch);
@@ -62,7 +62,7 @@ async function withReviewed(db: Store, set: ChangeSet): Promise<ScopedSet> {
 // or scripts leave no Edit call); in its own worktree, everything on the branch is the session's work.
 // shellRoots: repos the session changed through shell commands (SIGNOFF-19/D1); their whole branch counts as its work,
 // since which files the commands touched is not known.
-export async function scoped(db: Store, o: { folder: string; sessionFiles: string[] | null; scope: Scope; commit?: string | null; sessionBase: (root: string) => string | null; own?: { root: string; whole: boolean } | null; shellRoots?: string[] }): Promise<Scoped> {
+export async function scoped(db: Store, o: { folder: string; sessionFiles: string[] | null; scope: Scope; commit?: string | null; sessionBase: (root: string) => SessionBase | null; own?: { root: string; whole: boolean } | null; shellRoots?: string[] }): Promise<Scoped> {
   const { byRoot, outside } = o.sessionFiles ? await reposOf(o.sessionFiles) : { byRoot: new Map<string, Set<string>>(), outside: [] }
   if (o.own && !byRoot.has(o.own.root)) byRoot.set(o.own.root, new Set())
   const shell = new Set(o.shellRoots ?? [])
@@ -78,10 +78,9 @@ export async function scoped(db: Store, o: { folder: string; sessionFiles: strin
     const head = await tryGit(root, ['rev-parse', '--abbrev-ref', 'HEAD'])
     const branch = head === 'HEAD' ? null : head
     // The branch's base, worked out once: ticket, session and today all start from it.
-    const base = await baseBranch(root, o.sessionBase(root))
-    const onBase = !!base && !!branch && (base === branch || base.endsWith('/' + branch))
-    const mergeBase = base && !onBase ? await tryGit(root, ['merge-base', base, 'HEAD']) : null
-    const onBranch = async (): Promise<ChangeSet> => ({ ...(await changeSetAt(root, branch, mergeBase ?? 'HEAD')), base: mergeBase ? base : null })
+    const d = await diffBase(root, branch, o.sessionBase(root))
+    const mergeBase = d?.mergeBase ?? null
+    const onBranch = async (): Promise<ChangeSet> => ({ ...(await changeSetAt(root, branch, mergeBase ?? 'HEAD')), base: d?.base ?? null })
     let set: ChangeSet | null = null
     if (o.scope === 'ticket') set = await onBranch()
     else if (o.scope === 'session') {

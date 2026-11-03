@@ -137,6 +137,17 @@ describe('decide CLI', () => {
     expect(decide([...S, 'register', '--cwd', join(repo, 'nope')]).err).toContain('no folder')
   })
 
+  it('register --base pins the diff base, refuses an unknown ref, and --base auto clears it', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'repo-'))
+    const g = (...a: string[]): string => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: repo, encoding: 'utf8' })
+    g('init', '-q', '-b', 'main')
+    g('commit', '-q', '--allow-empty', '-m', 'init')
+    decide([...S, 'register', '--cwd', repo])
+    expect(JSON.parse(decide([...S, 'register', '--base', 'main']).out).base_pin).toBe('main')
+    expect(decide([...S, 'register', '--base', 'nope']).err).toContain('no ref nope')
+    expect(JSON.parse(decide([...S, 'register', '--base', 'auto']).out).base_pin).toBeNull()
+  })
+
   it('a moved folder survives the session-start hook while it is inside the folder Claude runs in', () => {
     const sub = join(dir, 'repo-wt')
     mkdirSync(sub)

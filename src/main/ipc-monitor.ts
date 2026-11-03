@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { ipcMain } from 'electron'
 import type { Store } from './store'
-import { getSetup, liveMonitor, monitorEvents, saveSetup, startMonitor, stopMonitor, type Monitor, type Recipient } from '../shared/monitors'
+import { changeWatches, extendMonitor, getMonitor, getSetup, liveMonitor, startChange, monitorEvents, saveSetup, startMonitor, stopMonitor, type Monitor, type Recipient } from '../shared/monitors'
 import { repoOfFolder, runSetup, type Setup } from './monitor-setup'
-import { ghIn } from './monitor-watch'
+import { ghIn, type MonitorWatcher } from './monitor-watch'
+import { describeChange } from './monitor-describe'
 import { checkAsked } from './monitor-notify'
 import { requestsOf } from '../shared/review-requests'
 import { runHeadless } from './headless'
 
-// Monitors in Ship (SIGNOFF-23 step 4): what the panel shows for one session, and starting and stopping a watch.
+// Monitors (SIGNOFF-23 step 4; Monitor tab, SIGNOFF-34): what the panel shows for one session, and starting and stopping a watch.
 export type Chosen = { deployWorkflow?: string; recipients?: Recipient[]; errors?: { app: string; services: string[] } }
 type Pr = { number: number; url: string; title: string; state: string }
 type SessionRow = { id: string; title: string | null; cwd: string | null }
@@ -37,7 +38,7 @@ const prOf = async (cwd: string): Promise<Pr | null> => {
 const withEvents = (db: Store, m: Monitor | undefined): (Monitor & { events: ReturnType<typeof monitorEvents> }) | null =>
   m ? { ...m, events: monitorEvents(db, m.id) } : null
 
-export function registerMonitorIpc(db: Store, env: NodeJS.ProcessEnv): void {
+export function registerMonitorIpc(db: Store, env: NodeJS.ProcessEnv, watcher: MonitorWatcher): void {
   ipcMain.handle('monitor:forSession', async (_e, id: string) => {
     const s = sessionOf(db, id)
     let repo: string | null = null
@@ -55,6 +56,7 @@ export function registerMonitorIpc(db: Store, env: NodeJS.ProcessEnv): void {
       repo, problem, pr, setup: repo ? getSetup<Setup>(db, repo) : null,
       monitor: repo && pr ? withEvents(db, liveMonitor(db, repo, pr.number)) : null,
       requests: repo && pr ? requestsOf(db, repo, pr.number) : [],
+      changes: changeWatches(db, id).map((m) => withEvents(db, m)),
       team
     }
   })
@@ -82,4 +84,16 @@ export function registerMonitorIpc(db: Store, env: NodeJS.ProcessEnv): void {
     return startMonitor(db, { session: o.owner ?? o.session, repo, pr: pr.number, ticket, windowMinutes: o.windowMinutes, checkMinutes: o.checkMinutes, notify: o.notify, recipients: o.recipients })
   })
   ipcMain.handle('monitor:stop', (_e, id: string, why: string) => stopMonitor(db, id, why))
+  // The running watch's controls (SIGNOFF-34-WATCH/D5): an error check now, more time, and a change described in words.
+  ipcMain.handle('monitor:checkNow', (_e, id: string) => watcher.checkNow(getMonitor(db, id)))
+  ipcMain.handle('monitor:extend', (_e, id: string, minutes: number) => extendMonitor(db, id, minutes))
+  ipcMain.handle('monitor:describe', (_e, id: string, text: string) =>
+    describeChange(text, (args) => runHeadless(args, { cwd: sessionOf(db, id).cwd!, env, timeoutMs: 120_000 })))
+  // Watch a change (SIGNOFF-34): production errors after a change made outside a PR, in this session's repo.
+  ipcMain.handle('monitor:startChange', (_e, o: { session: string; subject: string; focus?: string; since: string; windowMinutes: number; checkMinutes: number }) => {
+    const s = sessionOf(db, o.session)
+    const repo = repoOfFolder(s.cwd!)
+    if (!getSetup<Setup>(db, repo)) throw new Error(`run the setup check for ${repo} first (Monitor tab, Connections: Check now)`)
+    return startChange(db, { session: o.session, repo, subject: o.subject, focus: o.focus, since: o.since, ticket: (db.prepare('SELECT ticket FROM sessions WHERE id = ?').get(o.session) as { ticket: string | null }).ticket, windowMinutes: o.windowMinutes, checkMinutes: o.checkMinutes })
+  })
 }

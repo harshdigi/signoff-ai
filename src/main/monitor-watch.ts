@@ -79,6 +79,7 @@ export class MonitorWatcher {
   }
 
   async step(m: Monitor): Promise<void> {
+    if (m.kind === 'change') return m.stage === 'stable' ? this.changeWindow(m) : undefined
     if (m.stage === 'ci' || m.stage === 'merge') return this.pullRequest(m)
     if (m.stage === 'deploy') return this.deploy(m)
     if (m.stage === 'stable') return this.stable(m)
@@ -112,10 +113,12 @@ export class MonitorWatcher {
   // Approval (SIGNOFF-31/D13): a GitHub approval is recorded at once (free); the review-request threads are read in the
   // background every 15 min while the PR is open and not approved yet.
   private approvals(m: Monitor, pr: { state: string; reviewDecision?: string | null; latestReviews?: { author?: { login?: string }; state?: string }[] }): void {
-    const reqs = requestsOf(this.db, m.repo, m.pr)
+    const n = m.pr
+    if (n === null) return
+    const reqs = requestsOf(this.db, m.repo, n)
     if (pr.reviewDecision === 'APPROVED' && !reqs.some((r) => r.app === 'GitHub' && r.state === 'approved')) {
       const by = (pr.latestReviews ?? []).filter((r) => r.state === 'APPROVED').map((r) => r.author?.login).filter(Boolean).join(', ') || null
-      recordRequest(this.db, { repo: m.repo, pr: m.pr, app: 'GitHub', place: 'pull request', state: 'approved', by })
+      recordRequest(this.db, { repo: m.repo, pr: n, app: 'GitHub', place: 'pull request', state: 'approved', by })
       addEvent(this.db, m.id, 'approved', `Approved on GitHub${by ? ` by ${by}` : ''}`)
       return
     }
@@ -128,6 +131,12 @@ export class MonitorWatcher {
       .then(() => undefined)
       .finally(() => this.reading.delete(m.id))
     this.reading.set(m.id, run)
+  }
+
+  // A change watch (SIGNOFF-34/D2): no CI, merge or deploy; only the error checks for its window, from the change time.
+  private changeWindow(m: Monitor): void {
+    if (this.now() - Date.parse(m.deployed_at!) >= m.window_minutes * 60_000) return void setStage(this.db, m.id, 'done', `Stable for ${m.window_minutes} min after the change`)
+    this.startErrorCheck(m)
   }
 
   private async deploy(m: Monitor): Promise<void> {
@@ -162,6 +171,18 @@ export class MonitorWatcher {
     this.startErrorCheck(m)
   }
 
+  // Check now (SIGNOFF-34-WATCH/D5): an error check at once, outside the timer. One at a time per monitor: a check
+  // already running is returned instead. Only while watching production; before the deploy there is no "after".
+  checkNow(m: Monitor): Promise<void> {
+    if (!this.on.checkErrors) throw new Error('no error check is set up')
+    if (m.stage !== 'stable') throw new Error(`${m.id} is not watching production (${m.stage})`)
+    const running = this.checking.get(m.id)
+    if (running) return running
+    const run = this.errorCheck(m, this.on.checkErrors)
+    this.checking.set(m.id, run)
+    return run
+  }
+
   // Runs the error check when one is due: the first at one interval after the deploy, then every interval.
   private startErrorCheck(m: Monitor): void {
     if (!this.on.checkErrors || this.checking.has(m.id)) return
@@ -174,7 +195,7 @@ export class MonitorWatcher {
     try {
       const v = await check(m)
       if (v.newErrors) {
-        const what = `New production errors after the deploy: ${v.summary}`
+        const what = `New production errors after the ${m.kind === 'change' ? 'change' : 'deploy'}: ${v.summary}`
         this.on.incident(setStage(this.db, m.id, 'incident', what), what)
       } else addEvent(this.db, m.id, 'error-check', `Errors checked: ${v.summary}`)
     } catch (e) {

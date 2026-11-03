@@ -6,7 +6,7 @@ import { join } from 'path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { openStore, type Store } from '../store'
 import { touchSession } from '../../shared/board'
-import { getMonitor, monitorEvents, saveSetup, startMonitor } from '../../shared/monitors'
+import { getMonitor, monitorEvents, saveSetup, startChange, startMonitor, stopMonitor } from '../../shared/monitors'
 import { deployWorkflowOf, MonitorWatcher, THREAD_EVERY_MS, type Gh } from '../monitor-watch'
 import { recordRequest, requestsOf } from '../../shared/review-requests'
 
@@ -140,6 +140,42 @@ describe('monitor watcher', () => {
     expect(requestsOf(db, REPO, 7).find((r) => r.app === 'GitHub')).toMatchObject({ state: 'approved', by: 'asha' })
     now += THREAD_EVERY_MS; await one.tick(); await one.idle()
     expect(reads).toBe(2) // approved: the threads are not read any more
+  })
+
+  it('a change watch: error checks each interval from the change time, no GitHub calls, done after its window; a problem is an incident', async () => {
+    // Timeline entries use the real clock, so times here are relative to now.
+    stopMonitor(db, 'M-1', 'only the change watch here') // the PR monitor every test starts with
+    const t0 = Date.now() - 40 * 60_000
+    const iso = (min: number): string => new Date(t0 + min * 60_000).toISOString()
+    const w = startChange(db, { session: 'impl', repo: REPO, subject: 'merchant X: instant payout on', since: iso(0), windowMinutes: 60, checkMinutes: 15 })
+    const verdicts = [{ newErrors: true, summary: 'payout 500s for merchant X' }]
+    let ran = 0
+    const at = (min: number): MonitorWatcher => new MonitorWatcher(db, fake({}), { ciGreen: () => {}, ciRed: () => {}, incident: (_m, x) => said.push(`incident ${x}`), checkErrors: async () => verdicts[ran++] }, () => 'deploy.yml', () => t0 + min * 60_000)
+    const early = at(10); await early.tick(); await early.idle()
+    expect(ran).toBe(0) // not one interval after the change yet
+    const later = at(16); await later.tick(); await later.idle()
+    expect(said).toEqual(['incident New production errors after the change: payout 500s for merchant X'])
+    expect(calls).toEqual([]) // no GitHub calls for a change watch
+    const old = startChange(db, { session: 'impl', repo: REPO, subject: 'merchant Y', since: new Date(Date.now() - 90 * 60_000).toISOString(), windowMinutes: 30, checkMinutes: 15 })
+    const now = new MonitorWatcher(db, fake({}), { ciGreen: () => {}, ciRed: () => {}, incident: () => {} }, () => 'deploy.yml')
+    await now.tick()
+    expect(getMonitor(db, old.id).stage).toBe('done')
+    expect(getMonitor(db, w.id).stage).toBe('incident')
+  })
+
+  it('Check now runs one error check at once, shares a running one, and refuses before production', async () => {
+    const w = startChange(db, { session: 'impl', repo: REPO, subject: 'merchant X', since: new Date().toISOString(), windowMinutes: 60, checkMinutes: 15 })
+    let ran = 0
+    let release = (): void => {}
+    const gate = new Promise<void>((r) => { release = r })
+    const watcher = new MonitorWatcher(db, fake({}), { ciGreen: () => {}, ciRed: () => {}, incident: () => {}, checkErrors: async () => { ran++; await gate; return { newErrors: false, summary: 'nothing new' } } }, () => 'deploy.yml')
+    const one = watcher.checkNow(getMonitor(db, w.id))
+    const two = watcher.checkNow(getMonitor(db, w.id))
+    expect(two).toBe(one) // one at a time per monitor
+    release(); await one
+    expect(ran).toBe(1)
+    expect(monitorEvents(db, w.id).at(-1)!.text).toBe('Errors checked: nothing new')
+    expect(() => watcher.checkNow(getMonitor(db, 'M-1'))).toThrow('M-1 is not watching production (ci)')
   })
 
   it('started fires once per monitor (the Story is written then)', async () => {
