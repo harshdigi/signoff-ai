@@ -20,6 +20,7 @@ import { DecisionsSideView, SessionsView, SkillsView, type View } from './ide/Si
 import ReviewList from './ide/Review'
 import RunView from './ide/Run'
 import SessionPage, { type SessionTab } from './ide/SessionPage'
+import BackgroundView from './ide/Background'
 import WorkflowsView from './ide/Workflows'
 import ResumePicker from './ide/Resume'
 import { RefsProvider, type Nav } from './board/Refs'
@@ -48,6 +49,13 @@ export default function App(): React.JSX.Element {
     if (folder) window.api.flows.touched().then(setDocs, () => setDocs([]))
   }, [folder, changes])
   const { tasks, catalog, reloadCatalog, reloadTasks } = useFolderData(folder)
+  // Tell main whether the window is on screen: its background checks pause while it is not (SIGNOFF-38-PERF/D5).
+  useEffect(() => {
+    const report = (): void => window.api.visible(!document.hidden)
+    report()
+    document.addEventListener('visibilitychange', report)
+    return () => document.removeEventListener('visibilitychange', report)
+  }, [])
   const chat = useRef<ChatHandle>(null)
 
   const [view, setView] = useState<View>('sessions')
@@ -67,7 +75,7 @@ export default function App(): React.JSX.Element {
   const reviewView: ReviewView = { session: chatId, scope: chatId || scope.scope !== 'session' ? scope.scope : 'ticket', commit: scope.commit ?? null }
   // Only while the review list or a diff opened from it is on screen.
   const reviewing = (active === 'session' && sessionTab === 'files') || tabs.some((t) => t.kind === 'diff' && !!t.view && tabKey(t) === active)
-  const { scoped, reload: reloadScoped } = useScoped(folder ? reviewView : null, reviewing)
+  const { scoped, error: scopedError, reload: reloadScoped } = useScoped(folder ? reviewView : null, reviewing)
   const [terms, setTerms] = useState<Term[]>([])
   // The bottom panel has terminals that belong to no session (shells, tasks); a session's own are in its Terminals tab.
   const [activeTerm, setActiveTerm] = useState<string | null>(null)
@@ -385,7 +393,7 @@ export default function App(): React.JSX.Element {
       <div className="ide-main">
         <nav className="activity">
           {/* In the order you use them: your sessions, what waits on you, finding things, running things, then setup. */}
-          {([['sessions', 'chat', 'Sessions'], ['decisions', 'decisions', 'Decisions: what waits on you'], ['search', 'search', 'Search: code, files, decisions, chats (⌘K)'], ['run', 'play', 'Run: servers, consoles, tests'], ['workflows', 'team', 'Teams: team setups and routines'], ['skills', 'spark', 'Skills & agents'], ['mcps', 'tool', 'Tools (MCP servers): Slack, GitHub and others']] as const).map(([v, icon, title]) => (
+          {([['sessions', 'chat', 'Sessions'], ['decisions', 'decisions', 'Decisions: what waits on you'], ['search', 'search', 'Search: code, files, decisions, chats (⌘K)'], ['run', 'play', 'Run: servers, consoles, tests'], ['workflows', 'team', 'Teams: team setups and routines'], ['skills', 'spark', 'Skills & agents'], ['mcps', 'tool', 'Tools (MCP servers): Slack, GitHub and others'], ['background', 'pulse', 'Background: what the app runs, CPU and memory']] as const).map(([v, icon, title]) => (
             <button key={v} className={view === v && sidebar ? 'on' : ''} title={title} onClick={() => (view === v ? setSidebar(!sidebar) : (setView(v), setSidebar(true)))}>
               <Icon name={icon} />{v === 'decisions' && waiting > 0 ? <span className="badge warn">{waiting}</span> : null}
             </button>
@@ -408,6 +416,7 @@ export default function App(): React.JSX.Element {
                     : view === 'run' ? <RunView tasks={tasks.tasks} trusted={trusted} run={runTask} reload={reloadTasks}
                         session={chatId} openChat={() => openSession(chatId)} ask={(text) => chat.current?.send(text)} />
                     : view === 'mcps' ? <IntegrationsView trusted={trusted} showTerminal={(id, title) => addTerm({ id }, title)} />
+                    : view === 'background' ? <BackgroundView openSession={(id) => openSession(id)} />
                     : view === 'workflows' ? <WorkflowsView workflows={workflows} reload={loadWorkflows} trusted={trusted} start={startWorkflow} routines={pinned} run={runPinned} />
                     : <SkillsView catalog={catalog} run={runSkill} pins={prefs.pins} togglePin={togglePin} created={reloadCatalog} />}
                 </div>
@@ -442,7 +451,7 @@ export default function App(): React.JSX.Element {
                                   openChat={(id) => openSession(id)} go={(e) => setFileDiff({ root: e.set.root, path: e.file.path, view: fileDiff.view })} />
                               </div>
                             ) : (
-                            <ReviewList board={board} view={reviewView} setView={(v) => setScope({ scope: v.scope, commit: v.commit })} scoped={scoped} active={active}
+                            <ReviewList board={board} view={reviewView} setView={(v) => setScope({ scope: v.scope, commit: v.commit })} scoped={scoped} error={scopedError} retry={reloadScoped} active={active}
                               openTab={(t) => (t.kind === 'diff' && t.view ? setFileDiff({ root: t.root, path: t.path, view: t.view }) : openTab(t))} docs={docs} updateDocs={updateDocs} />
                             )}
                             {!fileDiff && <details className="rv-kind rv-run">

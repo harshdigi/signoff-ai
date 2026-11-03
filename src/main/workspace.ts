@@ -112,17 +112,40 @@ export async function listWorktrees(folder: string): Promise<{ path: string; bra
   })
 }
 
-// Base branch, in this order (each step only when the previous gives nothing):
-// 1. the session's own base (stacked branches, set by the ticket pipeline);
-// 2. origin's default branch (origin/HEAD);
-// 3. a local main, then master.
-// With none of these, the worktree is shown against HEAD (uncommitted only).
-export async function baseBranch(root: string, sessionBase?: string | null): Promise<string | null> {
-  if (sessionBase && (await tryGit(root, ['rev-parse', '--verify', '--quiet', sessionBase]))) return sessionBase
+// The default branch, in this order (each step only when the previous gives nothing):
+// 1. origin's default branch (origin/HEAD);
+// 2. a local main, then master.
+export async function baseBranch(root: string): Promise<string | null> {
   const remote = await tryGit(root, ['rev-parse', '--abbrev-ref', 'origin/HEAD'])
   if (remote && remote !== 'origin/HEAD') return remote
   for (const b of ['main', 'master']) if (await tryGit(root, ['rev-parse', '--verify', '--quiet', b])) return b
   return null
+}
+
+// The base the session working in a folder gave: pin, set by the session itself (signoff register --base), else
+// base_branch, set when it was started (stacked branches).
+export type SessionBase = { base: string | null; pin: string | null }
+
+// The base a branch's changes are counted from. A pinned base is used as is (SIGNOFF-36-DIFF-BASE/D2); without one,
+// or once that ref is gone, of these the one the branch left last, so only the branch's own work counts (D1):
+// - the session's stored base (stacked branches; stale once the session cut a new branch from elsewhere);
+// - the branch's upstream, unless it is the branch's own remote copy;
+// - the default branch.
+// mergeBase is where the branch left it. null: on the base itself, or no base (uncommitted work only, against HEAD).
+export async function diffBase(root: string, branch: string | null, session?: SessionBase | null): Promise<{ base: string; mergeBase: string } | null> {
+  const own = (ref: string): boolean => !!branch && (ref === branch || ref.endsWith('/' + branch))
+  const pinned = session?.pin ? await tryGit(root, ['merge-base', session.pin, 'HEAD']) : null
+  if (session?.pin && pinned) return own(session.pin) ? null : { base: session.pin, mergeBase: pinned }
+  const upstream = branch ? await tryGit(root, ['rev-parse', '--abbrev-ref', `${branch}@{upstream}`]) : null
+  const names = [...new Set([session?.base, upstream, await baseBranch(root)])].filter((b): b is string => !!b && !own(b))
+  let best: { base: string; mergeBase: string } | null = null
+  for (const base of names) {
+    const mergeBase = await tryGit(root, ['merge-base', base, 'HEAD'])
+    if (!mergeBase) continue
+    const later = !best || (mergeBase !== best.mergeBase && (await tryGit(root, ['merge-base', '--is-ancestor', best.mergeBase, mergeBase])) !== null)
+    if (later) best = { base, mergeBase }
+  }
+  return best
 }
 
 // A branch and its worktree under <repo>/.claude/worktrees (ticket subtasks, team implementers).
@@ -157,11 +180,9 @@ export function parseNameStatus(out: string): Change[] {
   return files
 }
 
-export async function changeSet(root: string, branch: string | null, main: boolean, mode: DiffMode, sessionBase?: string | null): Promise<ChangeSet> {
-  const base = mode === 'branch' ? await baseBranch(root, sessionBase) : null
-  const onBase = !!base && !!branch && (base === branch || base.endsWith('/' + branch))
-  const ref = base && !onBase ? (await tryGit(root, ['merge-base', base, 'HEAD'])) ?? 'HEAD' : 'HEAD'
-  return { ...(await changeSetAt(root, branch, ref, main)), base: ref === 'HEAD' ? null : base }
+export async function changeSet(root: string, branch: string | null, main: boolean, mode: DiffMode, sessionBase?: SessionBase | null): Promise<ChangeSet> {
+  const d = mode === 'branch' ? await diffBase(root, branch, sessionBase) : null
+  return { ...(await changeSetAt(root, branch, d?.mergeBase ?? 'HEAD', main)), base: d?.base ?? null }
 }
 
 // The files changed between `ref` and the working tree (committed since ref, plus uncommitted and untracked work).
@@ -177,7 +198,7 @@ export async function changeSetAt(root: string, branch: string | null, ref: stri
   return { root, branch, base: null, ref, main, files: files.sort((a, b) => a.path.localeCompare(b.path)) }
 }
 
-export async function review(folder: string, mode: DiffMode, sessionBase: (root: string) => string | null = () => null): Promise<Review> {
+export async function review(folder: string, mode: DiffMode, sessionBase: (root: string) => SessionBase | null = () => null): Promise<Review> {
   const trees = await listWorktrees(folder)
   if (!trees.length) return { git: false, groups: [] }
   const groups = await Promise.all(trees.map((t, i) => changeSet(t.path, t.branch, i === 0, mode, sessionBase(t.path))))

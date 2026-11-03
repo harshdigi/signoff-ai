@@ -4,12 +4,23 @@ import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
-import { readBoard } from '../board-state'
+import { decisionThread, readBoard } from '../board-state'
 import { openStore } from '../store'
-import { addReview, setVerdict, submitReview, touchSession } from '../../shared/board'
+import { addReview, addToThread, postDecision, setVerdict, submitReview, touchSession } from '../../shared/board'
 import { getApproval, requestApproval } from '../../shared/approvals'
 
 describe('board state', () => {
+  it('sends a decision thread\'s count only; the messages come with board:thread (SIGNOFF-38-PERF/D1)', () => {
+    const db = openStore(join(mkdtempSync(join(tmpdir(), 'bs-')), 'b.db'))
+    touchSession(db, 's1', {})
+    const id = postDecision(db, { ticket: 'KA-1', number: 'D1', session: 's1', question: 'Which?' })
+    addToThread(db, id, 'you', 'why?')
+    addToThread(db, id, 'claude', 'because')
+    const d = readBoard(db).decisions.find((x) => x.id === id)!
+    expect([d.thread_count, 'thread' in d]).toEqual([2, false])
+    expect(decisionThread(db, id).map((t) => `${t.who}: ${t.text}`)).toEqual(['you: why?', 'claude: because'])
+  })
+
   it('sends diffs only for open reviews; closed ones carry their size, so the board stays small', () => {
     const db = openStore(join(mkdtempSync(join(tmpdir(), 'bs-')), 'b.db'))
     touchSession(db, 's1', {})

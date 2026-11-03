@@ -5,7 +5,7 @@ import { mkdtempSync, realpathSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
-import { baseBranch, parseNameStatus, review, setFileDiff } from '../workspace'
+import { diffBase, parseNameStatus, review, setFileDiff } from '../workspace'
 
 const repo = (): { root: string; g: (cwd: string, ...a: string[]) => string } => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'wt-')))
@@ -61,12 +61,45 @@ describe('worktree-aware review', () => {
     writeFileSync(join(s, 'two.rb'), '2\n')
     g(s, 'add', '.')
     g(s, 'commit', '-qm', 'p2')
-    expect(await baseBranch(s, 'abc-1-part1')).toBe('abc-1-part1')
-    expect(await baseBranch(s, 'no-such-branch')).toBe('main')
-    const stacked = (await review(root, 'branch', (r) => (r === s ? 'abc-1-part1' : null))).groups.find((x) => x.root === s)!
+    expect(await diffBase(s, 'abc-1-part2', { base: 'abc-1-part1', pin: null })).toMatchObject({ base: 'abc-1-part1' })
+    expect(await diffBase(s, 'abc-1-part2', { base: 'no-such-branch', pin: null })).toMatchObject({ base: 'main' })
+    const stacked = (await review(root, 'branch', (r) => (r === s ? { base: 'abc-1-part1', pin: null } : null))).groups.find((x) => x.root === s)!
     expect([stacked.base, stacked.files.map((f) => f.path)]).toEqual(['abc-1-part1', ['two.rb']])
     const plain = (await review(root, 'branch')).groups.find((x) => x.root === s)!
     expect(plain.files.map((f) => f.path)).toEqual(['one.rb', 'two.rb'])
+  })
+
+  // SIGNOFF-36-DIFF-BASE: an implementer's worktree is cut from the lead's branch, then it cuts its own branch from a
+  // newer main. Only its own commits count: not the lead's, not main's since the lead branched.
+  it('a branch cut from elsewhere is diffed against the base it left last, not the stale stored one', async () => {
+    const { root, g } = repo()
+    g(root, 'switch', '-q', '-c', 'lead')
+    writeFileSync(join(root, 'lead.rb'), 'lead\n')
+    g(root, 'add', '.')
+    g(root, 'commit', '-qm', 'lead')
+    g(root, 'switch', '-q', 'main')
+    writeFileSync(join(root, 'later.rb'), 'later on main\n')
+    g(root, 'add', '.')
+    g(root, 'commit', '-qm', 'main moves on')
+    const s = join(root, '.claude/worktrees/impl')
+    g(root, 'worktree', 'add', '-q', '-b', 'impl-1', s, 'lead')
+    g(s, 'switch', '-q', '-c', 'impl-2', '--track', 'main')
+    writeFileSync(join(s, 'mine.rb'), 'mine\n')
+    g(s, 'add', '.')
+    g(s, 'commit', '-qm', 'mine')
+    const set = async (pin: string | null = null): Promise<unknown> => {
+      const x = (await review(root, 'branch', (r) => (r === s ? { base: 'lead', pin } : null))).groups.find((w) => w.root === s)!
+      return [x.base, x.files.map((f) => f.path)]
+    }
+    expect(await set()).toEqual(['main', ['mine.rb']])
+    // Without an upstream, the default branch still wins over the stale stored base.
+    g(s, 'branch', '--unset-upstream')
+    expect(await set()).toEqual(['main', ['mine.rb']])
+    // A pinned base is used as is; once that ref is gone, the automatic pick is back.
+    expect(await set('lead')).toEqual(['lead', ['later.rb', 'mine.rb']])
+    expect(await set('gone')).toEqual(['main', ['mine.rb']])
+    // A branch's own remote copy is never its base.
+    expect(await diffBase(root, 'main', { base: 'main', pin: null })).toBeNull()
   })
 
   it('outside git there is nothing to review', async () => {

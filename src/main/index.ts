@@ -23,6 +23,8 @@ import { skillDirs } from './skilldirs'
 import { appFiles, pinUserData } from './paths'
 import { parseDeepLink, type DeepLink } from './deeplink'
 import { registerBoardIpc } from './ipc-board'
+import { registerBackgroundIpc } from './ipc-background'
+import { defineCheck } from './checks'
 
 // The prototype's data, imported once into an empty store (Phase 1, D4).
 
@@ -157,14 +159,16 @@ app.whenReady().then(() => {
   }
   registerTerminalIpc(terminals, () => mainWindow, claude, () => getWorkspace(store).current)
   // chat is made just below; a wake only happens later, from the window.
+  const tmux = new Tmux(join(files.resources, 'tmux.conf'))
   const stopBoardWatch = registerBoardIpc(store, () => mainWindow, (s) => chat.wake(s))
   app.on('before-quit', stopBoardWatch)
   const chat = new ChatManager(store, (cwd) => ({ ...claude(cwd), decide: join(files.resources, 'decision-protocol/bin/decide') }), {
     settings: () => getSettings(store),
     files: (cwd) => changes(cwd).files.map((f) => f.path),
     attachments: join(app.getPath('userData'), 'attachments'),
-    tmux: new Tmux(join(files.resources, 'tmux.conf'))
+    tmux
   }, terminals)
+  registerBackgroundIpc(store, tmux, terminals)
   const pipeline = new Pipeline(store, chat, () => getSettings(store))
   // Monitors (SIGNOFF-23): GitHub is checked every 2 minutes with gh, at no token cost.
   const tell = (m: Monitor, text: string): void => {
@@ -199,13 +203,23 @@ app.whenReady().then(() => {
       return checkErrors(store, m, (args) => runHeadless(args, { cwd, env: { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, timeoutMs: 240_000 }), new Date().toISOString())
     },
     incident: (m, what) => {
+      // A change watch (SIGNOFF-34/D2): no PR to revert, so no fire-fighting session; the session proposes undoing it.
+      if (m.kind === 'change') {
+        tell(m, `Monitor ${m.id}, production: ${what} (after: ${m.subject}${m.focus ? `; focus: ${m.focus}` : ''}). Look into it and propose undoing the change; ask the user before changing anything.`)
+        if (Notification.isSupported()) new Notification({ title: `Production problem after: ${m.subject}`, body: what }).show()
+        return
+      }
       const ff = startFirefight(store, chat, m, what)
       tell(m, `Monitor ${m.id}, production: ${what} (${m.repo}#${m.pr}).${ff ? ` Fire fighting runs in session ${ff.slice(0, 8)}; it prepares the fix and the rollback for the user's approval.` : ''}`)
       if (Notification.isSupported()) new Notification({ title: `Production incident: ${m.repo}#${m.pr}`, body: what }).show()
     }
   }, (repo) => deployWorkflowOf(store, repo))
-  const watchTimer = setInterval(() => void watcher.tick(), 120_000)
-  registerMonitorIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
+  const monitorsRan = defineCheck('monitors', 'Monitors: GitHub CI and deploys (gh)', '2 min', false)
+  const watchTimer = setInterval(() => {
+    monitorsRan()
+    void watcher.tick()
+  }, 120_000)
+  registerMonitorIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, watcher)
   registerStoryIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
   app.on('before-quit', () => clearInterval(watchTimer))
   const stopIde = registerIdeIpc(store, chat, terminals, new TestRunner(terminals), pipeline, new Teams(store, chat), () => mainWindow)

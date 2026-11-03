@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { useEffect, useState } from 'react'
 import { type BoardState, type Session } from '../board/types'
+import { pollWhileShown } from './hooks'
 import { ordered } from './review-order'
 import type { Scoped } from './types'
 import { useAsk } from './useAsk'
 import AskStatus from './AskStatus'
-import MonitorPanel from './MonitorPanel'
 
 // Ship (session page): how ready the change is (review, test plan, open decisions), then Commit / Push / Open PR.
 // The buttons ask the session; it posts each step for your approval before doing it.
@@ -29,8 +29,9 @@ export default function Ship({ s, b, ask: send, openChat }: { s: Session; b: Boa
       if (json !== last) { last = json; setTicket(t) }
     })
     load()
-    const t = setInterval(load, 5000)
-    return () => clearInterval(t)
+    const stop = pollWhileShown(load, 60_000, 'Ship: ticket readiness')
+    const off = window.api.workspace.onChanged(load)
+    return () => { stop(); off() }
   }, [s.id])
   const files = ordered(ticket)
   const reviewed = files.filter((e) => e.file.reviewed === 'done').length
@@ -55,7 +56,6 @@ export default function Ship({ s, b, ask: send, openChat }: { s: Session; b: Boa
       </div>
       <AskStatus state={a.state} openChat={openChat} reset={a.reset} />
       <p className="meta">Each step comes back as an approval card before it happens.</p>
-      <MonitorPanel key={s.id} session={s.id} />
     </div>
   )
 }
