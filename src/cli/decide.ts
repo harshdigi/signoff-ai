@@ -32,6 +32,7 @@ import { getApproval, leaveToTerminal, requestApproval } from '../shared/approva
 const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_CODE_SESSION_ID; decide is the same command)
   register  [--ticket K] [--title T] [--description D]   [--parent SESSION-ID: nest under that session; its first 8+ characters are enough]
             [--cwd DIR: move this session to that folder, e.g. a repo or worktree, so a team can start from it]
+            [--base REF: Files changed diffs against this ref; --base auto goes back to the automatic pick]
   autonomy                       what this session may settle itself, and what waits for the user
   plan      --ticket K --id Dn --file PLAN [--question Q]   Plan first: the whole plan as one approval card
   monitor   [--window MIN] [--every MIN]   start the monitor on this branch's PR (only when after.monitor is handed over)
@@ -53,7 +54,7 @@ const USAGE = `signoff <command> [options]   (session id defaults to $CLAUDE_COD
   recall    <words> [--ticket K] [--limit N]   earlier decisions, reviews and chats about a topic
   split     --ticket K --id Dn --piece "Title :: what to do" [--piece ...] [--role R]   a team lead proposes child sessions
   done      --summary S   a team member finished its piece (tells the lead and the reviewers)
-  team      list | use --workflow ID | propose --ticket K --id Dn --name N [--description D] --role "role :: count|N :: what it does"...
+  team      list | use --workflow ID | propose --ticket K --id Dn --name N [--description D] --role "role :: count|N :: what it does"... [--reads-only ROLE]...
             [--good-for G]... [--not-for N]...   team setups: list them, lead one from this session, or propose a new one
             (the user approves it on the board; it is saved in Workflows and this session leads it)
   comment   reply --id N --text T | --text-file FILE | list   answer a review comment (#cN) so the reply shows by the code; list: unanswered ones
@@ -257,7 +258,7 @@ function main(argv: string[]): number {
   const { values: o, positionals } = parseArgs({
     args: rest, allowPositionals: cmd === 'recall' || cmd === 'ask' || cmd === 'docs', strict: true,
     options: {
-      session: { type: 'string' }, ticket: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' }, parent: { type: 'string' }, cwd: { type: 'string' },
+      session: { type: 'string' }, ticket: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' }, parent: { type: 'string' }, cwd: { type: 'string' }, base: { type: 'string' },
       state: { type: 'string' }, note: { type: 'string' }, id: { type: 'string', multiple: true }, question: { type: 'string' },
       option: { type: 'string', multiple: true }, recommend: { type: 'string' }, evidence: { type: 'string', multiple: true },
       ref: { type: 'string', multiple: true }, action: { type: 'string' }, command: { type: 'string' }, force: { type: 'boolean' },
@@ -265,7 +266,7 @@ function main(argv: string[]): number {
       text: { type: 'string' }, 'text-file': { type: 'string' }, done: { type: 'boolean' }, reason: { type: 'string' }, patch: { type: 'string' }, summary: { type: 'string' },
       'summary-file': { type: 'string' }, file: { type: 'string' }, change: { type: 'string' }, level: { type: 'string' }, item: { type: 'string' }, window: { type: 'string' }, every: { type: 'string' },
       decision: { type: 'string', multiple: true }, jira: { type: 'string' }, idx: { type: 'string' }, status: { type: 'string' }, limit: { type: 'string' },
-      skill: { type: 'string' }, folder: { type: 'string' }, model: { type: 'string' }, piece: { type: 'string', multiple: true }, role: { type: 'string', multiple: true }, name: { type: 'string' }, workflow: { type: 'string' }, 'good-for': { type: 'string', multiple: true }, 'not-for': { type: 'string', multiple: true }, of: { type: 'string' }, label: { type: 'string' }, group: { type: 'string' }, steps: { type: 'string' }, expected: { type: 'string' },
+      skill: { type: 'string' }, folder: { type: 'string' }, model: { type: 'string' }, piece: { type: 'string', multiple: true }, role: { type: 'string', multiple: true }, name: { type: 'string' }, workflow: { type: 'string' }, 'good-for': { type: 'string', multiple: true }, 'not-for': { type: 'string', multiple: true }, 'reads-only': { type: 'string', multiple: true }, of: { type: 'string' }, label: { type: 'string' }, group: { type: 'string' }, steps: { type: 'string' }, expected: { type: 'string' },
       context: { type: 'string', multiple: true }, 'if-wrong': { type: 'string' }, draft: { type: 'string' }, 'draft-file': { type: 'string' }
     }
   })
@@ -328,6 +329,12 @@ function main(argv: string[]): number {
       if (o.cwd && !existsSync(resolve(o.cwd))) throw new Usage(`no folder ${o.cwd}`)
       register(db, sid(), o, o.cwd ? resolve(o.cwd) : undefined)
       if (o.parent) b.setParent(db, sid(), b.sessionByPrefix(db, o.parent))
+      // --base: pin the base Files changed diffs against (SIGNOFF-36-DIFF-BASE/D2); it must exist in the session's folder.
+      if (o.base) {
+        const { cwd } = db.prepare('SELECT cwd FROM sessions WHERE id = ?').get(sid()) as { cwd: string }
+        if (o.base !== 'auto' && !run('git', ['-C', cwd, 'rev-parse', '--verify', '--quiet', `${o.base}^{commit}`])) throw new Usage(`no ref ${o.base} in ${cwd}`)
+        db.prepare('UPDATE sessions SET base_pin = ? WHERE id = ?').run(o.base === 'auto' ? null : o.base, sid())
+      }
       console.log(JSON.stringify(db.prepare('SELECT * FROM sessions WHERE id = ?').get(sid())))
       return 0
     case 'status': {
@@ -377,8 +384,12 @@ function main(argv: string[]): number {
           const [role, count, ...does] = r.split('::').map((x) => x.trim())
           if (!role || !count || !does.length) throw new Usage(`--role needs "role :: count|N :: what it does": ${r}`)
           if (count !== 'N' && !/^\d+$/.test(count)) throw new Usage(`--role count is a number or N: ${r}`)
-          return { role, count: count === 'N' ? null : Number(count), does: does.join(' :: ') }
+          // --reads-only: the role never edits code, so it gets no worktree (SIGNOFF-40-TEAMS/D1). Unlisted roles keep the
+          // name rule (a "reviewer" still reads only).
+          return { role, count: count === 'N' ? null : Number(count), does: does.join(' :: '), ...((o['reads-only'] ?? []).includes(role) ? { readsOnly: true } : {}) }
         })
+        const unknown = (o['reads-only'] ?? []).filter((r) => !team.some((t) => t.role === r))
+        if (unknown.length) throw new Usage(`--reads-only names no --role: ${unknown.join(', ')}`)
         const name = req('name')
         const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 41)
         console.log(proposeTeam(db, { session: sid(), ticket: req('ticket'), number: o.id[0], setup: { id, name, description: o.description ?? '', team, goodFor: o['good-for'], notFor: o['not-for'] } }))

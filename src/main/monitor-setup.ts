@@ -10,7 +10,7 @@ import { headlessArgs, runHeadless } from './headless'
 // - messaging apps that can post (Slack, Teams, Zoho Cliq, …) and the channels and groups they can list;
 // - tools that show production errors (Scout, Sentry, …) and the services that match this repo;
 // - how the repo runs CI and deploys to production.
-// You then choose in Ship; found and chosen are kept together per repo.
+// You then choose in the Monitor tab; found and chosen are kept together per repo.
 export type Destination = { kind: 'channel' | 'person' | 'group'; name: string; id?: string }
 export type Found = {
   messaging: { app: string; mcp: string; sendTool: string; searchTool?: string | null; threadTool?: string | null; destinations: Destination[]; needs: string[] }[]
