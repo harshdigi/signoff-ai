@@ -66,7 +66,7 @@ export default function MonitorPanel({ session }: { session: string }): React.JS
   }, [session])
   useEffect(() => {
     load()
-    return pollWhileShown(load, 10_000)
+    return pollWhileShown(load, 10_000, 'Monitor panel')
   }, [load])
   const act = (what: string, p: Promise<unknown>): void => {
     setBusy(what)

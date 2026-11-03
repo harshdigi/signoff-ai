@@ -7,7 +7,7 @@ import { SideHead } from './SideHead'
 import { Chev } from './icons'
 import { Menu } from './Menu'
 
-export type View = 'decisions' | 'sessions' | 'search' | 'run' | 'mcps' | 'workflows' | 'skills'
+export type View = 'decisions' | 'sessions' | 'search' | 'run' | 'mcps' | 'workflows' | 'skills' | 'background'
 
 
 // Open items per session (IDE/D20): click one to go to that session's Decisions tab; "All decisions" opens the overview.

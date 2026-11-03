@@ -1,5 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
+import { defineCheck } from './checks'
 import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -82,6 +83,7 @@ export class ChatManager {
   private statusListeners = new Set<(s: ChatStatus) => void>()
   private handoffListeners = new Set<(h: Handoff) => void>()
   private timer: NodeJS.Timeout
+  private ran = defineCheck('chat', 'Chat: deliver board messages, read new output', '400 ms', false)
 
   // launch() is read at every start, so saved settings apply to the next start.
   constructor(private db: Store, private launch: (cwd: string) => ClaudeLaunch & { decide: string }, private deps: Deps, private terms: TerminalManager) {
@@ -366,6 +368,7 @@ export class ChatManager {
 
   // Reads new transcript lines for every running chat and passes them to the window.
   private tick(): void {
+    this.ran()
     for (const [session, c] of this.chats) {
       // No "is it still running?" check here: each costs a blocking tmux call, and the view's exit (above) already
       // removes a chat whose Claude has ended.

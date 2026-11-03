@@ -20,6 +20,7 @@ import { DecisionsSideView, SessionsView, SkillsView, type View } from './ide/Si
 import ReviewList from './ide/Review'
 import RunView from './ide/Run'
 import SessionPage, { type SessionTab } from './ide/SessionPage'
+import BackgroundView from './ide/Background'
 import WorkflowsView from './ide/Workflows'
 import ResumePicker from './ide/Resume'
 import { RefsProvider, type Nav } from './board/Refs'
@@ -392,7 +393,7 @@ export default function App(): React.JSX.Element {
       <div className="ide-main">
         <nav className="activity">
           {/* In the order you use them: your sessions, what waits on you, finding things, running things, then setup. */}
-          {([['sessions', 'chat', 'Sessions'], ['decisions', 'decisions', 'Decisions: what waits on you'], ['search', 'search', 'Search: code, files, decisions, chats (⌘K)'], ['run', 'play', 'Run: servers, consoles, tests'], ['workflows', 'team', 'Teams: team setups and routines'], ['skills', 'spark', 'Skills & agents'], ['mcps', 'tool', 'Tools (MCP servers): Slack, GitHub and others']] as const).map(([v, icon, title]) => (
+          {([['sessions', 'chat', 'Sessions'], ['decisions', 'decisions', 'Decisions: what waits on you'], ['search', 'search', 'Search: code, files, decisions, chats (⌘K)'], ['run', 'play', 'Run: servers, consoles, tests'], ['workflows', 'team', 'Teams: team setups and routines'], ['skills', 'spark', 'Skills & agents'], ['mcps', 'tool', 'Tools (MCP servers): Slack, GitHub and others'], ['background', 'pulse', 'Background: what the app runs, CPU and memory']] as const).map(([v, icon, title]) => (
             <button key={v} className={view === v && sidebar ? 'on' : ''} title={title} onClick={() => (view === v ? setSidebar(!sidebar) : (setView(v), setSidebar(true)))}>
               <Icon name={icon} />{v === 'decisions' && waiting > 0 ? <span className="badge warn">{waiting}</span> : null}
             </button>
@@ -415,6 +416,7 @@ export default function App(): React.JSX.Element {
                     : view === 'run' ? <RunView tasks={tasks.tasks} trusted={trusted} run={runTask} reload={reloadTasks}
                         session={chatId} openChat={() => openSession(chatId)} ask={(text) => chat.current?.send(text)} />
                     : view === 'mcps' ? <IntegrationsView trusted={trusted} showTerminal={(id, title) => addTerm({ id }, title)} />
+                    : view === 'background' ? <BackgroundView openSession={(id) => openSession(id)} />
                     : view === 'workflows' ? <WorkflowsView workflows={workflows} reload={loadWorkflows} trusted={trusted} start={startWorkflow} routines={pinned} run={runPinned} />
                     : <SkillsView catalog={catalog} run={runSkill} pins={prefs.pins} togglePin={togglePin} created={reloadCatalog} />}
                 </div>

@@ -42,7 +42,7 @@ export default function Story({ session }: { session: string }): React.JSX.Eleme
   const load = useCallback(() => { window.api.story.get(session).then(setV, (e: unknown) => setErr(errText(e))) }, [session])
   useEffect(() => {
     load()
-    return pollWhileShown(load, 10_000)
+    return pollWhileShown(load, 10_000, 'Story panel')
   }, [load])
   if (!v) return <div className="view story"><p className="meta">{err ?? 'Loading…'}</p></div>
   if (!v.ticket || !v.diagram) return <div className="view story"><p className="empty pad">The story starts once this session has a ticket.</p></div>

@@ -6,6 +6,7 @@ import { autonomyBrief, DECIDE_BRIEF, DISCUSS_BRIEF, getAutonomy, getDiscuss, LO
 import { getSettings } from './settings'
 import { changeStamp, decisionThread, readBoard } from './board-state'
 import type { Store } from './store'
+import { defineCheck } from './checks'
 import { onBack, onScreen } from './visibility'
 import { sendTo } from './window-send'
 
@@ -74,8 +75,10 @@ export function registerBoardIpc(db: Store, window: () => BrowserWindow | null, 
   // Without the second, the app's own changes did not show until something else wrote.
   // Off screen, nothing is sent; a change made meanwhile is sent when the window is back (SIGNOFF-38-PERF/D5).
   let seen = changeStamp(db)
+  const ran = defineCheck('board', 'Board: has anything changed?', '2 s', true)
   const check = (): void => {
     if (!onScreen()) return
+    ran()
     const v = changeStamp(db)
     if (v !== seen) {
       seen = v
