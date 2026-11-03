@@ -6,6 +6,7 @@ import { label, waitingOn, type BoardState, type Session } from '../board/types'
 import BottomPanel from './BottomPanel'
 import TestPlan from './TestPlan'
 import Ship from './Ship'
+import MonitorPanel from './MonitorPanel'
 import Story from './Story'
 import AutonomyPanel from '../chat/AutonomyPanel'
 import DiscussSwitch from '../chat/DiscussSwitch'
@@ -15,7 +16,7 @@ import { Icon } from './icons'
 
 // One session, in tabs (IDE/D20): Chat, Files changed, Decisions, Agents, Terminals.
 // - Chat and Files changed are passed in, so the chat stays mounted (the toolbar sends to it) on any tab.
-export type SessionTab = 'chat' | 'files' | 'tests' | 'ship' | 'story' | 'decisions' | 'agents' | 'terminals'
+export type SessionTab = 'chat' | 'files' | 'tests' | 'ship' | 'monitor' | 'story' | 'decisions' | 'agents' | 'terminals'
 
 type Props = {
   session: Session | null; workflow: Workflow | null; board: BoardState; refresh: () => void
@@ -44,7 +45,7 @@ export default function SessionPage({ session: s, board, refresh, tab, setTab, c
     startTerminal()
   }, [tab, s, hasClaudeTerm, startTerminal])
   const tabs: [SessionTab, string, number | null][] = [
-    ['chat', 'Chat', null], ['files', 'Files changed', null], ['tests', 'Test plan', plan.length ? plan.filter((t) => t.status === 'pass').length : null], ['ship', 'Ship', null], ['story', 'Story', null], ['decisions', 'Decisions', waiting || null],
+    ['chat', 'Chat', null], ['files', 'Files changed', null], ['tests', 'Test plan', plan.length ? plan.filter((t) => t.status === 'pass').length : null], ['ship', 'Ship', null], ['monitor', 'Monitor', null], ['story', 'Story', null], ['decisions', 'Decisions', waiting || null],
     ['agents', 'Agents', children.length || null], ['terminals', 'Terminals', running || null]
   ]
   return (
@@ -62,6 +63,7 @@ export default function SessionPage({ session: s, board, refresh, tab, setTab, c
         {tab === 'decisions' && (s ? <SessionView s={s} b={board} refresh={refresh} terminal={null} /> : <p className="empty pad">Decisions show here once the chat has started.</p>)}
         {tab === 'tests' && (s ? <TestPlan s={s} b={board} ask={ask} openChat={() => setTab('chat')} /> : <p className="empty pad">The test plan starts once the chat has.</p>)}
         {tab === 'ship' && (s ? <Ship s={s} b={board} ask={ask} openChat={() => setTab('chat')} /> : <p className="empty pad">Nothing to ship yet.</p>)}
+        {tab === 'monitor' && (s ? <div className="view"><MonitorPanel key={s.id} session={s.id} /></div> : <p className="empty pad">No session.</p>)}
         {tab === 'story' && (s ? <Story session={s.id} /> : <p className="empty pad">The story starts once the chat has.</p>)}
         {tab === 'agents' && <AgentsTab s={s} subs={children} open={open} />}
         {/* The session's Claude terminal plus shells opened for it; several can run at once. */}

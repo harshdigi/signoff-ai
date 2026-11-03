@@ -125,7 +125,9 @@ export function SessionsView({ board, folder, current, openSession, newSession, 
       <Fragment key={s.id}>
         <div className={'sess-tree' + (over === s.id ? ' drop-ok' : '') + (dragging === s.id ? ' dragging' : '')} style={{ paddingLeft: depth * 14 }}
           draggable={grouped} title={grouped ? 'Drag onto another session to nest it under that one' : undefined}
-          onDragStart={(e) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; setDragging(s.id) }}
+          // The top-level strip appears once the drag is under way: added inside dragstart, it shifts the rows and
+          // Chromium cancels the drag, so a nested session could never be dropped there.
+          onDragStart={(e) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; setTimeout(() => setDragging(s.id), 0) }}
           onDragEnd={() => { setDragging(null); setOver(null) }} {...dropProps(s.id)}>
           {children.length > 0
             ? <button className="row-act fold" title={shut ? `Show ${children.length}` : 'Collapse'} onClick={fold}><Chev open={!shut} /></button>
@@ -240,10 +242,11 @@ export function SessionRow({ s, label, where, active, count, onOpen, onRemove, p
         <span className="row-acts" onClick={(e) => e.stopPropagation()}>
           <button className="row-act" title="Rename" onClick={() => { setName(label); setEditing(true) }}>✎</button>
           {moveTo && (moveTo.options.length > 0 || moveTo.nested) && (
-            <Menu className="more-wrap" align="right" trigger={({ toggle }) => <button className="row-act" title="Move under another session" onClick={toggle}>⤷</button>}>
-              <div className="dd-head">Move under…</div>
-              {moveTo.options.map((o) => <div key={o.id} onClick={() => moveTo.move(o.id)}>{o.name}</div>)}
+            <Menu className="more-wrap" align="right" trigger={({ toggle }) => <button className="row-act" title={moveTo.nested ? 'Move to the top level, or under another session' : 'Move under another session'} onClick={toggle}>⤷</button>}>
+              {/* First, not below a long list of sessions where it was easy to miss. */}
               {moveTo.nested && <div onClick={() => moveTo.move(null)}>Move to top level</div>}
+              {moveTo.options.length > 0 && <div className="dd-head">Move under…</div>}
+              {moveTo.options.map((o) => <div key={o.id} onClick={() => moveTo.move(o.id)}>{o.name}</div>)}
             </Menu>
           )}
           <button className="row-act" title="Remove from the list (its decisions stay in history)" onClick={() => setConfirm(true)}>×</button>
