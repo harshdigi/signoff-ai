@@ -150,6 +150,7 @@ const api = {
   },
   reset: () => ipcRenderer.invoke('app:reset'),
   visible: (v: boolean) => ipcRenderer.send('app:visible', v),
+  viewing: (session: string | null) => ipcRenderer.send('app:viewing', session),
   background: {
     list: () => ipcRenderer.invoke('bg:list'),
     stop: (stop: { server: string } | { session: string }) => ipcRenderer.invoke('bg:stop', stop)

@@ -21,3 +21,10 @@ export function onBack(l: () => void): () => void {
   back.add(l)
   return () => back.delete(l)
 }
+
+// The session open in the window (SIGNOFF-42-IDLE): never suspended while on screen. null: none open.
+let open: string | null = null
+export const viewing = (): string | null => (shown ? open : null)
+export function setViewing(session: string | null): void {
+  open = session
+}

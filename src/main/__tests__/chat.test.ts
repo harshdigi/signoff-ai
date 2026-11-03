@@ -234,6 +234,23 @@ describe('terminal chats', () => {
     expect(said(kids[0])[0]).toBe('> Your piece: API\n\nadd the endpoint')
   })
 
+  it('an idle session is suspended (not while shown or busy), says so, and resumes with --resume on the next message', async () => {
+    const id = chat.create('/tmp')
+    hookRuns(id)
+    chat.send(id, 'hi')
+    await until(() => !chat.status(id).busy && said(id).length === 2)
+    const later = Date.now() + 21 * 60_000
+    expect(chat.suspendIdle([], 20, id, later)).toEqual([])
+    expect(chat.suspendIdle([], 20, null, Date.now())).toEqual([])
+    expect(chat.suspendIdle([], 20, null, later)).toEqual([id])
+    expect(chat.status(id).running).toBe(false)
+    expect(tmux.has(id)).toBe(false)
+    expect(chat.history(id).filter((e) => e.type === 'notice').map((e) => e.text)).toEqual(['Suspended after 20 min idle, to free memory. Send a message to resume it.'])
+    chat.send(id, 'back')
+    await until(() => said(id).length === 4)
+    expect(argv()[1]).toEqual(['--plugin-dir', '/p', '--resume', id, '--permission-mode', 'default'])
+  })
+
   it('a board message for an idle session is typed in once', async () => {
     const id = chat.create('/tmp')
     hookRuns(id)

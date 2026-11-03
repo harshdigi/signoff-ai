@@ -38,6 +38,12 @@ export default function SessionPage({ session: s, board, refresh, tab, setTab, c
   // Once per session until its terminal shows up, so a slow start is not asked for twice.
   const asked = useRef<string | null>(null)
   useEffect(() => { if (hasClaudeTerm) asked.current = null }, [hasClaudeTerm])
+  // The open session is never suspended for being idle (SIGNOFF-42-IDLE).
+  const shownId = s?.id ?? null
+  useEffect(() => {
+    window.api.viewing(shownId)
+    return () => window.api.viewing(null)
+  }, [shownId])
   useEffect(() => {
     if (tab !== 'terminals' || !s || !(s.via === 'chat' || s.tmux) || hasClaudeTerm || asked.current === s.id) return
     asked.current = s.id

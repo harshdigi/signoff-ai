@@ -25,6 +25,9 @@ import { parseDeepLink, type DeepLink } from './deeplink'
 import { registerBoardIpc } from './ipc-board'
 import { registerBackgroundIpc } from './ipc-background'
 import { defineCheck } from './checks'
+import { parsePs } from './processes'
+import { viewing } from './visibility'
+import { execFile } from 'child_process'
 
 // The prototype's data, imported once into an empty store (Phase 1, D4).
 
@@ -213,6 +216,20 @@ app.whenReady().then(() => {
     monitorsRan()
     void watcher.tick()
   }, 120_000)
+  // Idle sessions (SIGNOFF-42-IDLE): checked once a minute, also while the window is hidden, since memory matters then
+  // too. Off when Settings idle minutes is 0. A failed ps skips that round (logged); the next minute tries again.
+  const idleRan = defineCheck('idle', 'Suspend idle sessions', '1 min', false)
+  const idleTimer = setInterval(() => {
+    const minutes = getSettings(store).idleSuspendMinutes
+    if (minutes <= 0) return
+    idleRan()
+    execFile('ps', ['-A', '-o', 'pid=,ppid=,pcpu=,rss=,etime=,command='], { maxBuffer: 16 * 1024 * 1024 }, (err, out) => {
+      if (err) return console.error('idle check: ps failed', err)
+      const stopped = chat.suspendIdle(parsePs(out), minutes, viewing(), Date.now())
+      if (stopped.length) console.log(`suspended idle sessions: ${stopped.join(', ')}`)
+    })
+  }, 60_000)
+  app.on('before-quit', () => clearInterval(idleTimer))
   registerMonitorIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
   registerStoryIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' })
   app.on('before-quit', () => clearInterval(watchTimer))
