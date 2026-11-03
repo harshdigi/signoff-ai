@@ -1,8 +1,8 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { describe, expect, it } from 'vitest'
-import { idleVerdict, runningShells, type IdleFacts } from '../idle'
-import { parsePs } from '../processes'
+import { bloated, idleVerdict, runningShells, type IdleFacts } from '../idle'
+import { parsePs, withFootprint } from '../processes'
 
 const shell = (cmd: string): string => `/bin/zsh -c source /Users/x/.claude/shell-snapshots/snapshot-zsh-1.sh 2>/dev/null || true && setopt NO_EXTENDED_GLOB && eval '${cmd}' < /dev/null && pwd -P >| /tmp/claude-a-cwd`
 
@@ -29,7 +29,7 @@ describe('runningShells', () => {
 
 describe('idleVerdict', () => {
   const now = 10_000_000
-  const idle: IdleFacts = { owned: true, busy: false, queued: 0, menu: false, shown: false, shells: 0, lastActive: now - 21 * 60_000 }
+  const idle: IdleFacts = { owned: true, busy: false, queued: 0, menu: false, shown: false, shells: 0, lastActive: now - 21 * 60_000, bloated: false }
 
   it('suspends an app session idle past the window', () => {
     expect(idleVerdict(idle, now, 20)).toEqual({ suspend: true })
@@ -56,5 +56,30 @@ describe('idleVerdict', () => {
       { suspend: false, why: 'a shell command is running' },
       { suspend: false, why: 'active recently' }
     ])
+  })
+
+  it('a session with a bloated tool is suspended after 5 min, not 20 (D7)', () => {
+    const six = { ...idle, lastActive: now - 6 * 60_000 }
+    expect([idleVerdict(six, now, 20), idleVerdict({ ...six, bloated: true }, now, 20), idleVerdict({ ...idle, lastActive: now - 4 * 60_000, bloated: true }, now, 20)])
+      .toEqual([{ suspend: false, why: 'active recently' }, { suspend: true }, { suspend: false, why: 'active recently' }])
+    expect(idleVerdict({ ...idle, lastActive: now - 3 * 60_000, bloated: true }, now, 2)).toEqual({ suspend: true })
+  })
+})
+
+describe('bloated', () => {
+  const rows = parsePs([
+    '  100     1 0.0 300000 01:00 claude --plugin-dir x',
+    '  101   100 0.0   8000 01:00 funes mcp',
+    '  102   100 0.0  20000 01:00 /bin/zsh -c x',
+    '  103   102 0.0   9000 01:00 node child.js',
+    '  200     1 0.0 300000 01:00 claude --plugin-dir y',
+    '  201   200 0.0   8000 01:00 funes mcp'
+  ].join('\n'))
+
+  it('looks at footprints of the tools below Claude, at any depth; Claude itself does not count', () => {
+    expect([bloated(rows, 100), bloated(rows, 200)]).toEqual([false, false])
+    const big = withFootprint(rows, new Map([[101, 2353 * 1024], [100, 4 * 1024 * 1024]]))
+    expect([bloated(big, 100), bloated(big, 200)]).toEqual([true, false])
+    expect(bloated(withFootprint(rows, new Map([[103, 1024 * 1024]])), 100)).toBe(true)
   })
 })

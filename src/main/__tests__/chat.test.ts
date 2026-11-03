@@ -267,6 +267,18 @@ describe('terminal chats', () => {
     ])
   })
 
+  it('Suspend from the Background view: refused while a turn runs, then stops the session with a notice', async () => {
+    const id = chat.create('/tmp')
+    hookRuns(id)
+    expect(() => chat.suspend(id)).toThrow('this session is not running in the app')
+    chat.send(id, 'hi')
+    expect(() => chat.suspend(id)).toThrow('a turn is running; suspend it once it is done')
+    await until(() => !chat.status(id).busy && said(id).length === 2)
+    chat.suspend(id)
+    expect(chat.status(id).running).toBe(false)
+    expect(chat.history(id).filter((e) => e.type === 'notice').map((e) => e.text)).toEqual(['Suspended from the Background view, to free memory. Send a message to resume it.'])
+  })
+
   it('a board message for an idle session is typed in once', async () => {
     const id = chat.create('/tmp')
     hookRuns(id)

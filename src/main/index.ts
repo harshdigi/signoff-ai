@@ -25,9 +25,12 @@ import { parseDeepLink, type DeepLink } from './deeplink'
 import { registerBoardIpc } from './ipc-board'
 import { registerBackgroundIpc } from './ipc-background'
 import { defineCheck } from './checks'
-import { parsePs } from './processes'
+import { parsePs, parseTop, withFootprint, type Row } from './processes'
+import { BLOATED_KB, BLOATED_MINUTES } from './idle'
+import { FunesHub, hubPaths, writeShim } from './funes-hub'
 import { viewing } from './visibility'
 import { execFile } from 'child_process'
+import { promisify } from 'util'
 
 // The prototype's data, imported once into an empty store (Phase 1, D4).
 
@@ -171,7 +174,15 @@ app.whenReady().then(() => {
     attachments: join(app.getPath('userData'), 'attachments'),
     tmux
   }, terminals)
-  registerBackgroundIpc(store, tmux, terminals)
+  // One funes for all sessions (SIGNOFF-42-IDLE/D9). The hub always listens; funes starts only when a session asks.
+  // Its command is your funes entry from before sharing; never shared yet: 'funes mcp', what funes sets up by itself.
+  const funesPaths = hubPaths(app.getPath('userData'))
+  const funesCommand = (): string[] => getSettings(store).funesOriginal ?? ['funes', 'mcp']
+  const funesHub = new FunesHub(funesPaths.socket, funesCommand, process.env)
+  funesHub.start()
+  writeShim(funesPaths.shim, funesPaths.socket, funesCommand())
+  app.on('before-quit', () => funesHub.stop())
+  registerBackgroundIpc(store, tmux, terminals, (s) => chat.suspend(s), { hub: funesHub, ...funesPaths })
   const pipeline = new Pipeline(store, chat, () => getSettings(store))
   // Monitors (SIGNOFF-23): GitHub is checked every 2 minutes with gh, at no token cost.
   const tell = (m: Monitor, text: string): void => {
@@ -224,16 +235,32 @@ app.whenReady().then(() => {
   }, 120_000)
   // Idle sessions (SIGNOFF-42-IDLE): checked once a minute, also while the window is hidden, since memory matters then
   // too. Off when Settings idle minutes is 0. A failed ps skips that round (logged); the next minute tries again.
+  // Footprints (top, about half a second of CPU) only when a session has been quiet for 5 min, the bloated window (D7).
+  // top failing: rss is used, so a bloated tool waits for the normal window; logged.
+  const execAsync = promisify(execFile)
+  const idleRows = async (): Promise<Row[]> => {
+    const { stdout } = await execAsync('ps', ['-A', '-o', 'pid=,ppid=,pcpu=,rss=,etime=,command='], { maxBuffer: 16 * 1024 * 1024 })
+    const rows = parsePs(stdout)
+    if (!chat.anyQuietFor(BLOATED_MINUTES * 60_000, Date.now())) return rows
+    try {
+      return withFootprint(rows, parseTop((await execAsync('top', ['-l', '1', '-stats', 'pid,mem'], { maxBuffer: 16 * 1024 * 1024 })).stdout))
+    } catch (e) {
+      console.error('idle check: top failed, using resident memory', e)
+      return rows
+    }
+  }
   const idleRan = defineCheck('idle', 'Suspend idle sessions', '1 min', false)
   const idleTimer = setInterval(() => {
     const minutes = getSettings(store).idleSuspendMinutes
     if (minutes <= 0) return
     idleRan()
-    execFile('ps', ['-A', '-o', 'pid=,ppid=,pcpu=,rss=,etime=,command='], { maxBuffer: 16 * 1024 * 1024 }, (err, out) => {
-      if (err) return console.error('idle check: ps failed', err)
-      const stopped = chat.suspendIdle(parsePs(out), minutes, viewing(), Date.now())
+    void idleRows().then((rows) => {
+      // The shared funes grows like any other after a search (D7): restarted when nothing is in flight.
+      const hubPid = funesHub.pid()
+      if (hubPid && (rows.find((r) => r.pid === hubPid)?.mem ?? 0) >= BLOATED_KB && funesHub.restartIfIdle()) console.log('restarted the shared funes (over 1 GB)')
+      const stopped = chat.suspendIdle(rows, minutes, viewing(), Date.now())
       if (stopped.length) console.log(`suspended idle sessions: ${stopped.join(', ')}`)
-    })
+    }, (e: unknown) => console.error('idle check: ps failed', e))
   }, 60_000)
   app.on('before-quit', () => clearInterval(idleTimer))
   registerMonitorIpc(store, { ...process.env, DECISION_IDE_DB: dbPath, DECISION_IDE_APP: '1' }, watcher)

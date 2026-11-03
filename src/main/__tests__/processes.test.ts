@@ -1,7 +1,7 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { describe, expect, it } from 'vitest'
-import { classify, parsePs, sameStop, shortCommand, since, type Context } from '../processes'
+import { classify, parsePs, parseTop, sameStop, shortCommand, since, withFootprint, type Context } from '../processes'
 
 // SIGNOFF-39-PROCS: the Background view's process list.
 const PS = [
@@ -33,7 +33,7 @@ describe('process list', () => {
   it('reads ps rows, commands with spaces kept whole', () => {
     const rows = parsePs(PS)
     expect(rows).toHaveLength(14)
-    expect(rows[0]).toEqual({ pid: 100, ppid: 1, cpu: 10, rss: 200000, etime: '02-22:05:41', command: '/Applications/Signoff AI.app/Contents/MacOS/Signoff AI' })
+    expect(rows[0]).toEqual({ pid: 100, ppid: 1, cpu: 10, rss: 200000, mem: 200000, etime: '02-22:05:41', command: '/Applications/Signoff AI.app/Contents/MacOS/Signoff AI' })
   })
 
   it('says elapsed time and commands in short words', () => {
@@ -56,6 +56,16 @@ describe('process list', () => {
     ])
     const s = procs.find((p) => p.kind === 'session')!
     expect([s.session, s.memMB, s.detail]).toEqual(['aaa', Math.round(110000 / 1024) + 1, 'Claude session · 1 more below it'])
+    expect(s.tools).toEqual([{ name: 'claude', count: 1, memMB: 98 }, { name: 'zsh', count: 1, memMB: 10 }])
+    expect(procs.filter((p) => p.kind !== 'session').every((p) => p.tools.length === 0)).toBe(true)
+  })
+
+  it('reads top footprints and counts them as memory; a process top missed keeps its rss (SIGNOFF-42-IDLE/D6)', () => {
+    const kb = parseTop(['Processes: 568 total', '', 'PID    MEM', '201    2353M', '202    1.5G+', '210    3360K', '211    0B', '212    12M-'].join('\n'))
+    expect([...kb]).toEqual([[201, 2353 * 1024], [202, 1.5 * 1024 * 1024], [210, 3360], [211, 0], [212, 12 * 1024]])
+    const s = classify(withFootprint(parsePs(PS), kb), ctx).find((p) => p.kind === 'session')!
+    expect(s.tools).toEqual([{ name: 'claude', count: 1, memMB: 2353 }, { name: 'zsh', count: 1, memMB: 1536 }])
+    expect(s.memMB).toBe(2353 + 1536 + 1)
   })
 
   it('matches a stop only against the same target', () => {

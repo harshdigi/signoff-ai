@@ -416,7 +416,7 @@ export default function App(): React.JSX.Element {
                     : view === 'run' ? <RunView tasks={tasks.tasks} trusted={trusted} run={runTask} reload={reloadTasks}
                         session={chatId} openChat={() => openSession(chatId)} ask={(text) => chat.current?.send(text)} />
                     : view === 'mcps' ? <IntegrationsView trusted={trusted} showTerminal={(id, title) => addTerm({ id }, title)} />
-                    : view === 'background' ? <BackgroundView openSession={(id) => openSession(id)} />
+                    : view === 'background' ? <BackgroundView openSession={(id) => openSession(id)} showTerminal={(id, title) => addTerm({ id }, title)} />
                     : view === 'workflows' ? <WorkflowsView workflows={workflows} reload={loadWorkflows} trusted={trusted} start={startWorkflow} routines={pinned} run={runPinned} />
                     : <SkillsView catalog={catalog} run={runSkill} pins={prefs.pins} togglePin={togglePin} created={reloadCatalog} />}
                 </div>

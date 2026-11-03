@@ -103,6 +103,9 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .bg-row .name { flex: 1; min-width: 0; }
 .bg-row .dir { flex: none; }
 .bg-row.plain { cursor: default; }
+.bg-row { flex-wrap: wrap; }
+.bg-hint { color: var(--quiet); font-size: 11px; padding: 0 6px 4px; }
+.bg-tools { flex-basis: 100%; color: var(--quiet); font-size: 11px; padding-left: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side-search { width: 100%; margin: 2px 0 4px; }
 .side-item { display: flex; align-items: baseline; gap: 6px; padding: 3px 6px; border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; }
 .side-item:hover { background: var(--line); }

@@ -7,10 +7,13 @@ import { basename } from 'path'
 // - kinds: the app itself, Claude sessions, terminals, tools (git, gh, headless claude), leftovers;
 // - leftovers are what no live session owns: tmux servers from test runs or an earlier app,
 //   and app tmux sessions whose board session is gone or removed. Only they can be stopped here (D3).
-export type Row = { pid: number; ppid: number; cpu: number; rss: number; etime: string; command: string }
+// mem: KB counted as its memory: rss from ps, replaced by the footprint from top (withFootprint) when that was read.
+export type Row = { pid: number; ppid: number; cpu: number; rss: number; mem: number; etime: string; command: string }
 export type Stop = { server: string } | { session: string }
 export type ProcKind = 'app' | 'session' | 'terminal' | 'tool' | 'leftover'
-export type Proc = { key: string; kind: ProcKind; name: string; detail: string; session: string | null; count: number; cpu: number; memMB: number; since: string; stop?: Stop }
+// tools: for a session, what uses its memory, largest first (SIGNOFF-42-IDLE/D6), e.g. funes 2353 MB, tsh ×5 120 MB.
+export type Tool = { name: string; count: number; memMB: number }
+export type Proc = { key: string; kind: ProcKind; name: string; detail: string; session: string | null; count: number; cpu: number; memMB: number; since: string; tools: Tool[]; stop?: Stop }
 export type Context = {
   appPid: number
   socket: string                                   // the app's tmux socket
@@ -24,10 +27,25 @@ export function parsePs(out: string): Row[] {
   const rows: Row[] = []
   for (const line of out.split('\n')) {
     const m = /^\s*(\d+)\s+(\d+)\s+([\d.]+)\s+(\d+)\s+(\S+)\s+(.*)$/.exec(line)
-    if (m) rows.push({ pid: +m[1], ppid: +m[2], cpu: +m[3], rss: +m[4], etime: m[5], command: m[6] })
+    if (m) rows.push({ pid: +m[1], ppid: +m[2], cpu: +m[3], rss: +m[4], mem: +m[4], etime: m[5], command: m[6] })
   }
   return rows
 }
+
+// `top -l 1 -stats pid,mem`: each process's footprint in KB, the number Activity Monitor shows as Memory.
+// - It counts compressed memory, which rss leaves out: an idle funes that ran a search is 8 MB rss but 2.3 GB here.
+export function parseTop(out: string): Map<number, number> {
+  const unit: Record<string, number> = { B: 1 / 1024, K: 1, M: 1024, G: 1024 * 1024 }
+  const kb = new Map<number, number>()
+  for (const line of out.split('\n')) {
+    const m = /^\s*(\d+)\s+([\d.]+)([BKMG])[+-]?\s*$/.exec(line)
+    if (m) kb.set(+m[1], Math.round(+m[2] * unit[m[3]]))
+  }
+  return kb
+}
+
+// Rows with top's footprint as their memory; a process top did not list keeps its rss.
+export const withFootprint = (rows: Row[], kb: Map<number, number>): Row[] => rows.map((r) => ({ ...r, mem: kb.get(r.pid) ?? r.rss }))
 
 // ps elapsed time ([[dd-]hh:]mm:ss) in short words: 2d 23h, 4h 41m, 14m, 9s.
 export function since(etime: string): string {
@@ -52,6 +70,19 @@ const ATTACH = /^tmux -L (\S+) .* attach -t =(\S+)/
 const HELPER = /--type=(renderer|gpu-process|utility)/
 const HELPER_NAMES: Record<string, string> = { renderer: 'Window', 'gpu-process': 'Graphics', utility: 'Network and other helpers' }
 
+// A session's processes by program, largest memory first; Claude itself shows as "claude".
+function tools(list: Row[]): Tool[] {
+  const by = new Map<string, Tool>()
+  for (const r of list) {
+    const name = basename(r.command.split(/\s+/)[0])
+    const t = by.get(name) ?? { name, count: 0, memMB: 0 }
+    t.count++
+    t.memMB += r.mem / 1024
+    by.set(name, t)
+  }
+  return [...by.values()].map((t) => ({ ...t, memMB: Math.round(t.memMB) })).sort((a, b) => b.memMB - a.memMB)
+}
+
 export function classify(rows: Row[], ctx: Context): Proc[] {
   const byPid = new Map(rows.map((r) => [r.pid, r]))
   const children = new Map<number, Row[]>()
@@ -75,8 +106,9 @@ export function classify(rows: Row[], ctx: Context): Proc[] {
     const p: Proc = {
       key, kind, name, detail, session, count: list.length, stop,
       cpu: Math.round(list.reduce((n, r) => n + r.cpu, 0) * 10) / 10,
-      memMB: Math.round(list.reduce((n, r) => n + r.rss, 0) / 1024),
-      since: since(list[0].etime)
+      memMB: Math.round(list.reduce((n, r) => n + r.mem, 0) / 1024),
+      since: since(list[0].etime),
+      tools: kind === 'session' ? tools(list) : []
     }
     procs.push(p)
     return p
@@ -114,7 +146,7 @@ export function classify(rows: Row[], ctx: Context): Proc[] {
       else if (attach && attach[1] === ctx.socket && sessionProc.has(attach[2])) {
         // The session's view in the app (tmux attach): counted with the session.
         const p = sessionProc.get(attach[2])!
-        for (const r of tree(c.pid)) { p.count++; p.cpu = Math.round((p.cpu + r.cpu) * 10) / 10; p.memMB += Math.round(r.rss / 1024) }
+        for (const r of tree(c.pid)) { p.count++; p.cpu = Math.round((p.cpu + r.cpu) * 10) / 10; p.memMB += Math.round(r.mem / 1024) }
       } else if (term) {
         const list = tree(c.pid)
         add(`term:${c.pid}`, 'terminal', shortCommand([term.command, ...term.args].join(' ')), `Terminal${extra(list)}`, term.session, list)

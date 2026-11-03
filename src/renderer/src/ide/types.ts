@@ -29,7 +29,7 @@ export type TerminalMenu = { question: string; detail: string[]; options: string
 export type ChatStatus = { session: string; running: boolean; busy: boolean; menu?: TerminalMenu | null }
 // Background view (main/processes.ts, main/checks.ts).
 export type BgStop = { server: string } | { session: string }
-export type BgProc = { key: string; kind: 'app' | 'session' | 'terminal' | 'tool' | 'leftover'; name: string; detail: string; session: string | null; count: number; cpu: number; memMB: number; since: string; stop?: BgStop }
+export type BgProc = { key: string; kind: 'app' | 'session' | 'terminal' | 'tool' | 'leftover'; name: string; detail: string; session: string | null; count: number; cpu: number; memMB: number; since: string; tools: { name: string; count: number; memMB: number }[]; stop?: BgStop }
 export type BgCheck = { id: string; label: string; every: string; pausesWhenHidden: boolean; paused: boolean; lastRun: number | null; runs: number }
 export type Term = { id: string; title: string; exited: boolean; session: string | null }  // session: the Claude session in it, if any
 

@@ -26,13 +26,14 @@ export type Settings = {
   speechAutoSend: boolean            // default false: voice input fills the box; true: it also sends when you stop
   autonomy: Autonomy                 // default ask everything: what new sessions let Claude decide alone (SIGNOFF-24)
   discuss: boolean                   // new sessions start in Discuss (true) or Decide (false, the default) (SIGNOFF-35)
+  funesOriginal: string[] | null     // default null: funes is as you set it up; else its entry before the app shared it (SIGNOFF-42-IDLE/D9)
   idleSuspendMinutes: number         // default 20: an app session idle this long is suspended to free memory; 0 = never (SIGNOFF-42-IDLE/D1)
 }
 
 // A skill on the top bar. key = catalog kind:name; label = what the button says (e.g. "Start my day").
 export type Pin = { key: string; label: string }
 
-export const DEFAULTS: Settings = { profile: 'developer', preferences: '', autoHandoff: true, handoffAt: 75, branching: 'main', branchTemplate: '{KEY}-{slug}', flowDocs: '', nearbySkills: true, pins: [], onOpen: null, askTicket: true, maxChildren: 3, docsOffered: [], defaultMode: 'default', tidyDecisions: true, speechLocale: '', speechAutoSend: false, autonomy: ASK, discuss: false, idleSuspendMinutes: 20 }
+export const DEFAULTS: Settings = { profile: 'developer', preferences: '', autoHandoff: true, handoffAt: 75, branching: 'main', branchTemplate: '{KEY}-{slug}', flowDocs: '', nearbySkills: true, pins: [], onOpen: null, askTicket: true, maxChildren: 3, docsOffered: [], defaultMode: 'default', tidyDecisions: true, speechLocale: '', speechAutoSend: false, autonomy: ASK, discuss: false, idleSuspendMinutes: 20, funesOriginal: null }
 const KEY = 'app'
 
 export function getSettings(db: Store): Settings {
