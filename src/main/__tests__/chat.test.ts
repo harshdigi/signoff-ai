@@ -235,6 +235,23 @@ describe('terminal chats', () => {
     expect(said(kids[0])[0]).toBe('> Your piece: API\n\nadd the endpoint')
   })
 
+  it('an idle session is suspended (not while shown or busy), says so, and resumes with --resume on the next message', async () => {
+    const id = chat.create('/tmp')
+    hookRuns(id)
+    chat.send(id, 'hi')
+    await until(() => !chat.status(id).busy && said(id).length === 2)
+    const later = Date.now() + 21 * 60_000
+    expect(chat.suspendIdle([], 20, id, later)).toEqual([])
+    expect(chat.suspendIdle([], 20, null, Date.now())).toEqual([])
+    expect(chat.suspendIdle([], 20, null, later)).toEqual([id])
+    expect(chat.status(id).running).toBe(false)
+    expect(tmux.has(id)).toBe(false)
+    expect(chat.history(id).filter((e) => e.type === 'notice').map((e) => e.text)).toEqual(['Suspended after 20 min idle, to free memory. Send a message to resume it.'])
+    chat.send(id, 'back')
+    await until(() => said(id).length === 4)
+    expect(argv()[1]).toEqual(['--plugin-dir', '/p', '--resume', id, '--permission-mode', 'default'])
+  })
+
   it('a team of reads-only roles starts in a folder that is not a git repo; a role that edits still needs one (SIGNOFF-40-TEAMS)', async () => {
     mkdirSync(join(dir, 'plain'))
     const plain = realpathSync(join(dir, 'plain'))
@@ -248,6 +265,18 @@ describe('terminal chats', () => {
     expect(db.prepare('SELECT title, role, cwd, branch, base_branch FROM sessions WHERE parent_id = ?').all(lead)).toEqual([
       { title: 'CAMS 4xx', role: 'investigator', cwd: plain, branch: null, base_branch: null }
     ])
+  })
+
+  it('Suspend from the Background view: refused while a turn runs, then stops the session with a notice', async () => {
+    const id = chat.create('/tmp')
+    hookRuns(id)
+    expect(() => chat.suspend(id)).toThrow('this session is not running in the app')
+    chat.send(id, 'hi')
+    expect(() => chat.suspend(id)).toThrow('a turn is running; suspend it once it is done')
+    await until(() => !chat.status(id).busy && said(id).length === 2)
+    chat.suspend(id)
+    expect(chat.status(id).running).toBe(false)
+    expect(chat.history(id).filter((e) => e.type === 'notice').map((e) => e.text)).toEqual(['Suspended from the Background view, to free memory. Send a message to resume it.'])
   })
 
   it('a board message for an idle session is typed in once', async () => {

@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.0.8 (3 November 2026, IST)
+
+### New
+- **Background view** (left bar). Everything the app runs, grouped: Claude sessions with the tools they start,
+  terminals, tools, the app itself, and leftovers from earlier runs (only these can be stopped). Also lists every
+  timer, how often it runs and whether it pauses while the window is hidden.
+- **Memory per session.** Memory is the number Activity Monitor shows, compressed memory included. Each session row
+  lists its tools by memory and has **Suspend**: Claude and its tools stop, the conversation stays, and sending a
+  message resumes it.
+- **Idle sessions suspend themselves.** A session with nothing to do for 20 minutes is suspended to free memory
+  (Settings → Idle sessions; 0 = never). Never while a turn or shell command runs, while it is open on screen, or with
+  unsent text in its input box. A session whose tools grew past 1 GB is suspended after 5 minutes.
+- **One shared funes.** Background view → funes → Share one funes: one funes serves every session while the app is
+  open, instead of one per session. Outside the app each session still runs its own. One per session again puts your
+  entry back exactly.
+- **Monitor tab.** Watch cards with "+ New watch", Check now, Extend and Describe; a watch can follow a change with no
+  pull request, such as a merchant config change.
+- **Reads-only team roles.** A role marked "Reads only (no worktree)" needs no git repo and gets no branch, so an
+  oncall team of investigators can start from any folder. `signoff team propose --reads-only <role>`.
+
+### Better
+- **Battery and speed.** Background checks pause while the window is hidden. git runs when files change, not on a
+  2-second timer. Long chats load their last 400 events, and transcripts are read once instead of on every request.
+- **Files changed** diffs from the base the branch last left; `signoff register --base <ref>` sets it by hand.
+- Menus open upward when there is no room below, and never run off the window.
+
+### Fixed
+- A nested session can be moved back to the top level ("Move to top level" is first in the ⤷ menu), and the top-level
+  drop strip no longer cancels the drag.
+
+### Upgrading from 1.0.7
+- Quit the app, replace it in Applications, open it. Your data is kept. See [INSTALL.md](INSTALL.md#updating).
+- The board moves from format v24 to v27 (review requests, watches without a pull request, a base per session). A copy
+  of the board is saved first; nothing is removed.
+- Quitting the app stops the sessions it started, as before; each resumes when you open it.
+
 ## 1.0.7 (20 October 2026, IST)
 
 ### New

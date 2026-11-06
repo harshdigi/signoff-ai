@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 import { defineCheck } from './checks'
 import { randomUUID } from 'crypto'
-import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import * as b from '../shared/board'
 import { indexChatEvent } from '../shared/memory'
+import { bloated, BLOATED_MINUTES, idleVerdict, runningShells } from './idle'
+import type { Row } from './processes'
 import { checkClaudeArgs } from './security-rules'
 import { contextUsed, handoffNote, route, setContext, type RouteAsk, type RouteChoice } from './context'
 import type { ClaudeLaunch } from './protocol'
@@ -54,6 +56,15 @@ export const inputHasText = (screen: string[]): boolean => {
   if (rules.length < 2) return false
   const box = screen.slice(rules[rules.length - 2] + 1, rules[rules.length - 1])
   return box.some((l) => l.replace(/^\s*❯/, '').trim() !== '')
+}
+// When a transcript was last written (ms); 0 when there is none yet.
+const modified = (path: string | null): number => {
+  if (!path) return 0
+  try {
+    return statSync(path).mtimeMs
+  } catch {
+    return 0 // moved or deleted: the app start time counts instead (suspendIdle)
+  }
 }
 const READY_QUIET_MS = 800   // after the startup hook ran, the screen is ready once output is quiet this long
 const SLOW_START_MS = 20_000 // still not ready after this long: tell the user to look at the terminal
@@ -280,6 +291,55 @@ export class ChatManager {
       // the terminal was already closed
     }
     this.emitStatus(session)
+  }
+
+  // Whether any app session has been quiet for at least this long: only then is top worth its cost (index.ts).
+  anyQuietFor(ms: number, now: number): boolean {
+    return [...this.chats.values()].some((c) => c.owned && !c.busy && now - Math.max(c.started, modified(c.transcript)) >= ms)
+  }
+
+  // Idle sessions stop to free memory (SIGNOFF-42-IDLE); what counts as idle is in idle.ts.
+  // rows: `ps` now (processes.ts), with footprints when read, for shell commands and bloated tools. viewing: the session open on screen, or null.
+  // Returns the sessions it stopped.
+  suspendIdle(rows: Row[], minutes: number, viewing: string | null, now: number): string[] {
+    const pids = new Map(this.deps.tmux.panes().map((p) => [p.name, p.pid]))
+    const stopped: string[] = []
+    for (const [session, c] of [...this.chats]) {
+      const pid = pids.get(c.name)
+      const verdict = idleVerdict({
+        owned: c.owned, busy: c.busy, queued: c.queue.length, menu: !!c.menu, shown: session === viewing,
+        shells: pid ? runningShells(rows, pid) : 0, lastActive: Math.max(c.started, modified(c.transcript)),
+        bloated: pid ? bloated(rows, pid) : false
+      }, now, minutes)
+      if (!verdict.suspend) continue
+      try {
+        // Text typed into its terminal but not sent would be lost.
+        if (inputHasText(this.deps.tmux.screenWithoutDim(c.name))) continue
+      } catch {
+        continue // the session ended a moment ago; its view's exit removes the chat
+      }
+      const big = pid ? bloated(rows, pid) : false
+      this.suspendNow(session, big
+        ? `Suspended after ${Math.min(minutes, BLOATED_MINUTES)} min idle: one of its tools had grown past 1 GB. Send a message to resume it with fresh tools.`
+        : `Suspended after ${minutes} min idle, to free memory. Send a message to resume it.`)
+      stopped.push(session)
+    }
+    return stopped
+  }
+
+  // Suspend from the Background view (SIGNOFF-42-IDLE/D6): only an app session with nothing running, so no work is lost.
+  suspend(session: string): void {
+    const c = this.chats.get(session)
+    if (!c) throw new b.BoardError('this session is not running in the app')
+    if (!c.owned) throw new b.BoardError('this session was started in a Terminal window; stop it there')
+    if (c.busy || c.queue.length) throw new b.BoardError('a turn is running; suspend it once it is done')
+    if (c.menu) throw new b.BoardError('its terminal shows a question; answer it first')
+    this.suspendNow(session, 'Suspended from the Background view, to free memory. Send a message to resume it.')
+  }
+
+  private suspendNow(session: string, text: string): void {
+    this.stop(session)
+    this.note(session, { type: 'notice', text })
   }
 
   // App quits: sessions it started end; sessions started in a Terminal window keep running there.

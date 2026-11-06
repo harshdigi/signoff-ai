@@ -154,9 +154,14 @@ const api = {
   },
   reset: () => ipcRenderer.invoke('app:reset'),
   visible: (v: boolean) => ipcRenderer.send('app:visible', v),
+  viewing: (session: string | null) => ipcRenderer.send('app:viewing', session),
   background: {
     list: () => ipcRenderer.invoke('bg:list'),
-    stop: (stop: { server: string } | { session: string }) => ipcRenderer.invoke('bg:stop', stop)
+    stop: (stop: { server: string } | { session: string }) => ipcRenderer.invoke('bg:stop', stop),
+    suspend: (session: string) => ipcRenderer.invoke('bg:suspend', session),
+    funes: () => ipcRenderer.invoke('funes:state'),
+    share: (): Promise<{ id: string; title: string }> => ipcRenderer.invoke('funes:share'),
+    unshare: (): Promise<{ id: string; title: string }> => ipcRenderer.invoke('funes:unshare')
   },
   comments: {
     add: (c: { session: string; root: string; path: string; start: number; end: number; code: string; text: string }) => ipcRenderer.invoke('comments:add', c),
