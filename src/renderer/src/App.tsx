@@ -136,10 +136,23 @@ export default function App(): React.JSX.Element {
   }, [])
 
   // Terminals survive a window reload: list what main still has.
+  // A session's terminal (its chat view, or Claude in a terminal) leaves its Terminals tab when it ends, and main lets
+  // go of it, so they do not pile up: each suspended or resumed chat used to leave a "Chat (exited)" tab behind
+  // (SIGNOFF-45-TERMS). Shells and tasks in the bottom panel stay, marked exited, so their last output can be read.
   useEffect(() => {
-    window.api.terminal.list().then((ts: { id: string; command: string; exited: boolean; session: string | null }[]) =>
-      setTerms(ts.map((t) => ({ id: t.id, title: t.command === 'claude' ? 'Claude' : 'Shell', exited: t.exited, session: t.session }))))
-    return window.api.terminal.onExit((e) => setTerms((ts) => ts.map((t) => (t.id === e.id ? { ...t, exited: true } : t))))
+    const ended = (t: { exited: boolean; session: string | null }): boolean => t.exited && !!t.session
+    window.api.terminal.list().then((ts: { id: string; command: string; exited: boolean; session: string | null }[]) => {
+      for (const t of ts.filter(ended)) void window.api.terminal.close(t.id)
+      setTerms(ts.filter((t) => !ended(t)).map((t) => ({ id: t.id, title: t.command === 'claude' ? 'Claude' : 'Shell', exited: t.exited, session: t.session })))
+    })
+    return window.api.terminal.onExit((e) => setTerms((ts) => {
+      const t = ts.find((x) => x.id === e.id)
+      if (t?.session) {
+        void window.api.terminal.close(e.id)
+        return ts.filter((x) => x.id !== e.id)
+      }
+      return ts.map((x) => (x.id === e.id ? { ...x, exited: true } : x))
+    }))
   }, [])
   // Each chat is a Claude Code terminal the app starts: list it in its session's Terminals tab when it starts.
   useEffect(() => window.api.chat.onStatus((s) => {
