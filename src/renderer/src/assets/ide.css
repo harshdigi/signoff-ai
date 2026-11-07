@@ -794,3 +794,9 @@ button.file-head:hover { background: var(--sel); }
 .story .dg-why ul { margin: 3px 0 0; padding-left: 18px; color: var(--ink); line-height: 1.45; }
 .story .story-flow { margin: 6px 0 10px; padding-left: 18px; line-height: 1.5; }
 .chat-earlier { align-self: center; font-size: 12px; }
+
+/* Looping animations stop while the window is hidden or not in front (App.tsx), and always with Reduce Motion (SIGNOFF-46). */
+.motion-paused *, .motion-paused *::before, .motion-paused *::after { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; }
+}

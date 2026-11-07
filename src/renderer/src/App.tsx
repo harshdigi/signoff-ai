@@ -56,6 +56,19 @@ export default function App(): React.JSX.Element {
     document.addEventListener('visibilitychange', report)
     return () => document.removeEventListener('visibilitychange', report)
   }, [])
+  // Looping animations pause while the window is hidden or not in front, so the GPU can rest (SIGNOFF-46).
+  useEffect(() => {
+    const sync = (): void => void document.documentElement.classList.toggle('motion-paused', document.hidden || !document.hasFocus())
+    sync()
+    document.addEventListener('visibilitychange', sync)
+    window.addEventListener('focus', sync)
+    window.addEventListener('blur', sync)
+    return () => {
+      document.removeEventListener('visibilitychange', sync)
+      window.removeEventListener('focus', sync)
+      window.removeEventListener('blur', sync)
+    }
+  }, [])
   const chat = useRef<ChatHandle>(null)
 
   const [view, setView] = useState<View>('sessions')
