@@ -1,6 +1,6 @@
 // Signoff AI · written by harshdigi (https://github.com/harshdigi)
 // SPDX-License-Identifier: FSL-1.1-ALv2
-import { execFileSync } from 'child_process'
+import { execFile, execFileSync } from 'child_process'
 
 // Every Claude session runs in tmux, so the app and any Terminal window can show and type into the same session.
 // - The app's own socket and config: your own tmux sessions and ~/.tmux.conf are separate.
@@ -61,6 +61,13 @@ export class Tmux {
   // The visible screen, one string per line.
   screen(name: string): string[] {
     return this.run(['capture-pane', '-p', '-t', `=${name}:`]).split('\n')
+  }
+
+  // The visible screen, without blocking the main thread: for reads that repeat (the chat's mode read).
+  screenAsync(name: string): Promise<string[]> {
+    return new Promise((resolve, reject) => {
+      execFile('tmux', ['-L', this.socket, '-f', this.conf, 'capture-pane', '-p', '-t', `=${name}:`], { encoding: 'utf8' }, (e, out) => (e ? reject(e) : resolve(out.split('\n'))))
+    })
   }
 
   // The screen without dimmed text: Claude Code shows suggestions (e.g. "continue") dimmed in its input box.

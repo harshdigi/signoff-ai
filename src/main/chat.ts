@@ -67,6 +67,7 @@ const modified = (path: string | null): number => {
   }
 }
 const READY_QUIET_MS = 800   // after the startup hook ran, the screen is ready once output is quiet this long
+const IDLE_POLL_MS = 1500 // a quiet chat (no new output, nothing to type) is read this often instead of every tick
 const SLOW_START_MS = 20_000 // still not ready after this long: tell the user to look at the terminal
 
 // One thing to type: your chat message, or board messages (ids: their rows, marked submitted or failed afterwards).
@@ -74,7 +75,7 @@ type Queued = { text: string; ids: string[] }
 // name: the tmux session; terminal: the app's attached view of it; owned: the app started it (it ends when the app quits).
 type Chat = {
   name: string; owned: boolean; terminal: string; busy: boolean; transcript: string | null; offset: number; menu: TerminalMenu | null
-  lastOutput: number; modeReadAt: number; started: number; queue: Queued[]; trustNoted: boolean; slowNoted: boolean
+  lastOutput: number; modeReadAt: number; polledAt: number; reading: boolean; started: number; queue: Queued[]; trustNoted: boolean; slowNoted: boolean
   stand_in: string | null // the first-line title, shown until Claude's own title arrives
 }
 
@@ -94,7 +95,7 @@ export class ChatManager {
   private statusListeners = new Set<(s: ChatStatus) => void>()
   private handoffListeners = new Set<(h: Handoff) => void>()
   private timer: NodeJS.Timeout
-  private ran = defineCheck('chat', 'Chat: deliver board messages, read new output', '400 ms', false)
+  private ran = defineCheck('chat', 'Chat: deliver board messages, read new output', '400 ms (1.5 s when quiet)', false)
 
   // launch() is read at every start, so saved settings apply to the next start.
   constructor(private db: Store, private launch: (cwd: string) => ClaudeLaunch & { decide: string }, private deps: Deps, private terms: TerminalManager) {
@@ -385,7 +386,7 @@ export class ChatManager {
       })
     }
     this.db.prepare('UPDATE sessions SET tmux = ? WHERE id = ?').run(name, session)
-    const c: Chat = { name, owned: !live || live === session, terminal: '', busy: false, menu: null, transcript: saved, offset: saved ? endOfLines(saved) : 0, lastOutput: 0, modeReadAt: 0, started: Date.now(), queue: [], trustNoted: false, slowNoted: false, stand_in: null }
+    const c: Chat = { name, owned: !live || live === session, terminal: '', busy: false, menu: null, transcript: saved, offset: saved ? endOfLines(saved) : 0, lastOutput: 0, modeReadAt: 0, polledAt: 0, reading: false, started: Date.now(), queue: [], trustNoted: false, slowNoted: false, stand_in: null }
     this.chats.set(session, c)
     this.attach(session, c)
     return c
@@ -429,7 +430,11 @@ export class ChatManager {
   // Reads new transcript lines for every running chat and passes them to the window.
   private tick(): void {
     this.ran()
+    const now = Date.now()
     for (const [session, c] of this.chats) {
+      // Quiet chat: no output since the last read and nothing to type, so read it less often (SIGNOFF-46).
+      if (!c.busy && !c.queue.length && c.lastOutput <= c.polledAt && now - c.polledAt < IDLE_POLL_MS) continue
+      c.polledAt = now
       // No "is it still running?" check here: each costs a blocking tmux call, and the view's exit (above) already
       // removes a chat whose Claude has ended.
       this.flush(session, c)
@@ -506,25 +511,27 @@ export class ChatManager {
   }
 
   // No mode in the footer (a dialog or Claude's question covers it): the last mode read stays.
-  // Read only after the screen changed (a mode change redraws the footer), at most once a second: each read is a
-  // blocking tmux call, so an idle chat costs nothing.
+  // Read only after the screen changed (a mode change redraws the footer), at most once a second, so an idle chat
+  // costs nothing. The read does not block the main thread; one at a time per chat (SIGNOFF-46).
   private readMode(session: string, c: Chat): void {
     const now = Date.now()
-    if (c.lastOutput <= c.modeReadAt || now - c.modeReadAt < 1000) return
+    if (c.reading || c.lastOutput <= c.modeReadAt || now - c.modeReadAt < 1000) return
     c.modeReadAt = now
-    let screen: string[]
-    try {
-      screen = this.deps.tmux.screen(c.name)
-    } catch {
-      return // the session ended a moment ago; its view's exit removes the chat
-    }
-    const mode = footerMode(screen)
-    if (mode) this.db.prepare('UPDATE sessions SET mode = ? WHERE id = ? AND mode IS NOT ?').run(mode, session, mode)
-    const menu = terminalMenu(screen)
-    if (JSON.stringify(menu) !== JSON.stringify(c.menu)) {
-      c.menu = menu
-      this.emitStatus(session)
-    }
+    c.reading = true
+    this.deps.tmux.screenAsync(c.name).then((screen) => {
+      if (this.chats.get(session) !== c) return // ended or replaced while reading
+      const mode = footerMode(screen)
+      if (mode) this.db.prepare('UPDATE sessions SET mode = ? WHERE id = ? AND mode IS NOT ?').run(mode, session, mode)
+      const menu = terminalMenu(screen)
+      if (JSON.stringify(menu) !== JSON.stringify(c.menu)) {
+        c.menu = menu
+        this.emitStatus(session)
+      }
+    }, () => {
+      // the session ended a moment ago; its view's exit removes the chat
+    }).finally(() => {
+      c.reading = false
+    })
   }
 
   // Answer the menu Claude Code shows in the terminal, as if the arrow keys and Enter were pressed there.
